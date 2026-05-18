@@ -1,0 +1,94 @@
+package com.example.solarShop.data.modules
+
+import com.example.SolarShop.BuildConfig
+import com.example.solarShop.data.dataStore.SessionDataStore
+import com.example.solarShop.data.network.mock.mockPlainEngine
+import com.example.solarShop.data.network.remote.AuthApi
+import com.example.solarShop.data.network.remote.EntitlementApi
+import com.example.solarShop.data.network.remote.UserApi
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.logging.DEFAULT
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logger
+import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.request.header
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import javax.inject.Named
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Provides @Singleton @Named("networkJson")
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = true
+        prettyPrint = false
+    }
+
+    @Provides @Singleton @Named("useMock")
+    fun provideUseMock(): Boolean = BuildConfig.USE_MOCK
+
+    @Provides @Singleton @Named("plain")
+    fun providePlainClient(
+        @Named("networkJson")json: Json,
+        @Named("useMock") useMock: Boolean
+    ): HttpClient {
+        val engine: HttpClientEngine =
+            if (useMock) mockPlainEngine(json) else OkHttp.create {}
+
+        return HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(json) }
+            install(Logging) { logger = Logger.DEFAULT; level = LogLevel.BODY }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis  = 15_000
+            }
+            defaultRequest {
+                url(BuildConfig.BASE_URL)
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header(HttpHeaders.Accept, ContentType.Application.Json)
+            }
+        }
+    }
+
+    // اگر Authed جدا می‌خواهی، فعلاً مثل plain؛ Bearer را داخل APIها می‌گذاریم
+    @Provides @Singleton @Named("authed")
+    fun provideAuthedClient(
+        @Named("networkJson")json: Json,
+        @Named("useMock") useMock: Boolean
+    ): HttpClient = providePlainClient(json, useMock)
+
+    // APIها
+    @Provides @Singleton
+    fun provideAuthApi(@Named("plain") client: HttpClient): AuthApi = AuthApi(client)
+
+    @Provides @Singleton
+    fun provideUserApi(@Named("plain") client: HttpClient, session: SessionDataStore): UserApi =
+        UserApi(client, session)
+
+    @Provides @Singleton
+    fun provideEntitlementApi(@Named("plain") client: HttpClient, session: SessionDataStore): EntitlementApi =
+        EntitlementApi(client, session)
+}
+
+
+

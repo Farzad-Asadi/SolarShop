@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- برای تصاویر داخلی اپ -->
+    <files-path name="images" path="images/"/>
+
+    <!-- برای PDF های پیش‌نمایش -->
+    <cache-path name="contract_previews" path="contract_previews/"/>
+
+    <!-- برای پیش فاکتور های پیش‌نمایش -->
+    <cache-path name="invoice_previews" path="invoice_previews" />
+
+    <!-- (در صورت نیاز) نگه داشتن ریشهٔ files -->
+    <files-path name="files" path="."/>
+
+    <cache-path name="cache" path="." />
+</paths>

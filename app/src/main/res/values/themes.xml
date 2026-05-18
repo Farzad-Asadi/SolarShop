@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.Bambo" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- رنگ موقت قبل از Compose: با Compose هماهنگ می‌کنیم -->
+        <item name="android:windowBackground">@color/window_bg</item>
+
+        <!-- Edge-to-Edge (اختیاری) -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Bambo.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/launch_screen_bg</item>
+        <!-- بهتره آیکن اسپلش drawable باشه -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bambo</item>
+    </style>
+
+
+
+</resources>
+
+

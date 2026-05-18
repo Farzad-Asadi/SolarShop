@@ -1,0 +1,105 @@
+<resources>
+    <string name="app_name" >SolarShop</string>
+
+    <!-- Language -->
+    <string name="label_language">Language</string>
+    <string name="lang_persian">Persian</string>
+    <string name="lang_english">English</string>
+    <string name="change_language">Change language</string>
+
+
+    <!-- SignInScreen -->
+    <string name="signin_title_phone">Sign in with phone</string>
+    <string name="otp_title">Verification code</string>
+    <string name="signin_subtitle_phone">Enter 10 digits without the leading zero</string>
+    <string name="otp_subtitle_enter_code">Enter the 6-digit code we sent</string>
+    <string name="btn_send_code">Send code</string>
+    <string name="btn_verify">Verify</string>
+    <string name="btn_edit_phone">Edit number</string>
+    <string name="cd_app_logo">App logo</string>
+    <string name="btn_resend">Resend</string>
+    <string name="btn_resend_in_seconds">Resend in %1$d seconds</string>
+
+    <!-- Profile / Settings menu -->
+    <string name="profile_menu_display_settings">Display settings</string>
+    <string name="profile_menu_length_unit">Length unit</string>
+    <string name="profile_menu_currency_unit">Currency unit</string>
+    <string name="length_unit_meter">Meter</string>
+    <string name="length_unit_centimeter">Centimeter</string>
+    <string name="currency_unit_toman">Toman</string>
+    <string name="currency_unit_rial">Rial</string>
+    <string name="profile_quick_access_title">Quick access</string>
+    <string name="profile_quick_access_questions">Choices list</string>
+    <string name="profile_quick_access_edit_contract">Edit contract</string>
+    <string name="profile_quick_access_user_data">User data</string>
+    <string name="profile_quick_access_backup_restore">Backup / Restore</string>
+    <string name="profile_clients_title">Clients</string>
+    <string name="profile_clients_add_client">New client</string>
+    <string name="profile_clients_orders_count">Orders: %1$d</string>
+    <string name="profile_delete_client_title">Delete client?</string>
+    <string name="profile_delete_client_message">Are you sure you want to delete %1$s?</string>
+    <string name="common_yes">Yes</string>
+    <string name="common_no">No</string>
+    <string name="profile_exit_title">Exit</string>
+    <string name="profile_exit_message">Do you want to exit?</string>
+    <string name="profile_signout_title">Sign out</string>
+    <string name="profile_signout_message">Do you want to sign out?</string>
+    <string name="common_back">Back</string>
+    <string name="common_exit">Exit</string>
+    <string name="common_sign_out">Sign out</string>
+    <string name="backup_export_working">Creating backup…</string>
+    <string name="backup_export_done">Saved:\n%1$s</string>
+    <string name="backup_export_error">Error:\n%1$s</string>
+    <string name="backup_restore_working">Restoring backup…</string>
+    <string name="backup_restore_done">Restore completed. Images: %1$d</string>
+    <string name="backup_restore_error">Restore error: %1$s</string>
+    <string name="profile_edit_title">Edit user profile</string>
+    <string name="profile_field_full_name">Full name</string>
+    <string name="profile_field_full_name_hint">e.g., Ali Jahani</string>
+    <string name="profile_field_mobile">Mobile</string>
+    <string name="profile_field_landline">Landline</string>
+    <string name="profile_field_national_id">National ID</string>
+    <string name="profile_field_workshop">Workshop / Showroom</string>
+    <string name="profile_field_address">Address</string>
+    <string name="profile_field_role">User type</string>
+    <string name="profile_role_cabinet_maker">Cabinet maker</string>
+    <string name="profile_role_customer">Customer</string>
+    <string name="common_confirm">Confirm</string>
+    <string name="profile_client_no_orders">No orders have been registered for this client.</string>
+    <string name="profile_client_add_first_order">Add first order</string>
+    <string name="profile_client_new_order">New order</string>
+    <string name="profile_client_close">Close</string>
+    <string name="profile_client_orders_count_title">Orders count</string>
+    <string name="profile_client_orders_total_title">Orders total</string>
+    <string name="profile_field_landline_hint">e.g. 02123569847</string>
+    <string name="profile_field_landline_error_leading_zero">Landline number must start with 0</string>
+    <string name="profile_field_landline_error_too_short">Landline number is too short</string>
+    <string name="profile_field_national_code">National ID</string>
+    <string name="profile_field_national_code_hint">e.g. 0012345678</string>
+    <string name="profile_field_national_code_error_length">National ID must be exactly 10 digits</string>
+    <string name="profile_field_workshop_hint">e.g. Bamboo Wood Industries</string>
+    <string name="profile_field_address_hint">e.g. Tehran - Chahardangeh - …</string>
+    <string name="create">create</string>
+    <string name="profile_new_client_title">New client details</string>
+    <string name="profile_edit_client_title">Edit client details</string>
+    <string name="sign_in_error_code_incorrect">The code you entered is incorrect</string>
+    <string name="sign_in_error_phone_length">The phone number must be 10 digits</string>
+    <string name="sign_in_error_send_code">Error sending verification code</string>
+    <string name="profile_delete_order_title">Delete Order</string>
+    <string name="profile_delete_order_message">Are you sure you want to delete this order?</string>
+    <string name="common_user_not_found">User not found</string>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</resources>

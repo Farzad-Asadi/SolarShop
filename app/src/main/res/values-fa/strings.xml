@@ -1,0 +1,101 @@
+<resources>
+    <string name="app_name" >سولار شاپ</string>
+
+    <!-- زبان -->
+    <string name="label_language">زبان</string>
+    <string name="lang_persian">فارسی</string>
+    <string name="lang_english">English</string>
+    <string name="change_language">تغییر زبان</string>
+
+    <!-- SignInScreen -->
+    <string name="signin_title_phone">ورود با تلفن همراه</string>
+    <string name="otp_title">کد تأیید</string>
+    <string name="signin_subtitle_phone">بدون صفرِ اول، ۱۰ رقم را وارد کن</string>
+    <string name="otp_subtitle_enter_code">کد ۶ رقمی ارسال‌شده را وارد کن</string>
+    <string name="btn_send_code">ارسال کد</string>
+    <string name="btn_verify">تأیید</string>
+    <string name="btn_edit_phone">ویرایش شماره</string>
+    <string name="cd_app_logo">لوگوی اپ</string>
+    <string name="btn_resend">ارسال مجدد</string>
+    <string name="btn_resend_in_seconds">ارسال مجدد در %1$d ثانیه</string>
+
+    <!-- Profile / Settings menu -->
+    <string name="profile_menu_display_settings">تنظیمات نمایش</string>
+    <string name="profile_menu_length_unit">واحد طول</string>
+    <string name="profile_menu_currency_unit">واحد پول</string>
+    <string name="length_unit_meter">متر</string>
+    <string name="length_unit_centimeter">سانتی‌متر</string>
+    <string name="currency_unit_toman">تومان</string>
+    <string name="currency_unit_rial">ریال</string>
+    <string name="profile_quick_access_title">دسترسی سریع</string>
+    <string name="profile_quick_access_questions">لیست انتخاب‌ها</string>
+    <string name="profile_quick_access_edit_contract">ویرایش قرارداد</string>
+    <string name="profile_quick_access_user_data">داده‌های کاربر</string>
+    <string name="profile_quick_access_backup_restore">بک‌آپ / ریستور</string>
+    <string name="profile_clients_title">مشتری‌ها</string>
+    <string name="profile_clients_add_client">مشتری جدید</string>
+    <string name="profile_clients_orders_count">تعداد سفارش %1$d</string>
+    <string name="profile_delete_client_title">حذف مشتری؟</string>
+    <string name="profile_delete_client_message">آیا از حذف %1$s مطمئن هستید؟</string>
+    <string name="common_yes">بله</string>
+    <string name="common_no">خیر</string>
+    <string name="profile_exit_title">خروج</string>
+    <string name="profile_exit_message">می‌خواهید خارج شوید؟</string>
+    <string name="profile_signout_title">خروج از پروفایل</string>
+    <string name="profile_signout_message">می‌خواهید از پروفایل خارج شوید؟</string>
+    <string name="common_back">برگشت</string>
+    <string name="common_exit">خروج</string>
+    <string name="common_sign_out">خروج</string>
+    <string name="backup_export_working">در حال تولید بک‌آپ…</string>
+    <string name="backup_export_done">ذخیره شد:\n%1$s</string>
+    <string name="backup_export_error">خطا:\n%1$s</string>
+    <string name="backup_restore_working">در حال بازنشانی بک‌آپ…</string>
+    <string name="backup_restore_done">بازنشانی انجام شد. تعداد عکس‌ها: %1$d</string>
+    <string name="backup_restore_error">خطا در بازنشانی: %1$s</string>
+    <string name="profile_edit_title">ویرایش مشخصات کاربر</string>
+    <string name="profile_field_full_name">نام و نام خانوادگی</string>
+    <string name="profile_field_full_name_hint">مثلاً: علی جهانی</string>
+    <string name="profile_field_mobile">تلفن همراه</string>
+    <string name="profile_field_landline">تلفن ثابت</string>
+    <string name="profile_field_national_id">کد ملی</string>
+    <string name="profile_field_workshop">کارگاه/نمایشگاه</string>
+    <string name="profile_field_address">آدرس</string>
+    <string name="profile_field_role">نوع کاربر</string>
+    <string name="profile_role_cabinet_maker">کابینت‌ساز</string>
+    <string name="profile_role_customer">مشتری</string>
+    <string name="common_confirm">تأیید</string>
+    <string name="profile_client_no_orders">برای این مشتری سفارشی ثبت نشده.</string>
+    <string name="profile_client_add_first_order">ثبت اولین سفارش</string>
+    <string name="profile_client_new_order">سفارش جدید</string>
+    <string name="profile_client_close">بستن</string>
+    <string name="profile_client_orders_count_title">تعداد سفارشات</string>
+    <string name="profile_client_orders_total_title">جمع سفارشات</string>
+    <string name="profile_field_landline_hint">مثلاً: 02123569847</string>
+    <string name="profile_field_landline_error_leading_zero">شماره تلفن ثابت باید با ۰ شروع شود</string>
+    <string name="profile_field_landline_error_too_short">شماره تلفن ثابت خیلی کوتاه است</string>
+    <string name="profile_field_national_code">کد ملی</string>
+    <string name="profile_field_national_code_hint">مثلاً: 0012345678</string>
+    <string name="profile_field_national_code_error_length">کد ملی باید دقیقاً ۱۰ رقم باشد</string>
+    <string name="profile_field_workshop_hint">مثلاً: صنایع چوبی بامبو</string>
+    <string name="profile_field_address_hint">مثلاً: تهران _ چهاردانگه _ ....</string>
+    <string name="create">ایجاد</string>
+    <string name="profile_new_client_title">مشخصات مشتری جدید</string>
+    <string name="profile_edit_client_title">ویرایش مشخصات مشتری</string>
+    <string name="sign_in_error_code_incorrect">کد وارد شده نادرست است</string>
+    <string name="sign_in_error_phone_length">شماره باید ۱۰ رقم باشد</string>
+    <string name="sign_in_error_send_code">خطا در ارسال کد</string>
+    <string name="profile_delete_order_title">پاک کردن سفارش</string>
+    <string name="profile_delete_order_message">سفارش را پاک می کنید؟</string>
+    <string name="common_user_not_found">کاربر یافت نشد.</string>
+
+
+
+
+
+
+
+
+
+
+
+</resources>
