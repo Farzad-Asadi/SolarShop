@@ -58,6 +58,18 @@ import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstima
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateEntity
 import com.example.solarShop.data.room.tables.premiumEntitlementCache.PremiumEntitlementCacheEntity
 import com.example.solarShop.data.room.tables.premiumEntitlementCache.PremiumEntitlementDao
+import com.example.solarShop.data.room.tables.product.CategoryAttributeDefinitionEntity
+import com.example.solarShop.data.room.tables.product.CurrencyRateEntity
+import com.example.solarShop.data.room.tables.product.InventoryTransactionEntity
+import com.example.solarShop.data.room.tables.product.ProductAttributeValueEntity
+import com.example.solarShop.data.room.tables.product.ProductBrandEntity
+import com.example.solarShop.data.room.tables.product.ProductCategoryEntity
+import com.example.solarShop.data.room.tables.product.ProductDao
+import com.example.solarShop.data.room.tables.product.ProductEntity
+import com.example.solarShop.data.room.tables.product.ProductImageEntity
+import com.example.solarShop.data.room.tables.product.ProductPurchasePriceEntity
+import com.example.solarShop.data.room.tables.product.ProductUnitEntity
+import com.example.solarShop.data.room.tables.product.ProfitRuleEntity
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerDao
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerEntity
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerImageEntity
@@ -119,6 +131,18 @@ import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.Use
         OrderTimelineSuggestionEntity::class,
         OrderAnswerSelectedPhotoEntity::class,
 
+        ProductCategoryEntity::class,
+        ProductBrandEntity::class,
+        ProductUnitEntity::class,
+        ProductEntity::class,
+        ProductPurchasePriceEntity::class,
+        CategoryAttributeDefinitionEntity::class,
+        ProductAttributeValueEntity::class,
+        ProductImageEntity::class,
+        CurrencyRateEntity::class,
+        ProfitRuleEntity::class,
+        InventoryTransactionEntity::class,
+
     ],
     version = 1,
     exportSchema = false
@@ -127,6 +151,7 @@ import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.Use
 // ... کانورترهای قبلی ...
     EstimateConverters::class,
     InvoiceTypeConverters::class,
+    GeneralTypeConverters::class,
 )
 
 abstract class AppDatabase : RoomDatabase() {
@@ -162,5 +187,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun invoiceTemplateDao(): InvoiceTemplateDao
     abstract fun invoiceDocumentDao(): InvoiceDocumentDao
     abstract fun orderAnswerSelectedPhotoDao(): OrderAnswerSelectedPhotoDao
+
+    abstract fun productDao(): ProductDao
 
 }

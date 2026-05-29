@@ -14,6 +14,7 @@ const val USER_ROLE_CUSTOMER = "مشتری"
 
 //shairePreferences
 const val PREF_IS_SIGNED_IN = "is_signed_in"
+const val SOLAR_SEED_DONE = "solar_seed_done"
 
 //OrderStatus
 const val PENDING = "Pending"

@@ -69,8 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.SolarShop.R
 import com.example.solarShop.ARTICLE_PREFIX
+import com.example.solarShop.R
 import com.example.solarShop.data.room.tables.contract.ContractInstanceEntity
 import com.example.solarShop.data.room.tables.contract.ContractInstanceFull
 import com.example.solarShop.data.room.tables.contract.ContractInstanceNoteEntity

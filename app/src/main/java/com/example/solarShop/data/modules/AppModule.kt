@@ -82,6 +82,7 @@ import com.example.solarShop.data.room.tables.user.UserDao
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.UserWorkflowStepDao
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.WorkflowRepository
+import com.example.solarShop.data.seeder.SolarProductSeeder
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.repo.AuthRepositoryImpl
 import com.example.solarShop.repo.EntitlementRepository
@@ -128,7 +129,7 @@ object AppModule {
         @ApplicationContext context: Context
     ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "bambo_db")
-            .createFromAsset("seed/bambo_seed.db")   // ← فقط نصبِ اول            2.1  3.1
+//            .createFromAsset("seed/bambo_seed.db")   // ← فقط نصبِ اول            2.1  3.1
 //            .fallbackToDestructiveMigration(true)     // فقط DEV
             .build()
 
@@ -262,6 +263,8 @@ object AppModule {
     @Provides fun provideInvoiceDocumentDao(db: AppDatabase) = db.invoiceDocumentDao()
     @Provides fun provideOrderAnswerSelectedPhotoDao(db: AppDatabase) = db.orderAnswerSelectedPhotoDao()
 
+    @Provides fun provideProductDao(db: AppDatabase) = db.productDao()
+
     // --------- Repositories ---------
 
     @Provides fun provideAnswerRepository(dao: AnswerDao,db: AppDatabase): AnswerRepository =
@@ -379,6 +382,15 @@ object AppModule {
 
 
 
+    @Provides
+    @Singleton
+    fun provideSolarProductSeeder(
+        db: AppDatabase
+    ): SolarProductSeeder {
+        return SolarProductSeeder(
+            productDao = db.productDao()
+        )
+    }
 
 
 }

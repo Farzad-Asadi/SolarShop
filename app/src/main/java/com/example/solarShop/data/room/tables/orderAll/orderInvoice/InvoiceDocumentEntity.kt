@@ -4,8 +4,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.solarShop.data.room.appDatabase.InvoiceStatus
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+import com.example.solarShop.InvoiceStatus
+import com.example.solarShop.InvoiceType
 
 @Entity(
     tableName = "invoice_documents",

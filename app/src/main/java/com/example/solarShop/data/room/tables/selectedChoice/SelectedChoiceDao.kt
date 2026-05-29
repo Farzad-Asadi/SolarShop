@@ -22,10 +22,10 @@ interface SelectedChoiceDao {
     suspend fun updateSelectedChoice(selectedChoiceEntity: SelectedChoiceEntity)
 
     @Query("SELECT * FROM selected_choices ")
-    suspend fun getAllSelectedChoice() : List<SelectedChoiceEntity>?
+    suspend fun getAllSelectedChoice() : List<SelectedChoiceEntity>
 
     @Query("SELECT * FROM selected_choices WHERE orderId =:orderParentId")
-    suspend fun getAllSelectedChoiceByOrderParentId(orderParentId:Int) : List<SelectedChoiceEntity>?
+    suspend fun getAllSelectedChoiceByOrderParentId(orderParentId:Int) : List<SelectedChoiceEntity>
 
 
     @Query("""

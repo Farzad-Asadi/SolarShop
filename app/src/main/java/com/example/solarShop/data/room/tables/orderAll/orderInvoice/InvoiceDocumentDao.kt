@@ -7,7 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+import com.example.solarShop.InvoiceType
 import kotlinx.coroutines.flow.Flow
 
 @Dao

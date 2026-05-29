@@ -26,6 +26,25 @@ enum class AppLanguage(val languageTag: String, val isRtl: Boolean) {
     }
 }
 
-
 enum class LengthUnit { METER, CENTIMETER }
+
 enum class CurrencyUnit { TOMAN, RIAL }
+
+enum class InvoiceType {
+    PROFORMA,   // پیش‌فاکتور
+    INVOICE     // فاکتور
+}
+
+enum class InvoiceStatus {
+    DRAFT,      // پیش‌نویس
+    FINAL,      // نهایی شده
+    CANCELLED   // باطل‌شده (برای آینده)
+}
+
+enum class InventoryTransactionType {
+    PURCHASE,
+    SALE,
+    ADJUSTMENT,
+    PURCHASE_RETURN,
+    SALE_RETURN
+}

@@ -3,19 +3,12 @@ package com.example.solarShop
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
-import androidx.room.withTransaction
 import com.example.solarShop.data.backupRestore.RestoreManager
-import com.example.solarShop.data.backupRestore.v2.BackupCategory
-import com.example.solarShop.data.backupRestore.v2.ConflictPolicy
 import com.example.solarShop.data.backupRestore.v2.RestoreContext
 import com.example.solarShop.data.backupRestore.v2.RestoreManagerV2
-import com.example.solarShop.data.backupRestore.v2.RestoreOptions
-import com.example.solarShop.data.backupRestore.v2.UserKeyMapping
+import com.example.solarShop.data.seeder.SolarProductSeeder
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -25,6 +18,7 @@ class BamboApplication : Application() {
     @Inject lateinit var restoreCtx: RestoreContext
     @Inject lateinit var restoreManager: RestoreManager
     @Inject lateinit var sharedPrefs: SharedPreferences
+    @Inject lateinit var solarProductSeeder: SolarProductSeeder
 
 
 
@@ -32,44 +26,60 @@ class BamboApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        overlayFromAssetsIfFirstRunV2()
+        seedSolarDataIfFirstRun()
     }
 
-    private fun overlayFromAssetsIfFirstRunV2() {
-        val isFirstRun = sharedPrefs.getBoolean("is_first_run", true)
-        if (!isFirstRun) return
+    private fun seedSolarDataIfFirstRun() {
+        val isSeedDone = sharedPrefs.getBoolean(SOLAR_SEED_DONE, false)
+        if (isSeedDone) return
 
         runBlocking {
             try {
-                withContext(Dispatchers.IO) {
-                    // 1) کپی از assets به temp file (RestoreManagerV2 با File کار می‌کند)
-                    val tmpZip = File(cacheDir, "seed_v2_${System.currentTimeMillis()}.zip")
-                    assets.open("seed/bambo_backupAll.zip").use { ins ->
-                        tmpZip.outputStream().use { outs -> ins.copyTo(outs) }
-                    }
-
-                    // 2) اجرای ریستور V2 (فعلاً QNA + CONTRACTS چون Providerهای این دو تا بایند شده‌اند)
-                    val opts = RestoreOptions(
-                        selected = setOf(BackupCategory.QNA, BackupCategory.CONTRACTS),
-                        conflictPolicy = ConflictPolicy.Overwrite,
-                        userKeyMapping = UserKeyMapping.RemapToCurrent
-                    )
-
-                    // اتمیک بهتر: همه‌چیز داخل یک تراکنش
-                    restoreCtx.db.withTransaction {
-                        val reports = restoreManagerV2.restoreSelected(tmpZip, opts, restoreCtx)
-                        Log.d("BamboApp", "Bootstrap V2 restore OK, reports=$reports")
-                    }
-
-                    tmpZip.delete()
-                }
+                solarProductSeeder.seedIfNeeded()
+                Log.d("SolarShopApp", "Solar seed OK")
+                sharedPrefs.edit().putBoolean(SOLAR_SEED_DONE, true).apply()
             } catch (t: Throwable) {
-                Log.e("BamboApp", "Bootstrap V2 restore FAILED", t)
+                Log.e("SolarShopApp", "Solar seed FAILED", t)
             }
         }
-
-        sharedPrefs.edit().putBoolean("is_first_run", false).apply()
     }
+
+
+//    private fun overlayFromAssetsIfFirstRunV2() {
+//        val isFirstRun = sharedPrefs.getBoolean("is_first_run", true)
+//        if (!isFirstRun) return
+//
+//        runBlocking {
+//            try {
+//                withContext(Dispatchers.IO) {
+//                    // 1) کپی از assets به temp file (RestoreManagerV2 با File کار می‌کند)
+//                    val tmpZip = File(cacheDir, "seed_v2_${System.currentTimeMillis()}.zip")
+//                    assets.open("seed/bambo_backupAll.zip").use { ins ->
+//                        tmpZip.outputStream().use { outs -> ins.copyTo(outs) }
+//                    }
+//
+//                    // 2) اجرای ریستور V2 (فعلاً QNA + CONTRACTS چون Providerهای این دو تا بایند شده‌اند)
+//                    val opts = RestoreOptions(
+//                        selected = setOf(BackupCategory.QNA, BackupCategory.CONTRACTS),
+//                        conflictPolicy = ConflictPolicy.Overwrite,
+//                        userKeyMapping = UserKeyMapping.RemapToCurrent
+//                    )
+//
+//                    // اتمیک بهتر: همه‌چیز داخل یک تراکنش
+//                    restoreCtx.db.withTransaction {
+//                        val reports = restoreManagerV2.restoreSelected(tmpZip, opts, restoreCtx)
+//                        Log.d("BamboApp", "Bootstrap V2 restore OK, reports=$reports")
+//                    }
+//
+//                    tmpZip.delete()
+//                }
+//            } catch (t: Throwable) {
+//                Log.e("BamboApp", "Bootstrap V2 restore FAILED", t)
+//            }
+//        }
+//
+//        sharedPrefs.edit().putBoolean("is_first_run", false).apply()
+//    }
 
 
 

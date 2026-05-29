@@ -91,7 +91,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.example.SolarShop.R
+import com.example.solarShop.R
 import com.example.solarShop.data.room.tables.question_answers.question.QuestionWithAnswers
 import com.example.solarShop.ui.theme.BambooTheme
 import kotlinx.coroutines.CoroutineScope

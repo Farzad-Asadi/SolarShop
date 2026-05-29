@@ -3,8 +3,8 @@ package com.example.solarShop.ui.signInScreen
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.SolarShop.R
 import com.example.solarShop.AppLanguage
+import com.example.solarShop.R
 import com.example.solarShop.data.backupRestore.SeedDumper
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository

@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.SolarShop"
+    namespace = "com.example.solarShop"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.SolarShop"
+        applicationId = "com.example.solarShop"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -35,7 +35,7 @@ android {
 //            isMinifyEnabled = false
 //            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 //        }
-        buildTypes {
+
             debug {
                 // ← موک را این‌جا روشن/خاموش کن
                 buildConfigField("boolean", "USE_MOCK", "true")
@@ -47,7 +47,7 @@ android {
                 buildConfigField("String", "BASE_URL", "\"https://your.prod.host\"")
                 isMinifyEnabled = false
             }
-        }
+        
 
 
     }

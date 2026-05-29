@@ -6,7 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+import com.example.solarShop.InvoiceType
 
 @Entity(tableName = "invoice_templates")
 data class InvoiceTemplateEntity(

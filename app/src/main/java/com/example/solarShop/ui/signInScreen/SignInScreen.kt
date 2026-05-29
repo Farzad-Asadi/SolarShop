@@ -81,8 +81,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.SolarShop.R
 import com.example.solarShop.AppLanguage
+import com.example.solarShop.R
 import com.example.solarShop.utils.MyPhoneField
 import com.example.solarShop.utils.bambooAngledBackground
 import kotlinx.coroutines.launch

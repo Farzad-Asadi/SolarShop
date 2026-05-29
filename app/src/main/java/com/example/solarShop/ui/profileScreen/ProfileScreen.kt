@@ -148,11 +148,11 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.SolarShop.R
 import com.example.solarShop.AppLanguage
 import com.example.solarShop.AppLanguageViewModel
 import com.example.solarShop.CurrencyUnit
 import com.example.solarShop.LengthUnit
+import com.example.solarShop.R
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.entitlement.EntitlementState
 import com.example.solarShop.data.entitlement.toPremiumUi

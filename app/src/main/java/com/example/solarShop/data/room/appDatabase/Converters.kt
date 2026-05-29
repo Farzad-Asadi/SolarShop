@@ -1,6 +1,9 @@
 package com.example.solarShop.data.room.appDatabase
 
 import androidx.room.TypeConverter
+import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.InvoiceStatus
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.utils.EstimateApproach
 import com.example.solarShop.utils.EstimateCategory
 
@@ -36,13 +39,16 @@ class InvoiceTypeConverters {
 }
 
 
-enum class InvoiceType {
-    PROFORMA,   // پیش‌فاکتور
-    INVOICE     // فاکتور
-}
+class GeneralTypeConverters {
 
-enum class InvoiceStatus {
-    DRAFT,      // پیش‌نویس
-    FINAL,      // نهایی شده
-    CANCELLED   // باطل‌شده (برای آینده)
+    @TypeConverter
+    fun fromInventoryTransactionType(
+        value: InventoryTransactionType?
+    ): String? = value?.name
+
+    @TypeConverter
+    fun toInventoryTransactionType(
+        value: String?
+    ): InventoryTransactionType? =
+        value?.let { InventoryTransactionType.valueOf(it) }
 }

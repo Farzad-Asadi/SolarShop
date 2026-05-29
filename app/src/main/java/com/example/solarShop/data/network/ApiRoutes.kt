@@ -1,6 +1,7 @@
 package com.example.solarShop.data.network
 
-import com.example.SolarShop.BuildConfig
+import com.example.solarShop.BuildConfig
+
 
 object ApiRoutes {
 
