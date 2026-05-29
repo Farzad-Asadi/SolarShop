@@ -144,7 +144,7 @@ import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.Use
         InventoryTransactionEntity::class,
 
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(

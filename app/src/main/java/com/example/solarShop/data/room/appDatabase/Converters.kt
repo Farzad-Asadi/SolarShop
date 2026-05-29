@@ -39,6 +39,7 @@ class InvoiceTypeConverters {
 }
 
 
+
 class GeneralTypeConverters {
 
     @TypeConverter

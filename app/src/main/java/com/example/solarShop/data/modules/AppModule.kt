@@ -62,6 +62,7 @@ import com.example.solarShop.data.room.tables.orderAll.orderTimelineItem.Timelin
 import com.example.solarShop.data.room.tables.orderAll.orderWorkflowStep.OrderWorkflowStepDao
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateDao
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateRepository
+import com.example.solarShop.data.room.tables.product.ProductDao
 import com.example.solarShop.data.room.tables.question_answers.CatalogRepository
 import com.example.solarShop.data.room.tables.question_answers.CatalogRepositoryImpl
 import com.example.solarShop.data.room.tables.question_answers.QuestionAnswersRepository
@@ -82,7 +83,6 @@ import com.example.solarShop.data.room.tables.user.UserDao
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.UserWorkflowStepDao
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.WorkflowRepository
-import com.example.solarShop.data.seeder.SolarProductSeeder
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.repo.AuthRepositoryImpl
 import com.example.solarShop.repo.EntitlementRepository
@@ -130,7 +130,7 @@ object AppModule {
     ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "bambo_db")
 //            .createFromAsset("seed/bambo_seed.db")   // ← فقط نصبِ اول            2.1  3.1
-//            .fallbackToDestructiveMigration(true)     // فقط DEV
+            .fallbackToDestructiveMigration(true)     // فقط DEV
             .build()
 
 
@@ -263,7 +263,8 @@ object AppModule {
     @Provides fun provideInvoiceDocumentDao(db: AppDatabase) = db.invoiceDocumentDao()
     @Provides fun provideOrderAnswerSelectedPhotoDao(db: AppDatabase) = db.orderAnswerSelectedPhotoDao()
 
-    @Provides fun provideProductDao(db: AppDatabase) = db.productDao()
+    @Provides
+    fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
 
     // --------- Repositories ---------
 
@@ -313,13 +314,14 @@ object AppModule {
         @ApplicationContext context: Context
     ): ImageRepository = ImageRepository(context)
 
+    @Provides
     @Singleton
     fun provideOrderPhotoMetaRepository(
-        @ApplicationContext context: Context,
         dao: OrderPhotoRefDao,
         metaDao: OrderPhotoMetaDao
-    ): OrderPhotoMetaRepository = OrderPhotoMetaRepository(dao,metaDao)
-
+    ): OrderPhotoMetaRepository {
+        return OrderPhotoMetaRepository(dao, metaDao)
+    }
 
     @Provides
     @Singleton
@@ -382,15 +384,15 @@ object AppModule {
 
 
 
-    @Provides
-    @Singleton
-    fun provideSolarProductSeeder(
-        db: AppDatabase
-    ): SolarProductSeeder {
-        return SolarProductSeeder(
-            productDao = db.productDao()
-        )
-    }
+//    @Provides
+//    @Singleton
+//    fun provideSolarProductSeeder(
+//        db: AppDatabase
+//    ): SolarProductSeeder {
+//        return SolarProductSeeder(
+//            productDao = db.productDao()
+//        )
+//    }
 
 
 }
