@@ -83,6 +83,7 @@ import com.example.solarShop.data.room.tables.user.UserDao
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.UserWorkflowStepDao
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.WorkflowRepository
+import com.example.solarShop.data.seeder.SolarProductSeeder
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.repo.AuthRepositoryImpl
 import com.example.solarShop.repo.EntitlementRepository
@@ -384,15 +385,13 @@ object AppModule {
 
 
 
-//    @Provides
-//    @Singleton
-//    fun provideSolarProductSeeder(
-//        db: AppDatabase
-//    ): SolarProductSeeder {
-//        return SolarProductSeeder(
-//            productDao = db.productDao()
-//        )
-//    }
+    @Provides
+    @Singleton
+    fun provideSolarProductSeeder(
+        productDao: ProductDao
+    ): SolarProductSeeder =
+        SolarProductSeeder(productDao)
+
 
 
 }
