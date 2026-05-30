@@ -1,4 +1,4 @@
-package com.example.solarShop.data.room.tables.product
+package com.example.solarShop.data.local.relation.product
 
 data class ProductAttributeDisplayInfo(
     val valueId: Int?,
@@ -14,5 +14,3 @@ data class ProductAttributeDisplayInfo(
 
     val valueText: String?
 )
-
-

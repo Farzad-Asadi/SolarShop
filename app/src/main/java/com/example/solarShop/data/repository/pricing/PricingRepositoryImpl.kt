@@ -1,0 +1,65 @@
+package com.example.solarShop.data.repository.pricing
+
+import com.example.solarShop.data.local.dao.pricing.PricingDao
+import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
+import com.example.solarShop.data.room.tables.product.ProductPriceCalculator
+import com.example.solarShop.data.room.tables.product.ProductSalePriceResult
+import javax.inject.Inject
+
+class PricingRepositoryImpl @Inject constructor(
+    private val pricingDao: PricingDao,
+    private val productDao: ProductDao
+) : PricingRepository {
+
+    override fun observeCurrencyRateHistory(
+        currencyCode: String
+    ) = pricingDao.observeCurrencyRateHistory(currencyCode)
+
+    override suspend fun insertCurrencyRate(rate: CurrencyRateEntity) =
+        pricingDao.insertCurrencyRate(rate)
+
+    override fun observeActiveProfitRules() =
+        pricingDao.observeActiveProfitRules()
+
+    override suspend fun upsertProfitRule(rule: ProfitRuleEntity) =
+        pricingDao.upsertProfitRule(rule)
+
+    override suspend fun deactivateProfitRule(ruleId: Int) =
+        pricingDao.deactivateProfitRule(ruleId)
+
+    override suspend fun setNewActivePurchasePrice(
+        price: ProductPurchasePriceEntity
+    ) {
+        pricingDao.setNewActivePurchasePrice(price)
+    }
+
+    override fun observePurchasePriceHistory(
+        productId: Int
+    ) = pricingDao.observePurchasePriceHistory(productId)
+
+    override suspend fun calculateSalePrice(productId: Int): ProductSalePriceResult? {
+        val productFullInfo = productDao.getProductFullInfo(productId)
+            ?: return null
+
+        val product = productFullInfo.product
+
+        val purchasePrice = pricingDao.getActivePurchasePrice(productId)
+            ?: return null
+
+        val latestDollarRate = pricingDao.getLatestCurrencyRate("USD")
+
+        val profitRule = pricingDao.getProfitRuleForCategory(product.categoryId)
+
+        return ProductPriceCalculator.calculate(
+            buyPriceDollar = purchasePrice.buyPriceDollar,
+            buyPriceToman = purchasePrice.buyPriceToman,
+            dollarRateToman = purchasePrice.dollarRateToman
+                ?: latestDollarRate?.rateToman,
+            profitPercent = profitRule?.profitPercent ?: 0.0,
+            fixedProfitToman = profitRule?.fixedProfitToman ?: 0L
+        )
+    }
+}

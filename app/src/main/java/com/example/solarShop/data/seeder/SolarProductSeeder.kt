@@ -1,17 +1,19 @@
 package com.example.solarShop.data.seeder
 
-
-import com.example.solarShop.data.room.tables.product.CurrencyRateEntity
-import com.example.solarShop.data.room.tables.product.ProductBrandEntity
-import com.example.solarShop.data.room.tables.product.ProductCategoryEntity
-import com.example.solarShop.data.room.tables.product.ProductDao
-import com.example.solarShop.data.room.tables.product.ProductUnitEntity
-import com.example.solarShop.data.room.tables.product.ProfitRuleEntity
+import com.example.solarShop.data.local.dao.pricing.PricingDao
+import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
+import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
+import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.local.entity.product.ProductUnitEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-class SolarProductSeeder (
-    private val productDao: ProductDao
+class SolarProductSeeder @Inject constructor(
+    private val productDao: ProductDao,
+    private val pricingDao: PricingDao
 ) {
 
     suspend fun seedIfNeeded() = withContext(Dispatchers.IO) {
@@ -51,7 +53,7 @@ class SolarProductSeeder (
         listOf(
             "JA Solar",
             "LONGi",
-            "Gro watt",
+            "Growatt",
             "Power Solid",
             "Medal Power",
             "Gogo Power"
@@ -61,7 +63,7 @@ class SolarProductSeeder (
     }
 
     private suspend fun seedCurrencyRate() {
-        productDao.insertCurrencyRate(
+        pricingDao.insertCurrencyRate(
             CurrencyRateEntity(
                 currencyCode = "USD",
                 rateToman = 170000,
@@ -72,7 +74,7 @@ class SolarProductSeeder (
     }
 
     private suspend fun seedDefaultProfitRule() {
-        productDao.upsertProfitRule(
+        pricingDao.upsertProfitRule(
             ProfitRuleEntity(
                 categoryId = null,
                 title = "سود پیش‌فرض",

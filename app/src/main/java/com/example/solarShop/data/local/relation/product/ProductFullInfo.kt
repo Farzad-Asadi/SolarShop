@@ -1,8 +1,11 @@
-package com.example.solarShop.data.room.tables.product
+package com.example.solarShop.data.local.relation.product
 
 import androidx.room.Embedded
 import androidx.room.Relation
-import com.example.solarShop.data.room.tables.product.*
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
+import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.local.entity.product.ProductUnitEntity
 
 data class ProductFullInfo(
     @Embedded

@@ -3,6 +3,21 @@ package com.example.solarShop.data.room.appDatabase
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.solarShop.data.local.dao.attribute.AttributeDao
+import com.example.solarShop.data.local.dao.inventory.InventoryDao
+import com.example.solarShop.data.local.dao.pricing.PricingDao
+import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
+import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
+import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
+import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.local.entity.product.ProductImageEntity
+import com.example.solarShop.data.local.entity.product.ProductUnitEntity
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoEntity
 import com.example.solarShop.data.room.tables.client.ClientDao
@@ -58,18 +73,6 @@ import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstima
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateEntity
 import com.example.solarShop.data.room.tables.premiumEntitlementCache.PremiumEntitlementCacheEntity
 import com.example.solarShop.data.room.tables.premiumEntitlementCache.PremiumEntitlementDao
-import com.example.solarShop.data.room.tables.product.CategoryAttributeDefinitionEntity
-import com.example.solarShop.data.room.tables.product.CurrencyRateEntity
-import com.example.solarShop.data.room.tables.product.InventoryTransactionEntity
-import com.example.solarShop.data.room.tables.product.ProductAttributeValueEntity
-import com.example.solarShop.data.room.tables.product.ProductBrandEntity
-import com.example.solarShop.data.room.tables.product.ProductCategoryEntity
-import com.example.solarShop.data.room.tables.product.ProductDao
-import com.example.solarShop.data.room.tables.product.ProductEntity
-import com.example.solarShop.data.room.tables.product.ProductImageEntity
-import com.example.solarShop.data.room.tables.product.ProductPurchasePriceEntity
-import com.example.solarShop.data.room.tables.product.ProductUnitEntity
-import com.example.solarShop.data.room.tables.product.ProfitRuleEntity
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerDao
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerEntity
 import com.example.solarShop.data.room.tables.question_answers.answer.AnswerImageEntity
@@ -189,5 +192,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun orderAnswerSelectedPhotoDao(): OrderAnswerSelectedPhotoDao
 
     abstract fun productDao(): ProductDao
+    abstract fun attributeDao(): AttributeDao
+    abstract fun pricingDao(): PricingDao
+    abstract fun inventoryDao(): InventoryDao
 
 }

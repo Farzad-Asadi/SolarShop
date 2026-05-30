@@ -23,6 +23,18 @@ import com.example.solarShop.data.dataStore.DisplayPreferencesDataSource
 import com.example.solarShop.data.dataStore.OrderCheckpointStore
 import com.example.solarShop.data.dataStore.QuestionTreePrefsDataStore
 import com.example.solarShop.data.dataStore.SessionDataStore
+import com.example.solarShop.data.local.dao.attribute.AttributeDao
+import com.example.solarShop.data.local.dao.inventory.InventoryDao
+import com.example.solarShop.data.local.dao.pricing.PricingDao
+import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.repository.attribute.AttributeRepository
+import com.example.solarShop.data.repository.attribute.AttributeRepositoryImpl
+import com.example.solarShop.data.repository.inventory.InventoryRepository
+import com.example.solarShop.data.repository.inventory.InventoryRepositoryImpl
+import com.example.solarShop.data.repository.pricing.PricingRepository
+import com.example.solarShop.data.repository.pricing.PricingRepositoryImpl
+import com.example.solarShop.data.repository.product.ProductRepository
+import com.example.solarShop.data.repository.product.ProductRepositoryImpl
 import com.example.solarShop.data.room.appDatabase.AppDatabase
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
@@ -62,7 +74,6 @@ import com.example.solarShop.data.room.tables.orderAll.orderTimelineItem.Timelin
 import com.example.solarShop.data.room.tables.orderAll.orderWorkflowStep.OrderWorkflowStepDao
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateDao
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateRepository
-import com.example.solarShop.data.room.tables.product.ProductDao
 import com.example.solarShop.data.room.tables.question_answers.CatalogRepository
 import com.example.solarShop.data.room.tables.question_answers.CatalogRepositoryImpl
 import com.example.solarShop.data.room.tables.question_answers.QuestionAnswersRepository
@@ -83,7 +94,6 @@ import com.example.solarShop.data.room.tables.user.UserDao
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.UserWorkflowStepDao
 import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.WorkflowRepository
-import com.example.solarShop.data.seeder.SolarProductSeeder
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.repo.AuthRepositoryImpl
 import com.example.solarShop.repo.EntitlementRepository
@@ -266,6 +276,16 @@ object AppModule {
 
     @Provides
     fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
+    @Provides
+    fun providePricingDao(db: AppDatabase): PricingDao = db.pricingDao()
+    @Provides
+    fun provideInventoryDao(
+        db: AppDatabase
+    ): InventoryDao = db.inventoryDao()
+    @Provides
+    fun provideAttributeDao(
+        db: AppDatabase
+    ): AttributeDao = db.attributeDao()
 
     // --------- Repositories ---------
 
@@ -384,15 +404,40 @@ object AppModule {
     ): OrderAnswerSelectedPhotoRepository = OrderAnswerSelectedPhotoRepImp(answerSelectedPhotoDao )
 
 
+    @Provides
+    @Singleton
+    fun provideProductRepository(
+        productDao: ProductDao
+    ): ProductRepository = ProductRepositoryImpl(productDao )
 
     @Provides
     @Singleton
-    fun provideSolarProductSeeder(
+    fun providePricingRepository(
+        pricingDao: PricingDao,
         productDao: ProductDao
-    ): SolarProductSeeder =
-        SolarProductSeeder(productDao)
+    ): PricingRepository = PricingRepositoryImpl(pricingDao,productDao )
+
+    @Provides
+    @Singleton
+    fun provideInventoryRepository(
+        inventoryDao: InventoryDao
+    ): InventoryRepository = InventoryRepositoryImpl(inventoryDao)
+
+    @Provides
+    @Singleton
+    fun provideAttributeRepository(
+        attributeDao: AttributeDao
+    ): AttributeRepository = AttributeRepositoryImpl(attributeDao)
 
 
+//    @Provides
+//    @Singleton
+//    fun provideSolarProductSeeder(
+//        productDao: ProductDao
+//    ): SolarProductSeeder =
+//        SolarProductSeeder(productDao)
+//
+//
 
 }
 

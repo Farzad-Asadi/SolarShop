@@ -1,10 +1,13 @@
 package com.example.solarShop.data.room.tables.product
 
 
+import com.example.solarShop.data.local.dao.pricing.PricingDao
+import com.example.solarShop.data.local.dao.product.ProductDao
 import javax.inject.Inject
 
 class ProductRepository @Inject constructor(
-    private val productDao: ProductDao
+    private val productDao: ProductDao,
+    private val pricingDao: PricingDao
 ) {
 
     suspend fun calculateSalePrice(productId: Int): ProductSalePriceResult? {
@@ -13,12 +16,12 @@ class ProductRepository @Inject constructor(
 
         val product = productFullInfo.product
 
-        val purchasePrice = productDao.getActivePurchasePrice(productId)
+        val purchasePrice = pricingDao.getActivePurchasePrice(productId)
             ?: return null
 
-        val latestDollarRate = productDao.getLatestCurrencyRate("USD")
+        val latestDollarRate = pricingDao.getLatestCurrencyRate("USD")
 
-        val profitRule = productDao.getProfitRuleForCategory(product.categoryId)
+        val profitRule = pricingDao.getProfitRuleForCategory(product.categoryId)
 
         return ProductPriceCalculator.calculate(
             buyPriceDollar = purchasePrice.buyPriceDollar,
