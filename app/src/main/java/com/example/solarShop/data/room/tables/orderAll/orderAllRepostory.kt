@@ -1,7 +1,8 @@
 package com.example.solarShop.data.room.tables.orderAll
 
 
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.room.tables.contract.ContractInstanceDao
 import com.example.solarShop.data.room.tables.orderAll.order.OrderDao
 import com.example.solarShop.data.room.tables.orderAll.order.OrderEntity

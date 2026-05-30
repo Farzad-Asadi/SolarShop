@@ -1,7 +1,8 @@
 package com.example.solarShop.data.room.tables.orderAll.orderInvoice
 
 
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+
+import com.example.solarShop.InvoiceType
 import javax.inject.Inject
 import javax.inject.Singleton
 

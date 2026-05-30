@@ -15,16 +15,7 @@ import java.io.File
 import javax.inject.Inject
 
 
-@Dao
-interface SelectedChoiceDao {
-    @Query(
-        """
-        SELECT answerId FROM selected_choices
-        WHERE orderId = :orderId AND questionId = :questionId
-    """
-    )
-    fun observeSelectedAnswerIds(orderId: Int, questionId: Int): Flow<List<Int>>
-}
+
 
 
 interface CatalogRepository {

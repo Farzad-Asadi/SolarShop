@@ -5,7 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
-import com.example.solarShop.data.room.appDatabase.InvoiceType
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File

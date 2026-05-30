@@ -10,11 +10,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.CurrencyUnit
+import com.example.solarShop.InvoiceStatus
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.dataStore.DisplayPreferencesDataSource
 import com.example.solarShop.data.dataStore.SessionDataStore.Keys.currentUserId
-import com.example.solarShop.data.room.appDatabase.InvoiceStatus
-import com.example.solarShop.data.room.appDatabase.InvoiceType
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.client.ClientRepository
 import com.example.solarShop.data.room.tables.orderAll.order.OrderEntity
@@ -569,7 +569,7 @@ data class OrderInvoiceUiState(
     val proformaInvoices: List<InvoiceDocumentEntity> = emptyList(),
 
 
-)
+    )
 
 data class InvoiceEditorUiState(
     val isVisible: Boolean = false,

@@ -33,6 +33,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,8 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.solarShop.CurrencyUnit
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.dataStore.DisplayPreferences
-import com.example.solarShop.data.room.appDatabase.InvoiceType
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentEntity
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceTemplateEntity
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceWithItems
@@ -1334,6 +1335,7 @@ fun InvoiceTemplatesCard(
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InvoiceTypeTabs(
     currentType: InvoiceType,

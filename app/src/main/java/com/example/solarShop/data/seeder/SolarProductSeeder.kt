@@ -9,9 +9,8 @@ import com.example.solarShop.data.room.tables.product.ProductUnitEntity
 import com.example.solarShop.data.room.tables.product.ProfitRuleEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-class SolarProductSeeder @Inject constructor(
+class SolarProductSeeder (
     private val productDao: ProductDao
 ) {
 
