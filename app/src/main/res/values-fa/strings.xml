@@ -28,7 +28,7 @@
     <string name="currency_unit_toman">تومان</string>
     <string name="currency_unit_rial">ریال</string>
     <string name="profile_quick_access_title">دسترسی سریع</string>
-    <string name="profile_quick_access_questions">لیست انتخاب‌ها</string>
+    <string name="profile_quick_access_questions">لیست کالاها</string>
     <string name="profile_quick_access_edit_contract">ویرایش قرارداد</string>
     <string name="profile_quick_access_user_data">داده‌های کاربر</string>
     <string name="profile_quick_access_backup_restore">بک‌آپ / ریستور</string>

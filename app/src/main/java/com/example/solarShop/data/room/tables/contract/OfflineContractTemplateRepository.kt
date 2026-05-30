@@ -1,7 +1,7 @@
 package com.example.solarShop.data.room.tables.contract
 
 import androidx.room.withTransaction
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 

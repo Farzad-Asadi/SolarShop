@@ -1,4 +1,4 @@
-package com.example.solarShop.data.room.tables.product
+package com.example.solarShop.domain.product
 
 import kotlin.math.roundToLong
 

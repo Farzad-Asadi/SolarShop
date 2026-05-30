@@ -2,7 +2,7 @@ package com.example.solarShop.data.seeder
 
 import androidx.room.withTransaction
 import com.example.solarShop.data.backupRestore.DefaultContractTemplates
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.contract.ContractTemplateDao
 import com.example.solarShop.data.room.tables.contract.ContractTemplateEntity
 import com.example.solarShop.data.room.tables.contract.ContractTemplateNoteDao

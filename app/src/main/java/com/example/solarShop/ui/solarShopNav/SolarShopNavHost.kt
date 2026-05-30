@@ -1,4 +1,4 @@
-package com.example.solarShop.ui.bamboApp
+package com.example.solarShop.ui.solarShopNav
 
 import android.annotation.SuppressLint
 import android.util.Log
@@ -11,6 +11,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.solarShop.feature.product.ui.ProductByCategoryScreen
+import com.example.solarShop.feature.product.ui.ProductListScreen
+import com.example.solarShop.feature.product.ui.category.AttributeEditScreen
+import com.example.solarShop.feature.product.ui.category.CategoryAttributesScreen
+import com.example.solarShop.feature.product.ui.category.CategoryEditScreen
+import com.example.solarShop.feature.product.ui.product.ProductEditScreen
 import com.example.solarShop.ui.backUpRestore.BackUpRestoreScreen
 import com.example.solarShop.ui.contractScreen.ContractScreen
 import com.example.solarShop.ui.orderScreen.OrderScreen
@@ -29,9 +35,9 @@ import kotlinx.coroutines.flow.collectLatest
 
 @SuppressLint("SuspiciousIndentation")
 @Composable
-fun BamboApp(
+fun SolarShopNavHost(
     modifier: Modifier = Modifier,
-    vm: BamboAppViewModel = hiltViewModel()
+    vm: SolarShopNavViewModel = hiltViewModel()
 ) {
 
     val nav = rememberNavController()
@@ -52,30 +58,30 @@ fun BamboApp(
 
     NavHost(
         navController = nav,
-        startDestination = BamboScreen.Splash.name,
+        startDestination = SolarRoute.Splash.name,
         modifier = modifier
     ) {
-        composable(BamboScreen.Splash.name) {
+        composable(SolarRoute.Splash.name) {
             SplashGate(
                 onResolved = { target ->
                     nav.navigate(target)
-                    { popUpTo(BamboScreen.Splash.name) { inclusive = true } }
+                    { popUpTo(SolarRoute.Splash.name) { inclusive = true } }
                 }
             )
         }
-        composable(BamboScreen.SignIn.name) {
+        composable(SolarRoute.SignIn.name) {
             SignInScreen(
                 onNavigateHome = {
-                    nav.navigate(BamboScreen.Profile.name ) {
+                    nav.navigate(SolarRoute.Profile.name ) {
                         popUpTo(
-                            BamboScreen.SignIn.name
+                            SolarRoute.SignIn.name
                         ) { inclusive = true }
                     }
                 })
 
         }
         composable(
-            route = BamboScreen.Profile.name + "?userId={userId}",
+            route = SolarRoute.Profile.name + "?userId={userId}",
             arguments = listOf(
                 navArgument("userId") { type = NavType.IntType; defaultValue = -1 }
             )
@@ -83,102 +89,99 @@ fun BamboApp(
 
             ProfileScreen(
                 onClickAddOrder = { orderId ->
-                    nav.navigate(BamboScreen.Order.name + "?orderId=$orderId") {
-                        popUpTo(BamboScreen.Profile.name) { inclusive = false }
+                    nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
+                        popUpTo(SolarRoute.Profile.name) { inclusive = false }
                     }
                 },
                 onClickOrder = { orderId ->
-                    nav.navigate(BamboScreen.Order.name + "?orderId=$orderId") {
-                        popUpTo(BamboScreen.Profile.name) { inclusive = false }
+                    nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
+                        popUpTo(SolarRoute.Profile.name) { inclusive = false }
                     }
                 },
-                onClickQuestionEdite = {
-                    nav.navigate(BamboScreen.QuestionTree.name + "/-1") {
-                        popUpTo(BamboScreen.Profile.name) {
-                            inclusive = false
-                        }
-                    }
-                }
-                ,
                 onShowEditeContract = {
-                    nav.navigate(BamboScreen.Contract.name + "?entrySource=profile")
+                    nav.navigate(SolarRoute.Contract.name + "?entrySource=profile")
                     {
-                        popUpTo(BamboScreen.Profile.name) {
+                        popUpTo(SolarRoute.Profile.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Profile، آن را از نو لود کن
                 },
                 onSignedOut = {
-                    nav.navigate(BamboScreen.SignIn.name) {
-                        popUpTo(BamboScreen.Profile.name) { inclusive = true }
+                    nav.navigate(SolarRoute.SignIn.name) {
+                        popUpTo(SolarRoute.Profile.name) { inclusive = true }
                     }
                 },
                 onClickBackUpRestore = {
-                    nav.navigate(BamboScreen.BackUpRestore.name) {
-                        popUpTo(BamboScreen.Profile.name) { inclusive = false }
+                    nav.navigate(SolarRoute.BackUpRestore.name) {
+                        popUpTo(SolarRoute.Profile.name) { inclusive = false }
                     }
                 },
+                onClickProductList = {
+                    nav.navigate(SolarRoute.ProductList.name) {
+                        popUpTo(SolarRoute.Profile.name) { inclusive = false }
+                    }
+                }
             )
         }
         composable(
-            route = BamboScreen.Order.name + "?orderId={orderId}",
+            route = SolarRoute.Order.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
             )
         ) {
             OrderScreen(
                 onClickPriceEstimate = {orderId ->
-                    nav.navigate(BamboScreen.OrderPriceEstimate.name + "?orderId=$orderId")
+                    nav.navigate(SolarRoute.OrderPriceEstimate.name + "?orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickContract = { orderId ->
-                    nav.navigate(BamboScreen.Contract.name + "?entrySource=order&orderId=$orderId")
+                    nav.navigate(SolarRoute.Contract.name + "?entrySource=order&orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickCost = { orderId ->
-                    nav.navigate(BamboScreen.OrderCost.name + "?entrySource=order&orderId=$orderId")
+                    nav.navigate(SolarRoute.OrderCost.name + "?entrySource=order&orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickPicture = { orderId ->
-                    nav.navigate(BamboScreen.OrderPicture.name + "?entrySource=order&orderId=$orderId")
+                    nav.navigate(SolarRoute.OrderPicture.name + "?entrySource=order&orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickCatalog = { orderId ->
-                    nav.navigate(BamboScreen.OrderCatalog.name + "?entrySource=order&orderId=$orderId")
+                    nav.navigate(SolarRoute.OrderCatalog.name + "?entrySource=order&orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickInvoice = { orderId ->
-                    nav.navigate(BamboScreen.OrderInvoice.name + "?entrySource=order&orderId=$orderId")
+                    nav.navigate(SolarRoute.OrderInvoice.name + "?entrySource=order&orderId=$orderId")
                     {
-                        popUpTo(BamboScreen.Order.name) {
+                        popUpTo(SolarRoute.Order.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                 },
                 onClickBack = {
-                    nav.navigate(BamboScreen.Profile.name)
+                    nav.navigate(SolarRoute.Profile.name)
                     {
-                        popUpTo(BamboScreen.Contract.name) {
+                        popUpTo(SolarRoute.Contract.name) {
                             inclusive = false
                         }
                     }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
@@ -186,7 +189,7 @@ fun BamboApp(
             )
         }
         composable(
-            route = BamboScreen.QuestionTree.name + "/{questionId}?orderId={orderId}",
+            route = SolarRoute.QuestionTree.name + "/{questionId}?orderId={orderId}",
             arguments = listOf(
                 navArgument("questionId") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
@@ -204,18 +207,18 @@ fun BamboApp(
                 filterOrderId = filterOrderId,
                 onClickEditeQuestion = { qId ->
                     val id = qId ?: -1
-                    nav.navigate(BamboScreen.QuestionInfo.name + "?questionId=$id") {
-                        popUpTo(BamboScreen.QuestionTree.name) { inclusive = true }
+                    nav.navigate(SolarRoute.QuestionInfo.name + "?questionId=$id") {
+                        popUpTo(SolarRoute.QuestionTree.name) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
                 onBack = { nav.navigateUp() },
-                onCloseToProfile = {nav.navigate(BamboScreen.Profile.name )}
+                onCloseToProfile = {nav.navigate(SolarRoute.Profile.name )}
             )
         }
 
         composable(
-            route = BamboScreen.QuestionInfo.name + "?questionId={questionId}",
+            route = SolarRoute.QuestionInfo.name + "?questionId={questionId}",
             arguments = listOf(
                 navArgument("questionId") {
                     type = NavType.IntType
@@ -226,14 +229,14 @@ fun BamboApp(
             QuestionInfoScreen(
                 onClickOpenQuestionTree = { qId ->
                     val id = qId ?: -1
-                    nav.navigate("${BamboScreen.QuestionTree.name}/$id?orderId=-1")
+                    nav.navigate("${SolarRoute.QuestionTree.name}/$id?orderId=-1")
                 },
                 onBack = { nav.navigateUp() }
             )
         }
 
         composable(
-            route =BamboScreen.OrderPriceEstimate.name + "?orderId={orderId}",
+            route =SolarRoute.OrderPriceEstimate.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
             )
@@ -245,7 +248,7 @@ fun BamboApp(
             )
         }
         composable(
-            route = BamboScreen.Contract.name + "?entrySource={entrySource}&orderId={orderId}",
+            route = SolarRoute.Contract.name + "?entrySource={entrySource}&orderId={orderId}",
             arguments = listOf(
                 navArgument("entrySource") { type = NavType.StringType; defaultValue = "profile" },
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
@@ -259,7 +262,7 @@ fun BamboApp(
             )
         }
         composable(
-            route = BamboScreen.OrderCost.name + "?orderId={orderId}",
+            route = SolarRoute.OrderCost.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
             )
@@ -272,7 +275,7 @@ fun BamboApp(
             )
         }
         composable(
-            route = BamboScreen.OrderPicture.name + "?orderId={orderId}",
+            route = SolarRoute.OrderPicture.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
             )
@@ -285,7 +288,7 @@ fun BamboApp(
             )
         }
         composable(
-            route = BamboScreen.OrderCatalog.name + "?orderId={orderId}",
+            route = SolarRoute.OrderCatalog.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") {
                     type = NavType.IntType
@@ -300,17 +303,17 @@ fun BamboApp(
                 },
                 onOpenQuestionInfo = { qId ->
                     val id = qId ?: -1
-                    nav.navigate(BamboScreen.QuestionInfo.name + "?questionId=$id")
+                    nav.navigate(SolarRoute.QuestionInfo.name + "?questionId=$id")
                 },
                 onOpenQuestionTree = { qId, orderId ->
                     val qIdNonNull = qId ?: -1
                     val orderIdNonNull = orderId ?: -1
-                    nav.navigate("${BamboScreen.QuestionTree.name}/$qIdNonNull?orderId=$orderIdNonNull")
+                    nav.navigate("${SolarRoute.QuestionTree.name}/$qIdNonNull?orderId=$orderIdNonNull")
                 }
             )
         }
         composable(
-            route = BamboScreen.OrderInvoice.name + "?orderId={orderId}",
+            route = SolarRoute.OrderInvoice.name + "?orderId={orderId}",
             arguments = listOf(
                 navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
             )
@@ -322,7 +325,7 @@ fun BamboApp(
                 }
             )
         }
-        composable(route = BamboScreen.BackUpRestore.name) {
+        composable(route = SolarRoute.BackUpRestore.name) {
             BackUpRestoreScreen(
                 onClose = { nav.navigateUp() } // ✅ همین
             )
@@ -339,17 +342,137 @@ fun BamboApp(
         // 7) نکته: اگر پارامتر اختیاری است، defaultValue بگذار تا نبودنِ آن کرش ندهد.
         // 8) نمونهٔ استفاده در پروژه: ContractScreen با مسیر "Contract?entrySource=order" از Order می‌آید و UI پیام مناسب نشان می‌دهد.
 
+
+
+
+
+
+
+
+        composable(SolarRoute.ProductList.name) {
+            ProductListScreen(
+                onAddCategoryClick = {
+                    nav.navigate(SolarRoute.CategoryEdit.name + "?categoryId=-1")
+                },
+                onCategoryClick = { categoryId ->
+                    nav.navigate(
+                        SolarRoute.ProductByCategory.name + "/$categoryId"
+                    )
+                }
+            )
+        }
+        composable(
+            route = SolarRoute.CategoryEdit.name + "?categoryId={categoryId}",
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) {
+
+            CategoryEditScreen(
+                onClose = {
+                    nav.navigateUp()
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.ProductByCategory.name + "/{categoryId}",
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.IntType
+                }
+            )
+        ) {
+
+            ProductByCategoryScreen(
+                onBack = {
+                    nav.navigateUp()
+                },
+                onOpenCategoryAttributes = {
+                    val categoryId = it
+                    nav.navigate(SolarRoute.CategoryAttributes.name + "/$categoryId")
+                },
+                onAddProduct = { categoryId ->
+                    nav.navigate(SolarRoute.ProductEdit.name + "/$categoryId?productId=-1")
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.CategoryAttributes.name + "/{categoryId}",
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.IntType
+                }
+            )
+        ) {
+            CategoryAttributesScreen(
+                onBack = { nav.navigateUp() },
+                onAddAttribute = { categoryId ->
+                    nav.navigate(SolarRoute.AttributeEdit.name + "/$categoryId?attributeId=-1")
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.AttributeEdit.name + "/{categoryId}?attributeId={attributeId}",
+            arguments = listOf(
+                navArgument("categoryId") { type = NavType.IntType },
+                navArgument("attributeId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) {
+            AttributeEditScreen(
+                onClose = { nav.navigateUp() }
+            )
+        }
+
+        composable(
+            route = SolarRoute.ProductEdit.name + "/{categoryId}?productId={productId}",
+            arguments = listOf(
+                navArgument("categoryId") { type = NavType.IntType },
+                navArgument("productId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) {
+            ProductEditScreen(
+                onClose = { nav.navigateUp() }
+            )
+        }
+
     }
 
 }
 
 
-enum class BamboScreen {       //مسیرهای برنامه
+
+
+enum class SolarRoute {
     Splash,
     SignIn,
     Profile,
-    QuestionTree,
-    QuestionInfo,
+
+
+
+    //new for solarShop
+    ProductList,
+    CategoryEdit,
+    ProductByCategory,
+    CategoryAttributes,
+    AttributeEdit,
+    ProductEdit,
+
+
+
+
+
     Contract,
     BackUpRestore,
 
@@ -358,6 +481,9 @@ enum class BamboScreen {       //مسیرهای برنامه
     OrderCost,
     OrderPicture,
     OrderCatalog,
-    OrderInvoice
+    OrderInvoice,
+
+    QuestionTree,
+    QuestionInfo
 }
 

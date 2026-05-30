@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.solarShop.ui.bamboApp.BamboApp
+import com.example.solarShop.ui.solarShopNav.SolarShopNavHost
 import com.example.solarShop.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        BamboApp()
+                        SolarShopNavHost()
                     }
                 }
             }

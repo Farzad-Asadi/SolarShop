@@ -27,6 +27,7 @@ import com.example.solarShop.data.local.dao.attribute.AttributeDao
 import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.attribute.AttributeRepositoryImpl
 import com.example.solarShop.data.repository.inventory.InventoryRepository
@@ -35,7 +36,6 @@ import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.pricing.PricingRepositoryImpl
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.product.ProductRepositoryImpl
-import com.example.solarShop.data.room.appDatabase.AppDatabase
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
 import com.example.solarShop.data.room.tables.appInfo.OfflineAppInfoRepository

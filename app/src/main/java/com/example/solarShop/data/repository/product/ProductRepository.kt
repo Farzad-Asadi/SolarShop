@@ -30,4 +30,12 @@ interface ProductRepository {
     fun observeProductImages(productId: Int): Flow<List<ProductImageEntity>>
     suspend fun upsertProductImage(image: ProductImageEntity): Long
     suspend fun deleteProductImageById(imageId: Int)
+
+    suspend fun getCategoryById(
+        categoryId: Int
+    ): ProductCategoryEntity?
+
+    fun observeProductsByCategoryFullInfo(
+        categoryId: Int
+    ): Flow<List<ProductFullInfo>>
 }

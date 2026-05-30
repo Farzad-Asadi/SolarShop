@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 
 class SeedDumper @Inject constructor(
     @ApplicationContext private val context: Context,

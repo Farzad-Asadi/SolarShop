@@ -51,4 +51,12 @@ class ProductRepositoryImpl @Inject constructor(
 
     override suspend fun deleteProductImageById(imageId: Int) =
         productDao.deleteProductImageById(imageId)
+
+    override suspend fun getCategoryById(
+        categoryId: Int
+    ) = productDao.getCategoryById(categoryId)
+
+    override fun observeProductsByCategoryFullInfo(
+        categoryId: Int
+    ) = productDao.observeProductsByCategoryFullInfo(categoryId)
 }

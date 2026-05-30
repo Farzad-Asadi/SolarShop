@@ -10,7 +10,7 @@ package com.example.solarShop.data.backupRestore.v2
  */
 
 import android.content.Context
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

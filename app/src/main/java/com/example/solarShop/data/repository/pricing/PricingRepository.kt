@@ -3,7 +3,7 @@ package com.example.solarShop.data.repository.pricing
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
-import com.example.solarShop.data.room.tables.product.ProductSalePriceResult
+import com.example.solarShop.domain.product.ProductSalePriceResult
 import kotlinx.coroutines.flow.Flow
 
 interface PricingRepository {

@@ -1,7 +1,7 @@
 package com.example.solarShop.data.room.tables.question_answers.answer
 
 import androidx.room.withTransaction
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.question_answers.question.AnswerWithNextQuestions
 import com.example.solarShop.data.room.tables.question_answers.question.QuestionEntity
 import kotlinx.coroutines.flow.Flow

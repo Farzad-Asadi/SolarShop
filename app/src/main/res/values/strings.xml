@@ -29,7 +29,7 @@
     <string name="currency_unit_toman">Toman</string>
     <string name="currency_unit_rial">Rial</string>
     <string name="profile_quick_access_title">Quick access</string>
-    <string name="profile_quick_access_questions">Choices list</string>
+    <string name="profile_quick_access_questions">product list</string>
     <string name="profile_quick_access_edit_contract">Edit contract</string>
     <string name="profile_quick_access_user_data">User data</string>
     <string name="profile_quick_access_backup_restore">Backup / Restore</string>

@@ -115,5 +115,24 @@ interface ProductDao{
         sortOrder: Int
     )
 
+    @Query("""
+    SELECT * FROM product_categories
+    WHERE id = :categoryId
+    LIMIT 1
+""")
+    suspend fun getCategoryById(
+        categoryId: Int
+    ): ProductCategoryEntity?
+
+    @Transaction
+    @Query("""
+    SELECT * FROM products
+    WHERE categoryId = :categoryId
+    AND isArchived = 0
+    ORDER BY name ASC
+""")
+    fun observeProductsByCategoryFullInfo(
+        categoryId: Int
+    ): Flow<List<ProductFullInfo>>
 
 }

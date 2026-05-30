@@ -1,4 +1,4 @@
-package com.example.solarShop.data.room.appDatabase
+package com.example.solarShop.data.local.converter
 
 import androidx.room.TypeConverter
 import com.example.solarShop.InventoryTransactionType

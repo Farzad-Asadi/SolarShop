@@ -1,8 +1,11 @@
-package com.example.solarShop.data.room.appDatabase
+package com.example.solarShop.data.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.solarShop.data.local.converter.EstimateConverters
+import com.example.solarShop.data.local.converter.GeneralTypeConverters
+import com.example.solarShop.data.local.converter.InvoiceTypeConverters
 import com.example.solarShop.data.local.dao.attribute.AttributeDao
 import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao

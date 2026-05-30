@@ -1,4 +1,4 @@
-package com.example.solarShop.ui.bamboApp
+package com.example.solarShop.ui.solarShopNav
 
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class BamboAppViewModel @Inject constructor(
+class SolarShopNavViewModel @Inject constructor(
     private val userRepo: UserRepository,
     private val appInfoRepo: AppInfoRepository,
     private val session: SessionDataStore,
@@ -63,9 +63,9 @@ class BamboAppViewModel @Inject constructor(
 
 
     // --- 5) UiState نهایی ---
-    val uiState: StateFlow<BamboAppUiState> =
+    val uiState: StateFlow<SolarShopNavUiState> =
         combine(currentUserFlow, appInfoFlow) { currentUser, appInfo ->
-            BamboAppUiState(
+            SolarShopNavUiState(
                 currentUserEntity = currentUser,
                 appInfoEntity = appInfo,
                 isDataLoaded = true
@@ -74,7 +74,7 @@ class BamboAppViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             // initialValue فوری از SharedPreferences تا صفحه سفید نشود
-            initialValue = BamboAppUiState()
+            initialValue = SolarShopNavUiState()
         )
 
 
@@ -88,7 +88,7 @@ class BamboAppViewModel @Inject constructor(
 
 /* ---------------- UiState ---------------- */
 
-data class BamboAppUiState(
+data class SolarShopNavUiState(
     val currentUserEntity: UserEntity? = null,
     val appInfoEntity: AppInfoEntity? = null,
     val isDataLoaded: Boolean = false

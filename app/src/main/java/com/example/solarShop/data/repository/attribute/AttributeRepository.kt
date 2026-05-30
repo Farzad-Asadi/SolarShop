@@ -30,4 +30,9 @@ interface AttributeRepository {
         productId: Int,
         attributeDefinitionId: Int
     )
+
+
+
+
+
 }

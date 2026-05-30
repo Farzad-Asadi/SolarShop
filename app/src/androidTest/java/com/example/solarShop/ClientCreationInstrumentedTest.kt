@@ -3,7 +3,7 @@ package com.example.solarShop
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.user.UserEntity
 import kotlinx.coroutines.flow.first

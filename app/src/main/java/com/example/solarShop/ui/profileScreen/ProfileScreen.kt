@@ -65,7 +65,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.RequestQuote
-import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -75,6 +74,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Diamond
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Money
@@ -186,10 +186,10 @@ val verticalPadding = 8.dp
 fun ProfileScreen(                               //صفحه پروفایل
     onClickAddOrder: (Int) -> Unit,
     onClickOrder: (Int) -> Unit,
-    onClickQuestionEdite: () -> Unit,
     onSignedOut: () -> Unit,
     onShowEditeContract: () -> Unit,
     onClickBackUpRestore: () -> Unit,
+    onClickProductList: () -> Unit,
     modifier: Modifier = Modifier,
     vm: ProfileViewModel = hiltViewModel()
 ) {
@@ -299,7 +299,7 @@ fun ProfileScreen(                               //صفحه پروفایل
                                 item {
                                     QuickAccessRow(
                                         modifier = Modifier,
-                                        onClickQuestionEdit = { onClickQuestionEdite() },
+                                        onClickProductList = { onClickProductList() },
                                         onClickEditContract = onShowEditeContract,
                                         onClickBackup = onClickBackUpRestore,
                                         //                                    onClickBackup = { vm.onExportClicked() },
@@ -1841,7 +1841,7 @@ private fun EditePremiumTopBar(
 @Composable
 fun QuickAccessRow(
     modifier: Modifier = Modifier,
-    onClickQuestionEdit: () -> Unit,
+    onClickProductList: () -> Unit,
     onClickEditContract: () -> Unit,
     onClickBackup: () -> Unit,
     onClickUserData: () -> Unit,
@@ -1870,9 +1870,9 @@ fun QuickAccessRow(
         ) {
             item {
                 QuickTile(
-                    icon = Icons.Outlined.AccountTree,
+                    icon = Icons.Outlined.Inventory2,
                     label = stringResource(R.string.profile_quick_access_questions),
-                    onClick = onClickQuestionEdit
+                    onClick = onClickProductList
                 )
             }
             item {

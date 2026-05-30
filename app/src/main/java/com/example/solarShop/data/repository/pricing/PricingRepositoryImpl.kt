@@ -5,8 +5,8 @@ import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
-import com.example.solarShop.data.room.tables.product.ProductPriceCalculator
-import com.example.solarShop.data.room.tables.product.ProductSalePriceResult
+import com.example.solarShop.domain.product.ProductPriceCalculator
+import com.example.solarShop.domain.product.ProductSalePriceResult
 import javax.inject.Inject
 
 class PricingRepositoryImpl @Inject constructor(

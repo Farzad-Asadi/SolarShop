@@ -1,6 +1,6 @@
 package com.example.solarShop.data.seeder
 
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.orderAll.orderCost.ExpenseCategoryEntity
 import javax.inject.Inject
 

@@ -5,7 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.WorkerThread
 import androidx.room.withTransaction
-import com.example.solarShop.data.room.appDatabase.AppDatabase
+import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.contract.ContractTemplateEntity
 import com.example.solarShop.data.room.tables.contract.ContractTemplateNoteEntity
 import com.example.solarShop.data.room.tables.contract.ContractTemplatePartyEntity
