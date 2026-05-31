@@ -38,4 +38,10 @@ interface ProductRepository {
     fun observeProductsByCategoryFullInfo(
         categoryId: Int
     ): Flow<List<ProductFullInfo>>
+
+    fun observeProductFullInfo(
+        productId: Int
+    ): Flow<ProductFullInfo?>
+
+
 }

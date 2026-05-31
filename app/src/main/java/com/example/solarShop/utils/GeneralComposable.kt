@@ -356,15 +356,19 @@ fun MyCurrencyField(
         )
     }
 
-    // اگر واحد نمایش عوض شد (تومان ↔ ریال)، از روی value دوباره بساز
-    LaunchedEffect(toman) {
+    LaunchedEffect(value, toman) {
         val digits = canonicalToDisplayDigits(value, toman)
         val formatted = if (digits.isEmpty()) "" else formatDigitsGrouped(digits)
-        textFieldValue = TextFieldValue(
-            text = formatted,
-            selection = TextRange(formatted.length)
-        )
+
+        if (formatted != textFieldValue.text) {
+            textFieldValue = TextFieldValue(
+                text = formatted,
+                selection = TextRange(formatted.length)
+            )
+        }
     }
+
+
 
     val suffix = if (toman) " (تومان)" else " (ریال)"
     val finalLabel = label + suffix

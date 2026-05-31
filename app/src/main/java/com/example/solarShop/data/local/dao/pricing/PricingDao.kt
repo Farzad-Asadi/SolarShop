@@ -110,4 +110,12 @@ interface PricingDao{
     """)
     fun observePurchasePriceHistory(productId: Int): Flow<List<ProductPurchasePriceEntity>>
 
+
+
+
+
+
+
+
+
 }

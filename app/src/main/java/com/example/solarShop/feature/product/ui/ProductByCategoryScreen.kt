@@ -42,6 +42,7 @@ fun ProductByCategoryScreen(
     onBack: () -> Unit,
     onOpenCategoryAttributes: (Int) -> Unit,
     onAddProduct: (Int) -> Unit,
+    onProductClick: (Int) -> Unit,
     viewModel: ProductByCategoryViewModel = hiltViewModel(),
 ) {
 
@@ -123,6 +124,9 @@ fun ProductByCategoryScreen(
             ) {
                 items(uiState.products) { item ->
                     ElevatedCard(
+                        onClick = {
+                            item.product.id?.let { onProductClick(it) }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)

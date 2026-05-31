@@ -135,4 +135,14 @@ interface ProductDao{
         categoryId: Int
     ): Flow<List<ProductFullInfo>>
 
+    @Transaction
+    @Query("""
+    SELECT * FROM products
+    WHERE id = :productId
+    LIMIT 1
+""")
+    fun observeProductFullInfo(
+        productId: Int
+    ): Flow<ProductFullInfo?>
+
 }

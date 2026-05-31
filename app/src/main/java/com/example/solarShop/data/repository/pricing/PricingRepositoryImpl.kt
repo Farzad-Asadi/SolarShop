@@ -62,4 +62,22 @@ class PricingRepositoryImpl @Inject constructor(
             fixedProfitToman = profitRule?.fixedProfitToman ?: 0L
         )
     }
+
+    override suspend fun setNewPurchasePrice(
+        price: ProductPurchasePriceEntity
+    ) {
+        pricingDao.setNewActivePurchasePrice(price)
+    }
+
+    override suspend fun getLatestCurrencyRate(
+        currencyCode: String
+    ): CurrencyRateEntity? {
+        return pricingDao.getLatestCurrencyRate(currencyCode)
+    }
+
+    override suspend fun getActivePurchasePrice(
+        productId: Int
+    ): ProductPurchasePriceEntity? {
+        return pricingDao.getActivePurchasePrice(productId)
+    }
 }

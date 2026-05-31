@@ -31,4 +31,19 @@ interface PricingRepository {
     suspend fun calculateSalePrice(
         productId: Int
     ): ProductSalePriceResult?
+
+    suspend fun setNewPurchasePrice(
+        price: ProductPurchasePriceEntity
+    )
+
+    suspend fun getLatestCurrencyRate(
+        currencyCode: String = "USD"
+    ): CurrencyRateEntity?
+
+    suspend fun getActivePurchasePrice(
+        productId: Int
+    ): ProductPurchasePriceEntity?
+
+
+
 }

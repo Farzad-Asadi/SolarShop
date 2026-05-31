@@ -4,6 +4,7 @@ import com.example.solarShop.data.local.relation.product.ProductAttributeDisplay
 
 data class ProductEditUiState(
 
+    val productId: Int? = null,
     val categoryId: Int? = null,
 
     val name: String = "",

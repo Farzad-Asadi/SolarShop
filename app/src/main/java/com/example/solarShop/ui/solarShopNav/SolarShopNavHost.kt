@@ -16,6 +16,9 @@ import com.example.solarShop.feature.product.ui.ProductListScreen
 import com.example.solarShop.feature.product.ui.category.AttributeEditScreen
 import com.example.solarShop.feature.product.ui.category.CategoryAttributesScreen
 import com.example.solarShop.feature.product.ui.category.CategoryEditScreen
+import com.example.solarShop.feature.product.ui.inventory.InventoryTransactionEditScreen
+import com.example.solarShop.feature.product.ui.pricing.PurchasePriceEditScreen
+import com.example.solarShop.feature.product.ui.product.ProductDetailScreen
 import com.example.solarShop.feature.product.ui.product.ProductEditScreen
 import com.example.solarShop.ui.backUpRestore.BackUpRestoreScreen
 import com.example.solarShop.ui.contractScreen.ContractScreen
@@ -397,6 +400,9 @@ fun SolarShopNavHost(
                 },
                 onAddProduct = { categoryId ->
                     nav.navigate(SolarRoute.ProductEdit.name + "/$categoryId?productId=-1")
+                },
+                onProductClick = { productId ->
+                    nav.navigate(SolarRoute.ProductDetail.name + "/$productId")
                 }
             )
         }
@@ -447,6 +453,60 @@ fun SolarShopNavHost(
             )
         }
 
+        composable(
+            route = SolarRoute.ProductDetail.name + "/{productId}",
+            arguments = listOf(
+                navArgument("productId") {
+                    type = NavType.IntType
+                }
+            )
+        ) {
+            ProductDetailScreen(
+                onBack = { nav.navigateUp() },
+
+                onEditPurchasePrice = { productId ->
+                    nav.navigate(
+                        SolarRoute.PurchasePriceEdit.name + "/$productId"
+                    )
+                },
+
+                onEditProduct = { productId ->
+                    nav.navigate(
+                        SolarRoute.ProductEdit.name + "/-1?productId=$productId"
+                    )
+                },
+                onAddInventoryTransaction = { productId ->
+                    nav.navigate(SolarRoute.InventoryTransactionEdit.name + "/$productId")
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.PurchasePriceEdit.name + "/{productId}",
+            arguments = listOf(
+                navArgument("productId") {
+                    type = NavType.IntType
+                }
+            )
+        ) {
+            PurchasePriceEditScreen(
+                onClose = {
+                    nav.navigateUp()
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.InventoryTransactionEdit.name + "/{productId}",
+            arguments = listOf(
+                navArgument("productId") { type = NavType.IntType }
+            )
+        ) {
+            InventoryTransactionEditScreen(
+                onClose = { nav.navigateUp() }
+            )
+        }
+
     }
 
 }
@@ -468,6 +528,9 @@ enum class SolarRoute {
     CategoryAttributes,
     AttributeEdit,
     ProductEdit,
+    ProductDetail,
+    PurchasePriceEdit,
+    InventoryTransactionEdit,
 
 
 

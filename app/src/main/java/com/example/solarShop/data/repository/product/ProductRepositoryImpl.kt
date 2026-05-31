@@ -59,4 +59,8 @@ class ProductRepositoryImpl @Inject constructor(
     override fun observeProductsByCategoryFullInfo(
         categoryId: Int
     ) = productDao.observeProductsByCategoryFullInfo(categoryId)
+
+    override fun observeProductFullInfo(
+        productId: Int
+    ) = productDao.observeProductFullInfo(productId)
 }

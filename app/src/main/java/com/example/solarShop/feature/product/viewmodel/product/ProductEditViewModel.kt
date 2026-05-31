@@ -10,7 +10,9 @@ import com.example.solarShop.data.repository.product.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,6 +25,12 @@ class ProductEditViewModel @Inject constructor(
     private val productRepository: ProductRepository
 ) : ViewModel() {
 
+    private val productId: Int =
+        checkNotNull(savedStateHandle["productId"])
+
+    private val isEditMode: Boolean =
+        productId != -1
+
     private val categoryId =
         checkNotNull(
             savedStateHandle.get<Int>("categoryId")
@@ -30,25 +38,62 @@ class ProductEditViewModel @Inject constructor(
 
     private val formState = MutableStateFlow(
         ProductEditUiState(
-            categoryId = categoryId
+            productId = if (isEditMode) productId else null,
+            categoryId = categoryId.takeIf { it != -1 }
         )
     )
 
-    val uiState = combine(
-        formState,
-        attributeRepository.observeProductAttributeDisplayInfo(
-            productId = -1,
-            categoryId = categoryId
+    val uiState = formState
+        .flatMapLatest { form ->
+            val realCategoryId = form.categoryId
+
+            if (realCategoryId == null) {
+                flowOf(form)
+            } else {
+                attributeRepository.observeProductAttributeDisplayInfo(
+                    productId = form.productId ?: -1,
+                    categoryId = realCategoryId
+                ).map { attributes ->
+                    form.copy(
+                        attributes = attributes,
+                        attributeValues = attributes.associate {
+                            it.attributeDefinitionId to (
+                                    form.attributeValues[it.attributeDefinitionId]
+                                        ?: it.valueText.orEmpty()
+                                    )
+                        }
+                    )
+                }
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ProductEditUiState(
+                productId = if (isEditMode) productId else null,
+                categoryId = categoryId.takeIf { it != -1 }
+            )
         )
-    ) { form, attributes ->
-        form.copy(
-            attributes = attributes
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ProductEditUiState(categoryId = categoryId)
-    )
+
+    init {
+        if (isEditMode) {
+            viewModelScope.launch {
+                val productFullInfo = productRepository.getProductFullInfo(productId)
+                    ?: return@launch
+
+                val product = productFullInfo.product
+
+                formState.update {
+                    it.copy(
+                        productId = product.id,
+                        categoryId = product.categoryId,
+                        name = product.name,
+                        model = product.model
+                    )
+                }
+            }
+        }
+    }
 
     fun onNameChange(value: String) {
         formState.update { it.copy(name = value) }
@@ -80,8 +125,9 @@ class ProductEditViewModel @Inject constructor(
         viewModelScope.launch {
             formState.update { it.copy(isSaving = true) }
 
-            val productId = productRepository.upsertProduct(
+            val savedProductId = productRepository.upsertProduct(
                 ProductEntity(
+                    id = state.productId,
                     categoryId = state.categoryId,
                     name = state.name.trim(),
                     model = state.model.trim()
@@ -92,7 +138,7 @@ class ProductEditViewModel @Inject constructor(
                 if (value.isNotBlank()) {
                     attributeRepository.upsertAttributeValue(
                         ProductAttributeValueEntity(
-                            productId = productId,
+                            productId = savedProductId,
                             attributeDefinitionId = attributeDefinitionId,
                             valueText = value.trim()
                         )
