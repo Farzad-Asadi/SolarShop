@@ -19,6 +19,8 @@ data class ProductCategoryEntity(
     val sortOrder: Int = 0,
     val isActive: Boolean = true,
 
+    val imageFileName: String? = null,
+
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

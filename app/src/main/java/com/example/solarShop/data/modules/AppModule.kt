@@ -27,6 +27,7 @@ import com.example.solarShop.data.local.dao.attribute.AttributeDao
 import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.dao.product.ProductImageDao
 import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.attribute.AttributeRepositoryImpl
@@ -36,6 +37,8 @@ import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.pricing.PricingRepositoryImpl
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.product.ProductRepositoryImpl
+import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.data.repository.productImage.ProductImageRepositoryImpl
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
 import com.example.solarShop.data.room.tables.appInfo.OfflineAppInfoRepository
@@ -274,18 +277,14 @@ object AppModule {
     @Provides fun provideInvoiceDocumentDao(db: AppDatabase) = db.invoiceDocumentDao()
     @Provides fun provideOrderAnswerSelectedPhotoDao(db: AppDatabase) = db.orderAnswerSelectedPhotoDao()
 
-    @Provides
-    fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
-    @Provides
-    fun providePricingDao(db: AppDatabase): PricingDao = db.pricingDao()
-    @Provides
-    fun provideInventoryDao(
-        db: AppDatabase
-    ): InventoryDao = db.inventoryDao()
-    @Provides
-    fun provideAttributeDao(
-        db: AppDatabase
-    ): AttributeDao = db.attributeDao()
+    @Provides fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
+    @Provides fun providePricingDao(db: AppDatabase): PricingDao = db.pricingDao()
+    @Provides fun provideInventoryDao(db: AppDatabase): InventoryDao = db.inventoryDao()
+    @Provides fun provideAttributeDao(db: AppDatabase): AttributeDao = db.attributeDao()
+    @Provides fun provideProductImageDao(db: AppDatabase): ProductImageDao = db.productImageDao()
+
+
+
 
     // --------- Repositories ---------
 
@@ -428,6 +427,14 @@ object AppModule {
     fun provideAttributeRepository(
         attributeDao: AttributeDao
     ): AttributeRepository = AttributeRepositoryImpl(attributeDao)
+
+
+    @Provides
+    @Singleton
+    fun provideProductImageRepository(
+        productImageDao: ProductImageDao,
+        imageRepository: ImageRepository
+    ): ProductImageRepository = ProductImageRepositoryImpl(productImageDao , imageRepository)
 
 
 //    @Provides

@@ -361,6 +361,9 @@ fun SolarShopNavHost(
                     nav.navigate(
                         SolarRoute.ProductByCategory.name + "/$categoryId"
                     )
+                },
+                onEditCategoryClick = { categoryId ->
+                    nav.navigate(SolarRoute.CategoryEdit.name + "?categoryId=$categoryId")
                 }
             )
         }
@@ -477,7 +480,8 @@ fun SolarShopNavHost(
                 },
                 onAddInventoryTransaction = { productId ->
                     nav.navigate(SolarRoute.InventoryTransactionEdit.name + "/$productId")
-                }
+                },
+                onAddImageClick = {}
             )
         }
 

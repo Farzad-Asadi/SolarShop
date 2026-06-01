@@ -6,5 +6,7 @@ data class CategoryEditUiState(
     val name: String = "",
     val description: String = "",
 
+    val imageFileName: String? = null,
+
     val isSaving: Boolean = false
 )

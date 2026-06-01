@@ -1,28 +1,34 @@
 package com.example.solarShop.data.local.entity.product
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 @Entity(
     tableName = "product_images",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProductEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["productId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
-        Index("productId"),
-        Index(value = ["productId", "sortOrder"])
+        Index("productId")
     ]
 )
 data class ProductImageEntity(
+
     @PrimaryKey(autoGenerate = true)
     val id: Int? = null,
-    val uid: String = UUID.randomUUID().toString(),
 
     val productId: Int,
 
-    val relativePath: String,
-    val thumbnailRelativePath: String? = null,
+    val fileName: String,
 
-    val sortOrder: Int = 0,
+    val createdAt: Long,
 
-    val createdAt: Long = System.currentTimeMillis()
+    val sortOrder: Int
 )

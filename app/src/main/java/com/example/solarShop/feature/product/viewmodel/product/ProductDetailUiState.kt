@@ -1,5 +1,6 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.data.local.relation.product.ProductFullInfo
@@ -16,5 +17,9 @@ data class ProductDetailUiState(
 
     val salePriceResult: ProductSalePriceResult? = null,
 
-    val currentStock: Double = 0.0
+    val currentStock: Double = 0.0,
+
+    val inventoryTransactions: List<InventoryTransactionEntity> = emptyList(),
+
+    val images: List<ProductImageUi> = emptyList()
 )

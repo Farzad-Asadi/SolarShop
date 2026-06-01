@@ -1,6 +1,6 @@
 package com.example.solarShop.feature.product.viewmodel
 
-import com.example.solarShop.data.local.relation.product.ProductFullInfo
+import com.example.solarShop.feature.product.viewmodel.product.ProductGridItemUi
 
 data class ProductByCategoryUiState(
     val isLoading: Boolean = true,
@@ -8,5 +8,5 @@ data class ProductByCategoryUiState(
     val categoryId: Int? = null,
     val categoryName: String = "",
 
-    val products: List<ProductFullInfo> = emptyList()
+    val products: List<ProductGridItemUi> = emptyList()
 )

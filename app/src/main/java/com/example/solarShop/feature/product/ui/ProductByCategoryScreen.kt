@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -32,8 +33,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.solarShop.feature.product.viewmodel.ProductByCategoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,7 +129,7 @@ fun ProductByCategoryScreen(
                 items(uiState.products) { item ->
                     ElevatedCard(
                         onClick = {
-                            item.product.id?.let { onProductClick(it) }
+                            item.productFullInfo.product.id?.let { onProductClick(it) }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -140,27 +144,37 @@ fun ProductByCategoryScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Inventory2,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                                )
+                                if (item.coverUri != null) {
+                                    AsyncImage(
+                                        model = item.coverUri,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.matchParentSize()
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Inventory2,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                    )
+                                }
                             }
 
                             Column {
                                 Text(
-                                    text = item.product.name,
+                                    text = item.productFullInfo.product.name,
                                     style = MaterialTheme.typography.titleMedium,
                                     maxLines = 2
                                 )
 
-                                if (item.product.model.isNotBlank()) {
+                                if (item.productFullInfo.product.model.isNotBlank()) {
                                     Text(
-                                        text = item.product.model,
+                                        text = item.productFullInfo.product.model,
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1
                                     )

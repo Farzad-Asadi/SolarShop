@@ -10,6 +10,7 @@ import com.example.solarShop.data.local.dao.attribute.AttributeDao
 import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
+import com.example.solarShop.data.local.dao.product.ProductImageDao
 import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
@@ -198,5 +199,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attributeDao(): AttributeDao
     abstract fun pricingDao(): PricingDao
     abstract fun inventoryDao(): InventoryDao
+    abstract fun productImageDao(): ProductImageDao
 
 }

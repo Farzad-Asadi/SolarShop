@@ -27,19 +27,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.solarShop.feature.product.ui.component.CategoryCard
 import com.example.solarShop.feature.product.viewmodel.ProductListViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
     viewModel: ProductListViewModel = hiltViewModel(),
     onAddCategoryClick: () -> Unit = {},
-    onCategoryClick: (Int) -> Unit = {}
+    onCategoryClick: (Int) -> Unit = {},
+    onEditCategoryClick: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+
 
     Scaffold(
         topBar = {
@@ -102,10 +108,26 @@ fun ProductListScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.categories) { category ->
+
+                    val context = LocalContext.current
+
+                    val imageUri = category.imageFileName?.let { fileName ->
+                        val file = File(File(context.filesDir, "images"), fileName)
+                        FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            file
+                        )
+                    }
+
                     CategoryCard(
                         name = category.name,
+                        imageUri = imageUri,
                         onClick = {
                             category.id?.let { onCategoryClick(it) }
+                        },
+                        onLongClick = {
+                            category.id?.let { onEditCategoryClick(it) }
                         }
                     )
                 }
