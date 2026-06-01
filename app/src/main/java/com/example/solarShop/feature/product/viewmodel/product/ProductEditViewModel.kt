@@ -8,10 +8,11 @@ import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -43,17 +44,25 @@ class ProductEditViewModel @Inject constructor(
         )
     )
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val uiState = formState
         .flatMapLatest { form ->
             val realCategoryId = form.categoryId
 
             if (realCategoryId == null) {
-                flowOf(form)
+                productRepository.observeActiveBrands()
+                    .map { brands ->
+                        form.copy(brands = brands)
+                    }
             } else {
-                attributeRepository.observeProductAttributeDisplayInfo(
-                    productId = form.productId ?: -1,
-                    categoryId = realCategoryId
-                ).map { attributes ->
+                combine(
+                    attributeRepository.observeProductAttributeDisplayInfo(
+                        productId = form.productId ?: -1,
+                        categoryId = realCategoryId
+                    ),
+                    productRepository.observeActiveBrands()
+                ) { attributes, brands ->
+
                     form.copy(
                         attributes = attributes,
                         attributeValues = attributes.associate {
@@ -61,7 +70,8 @@ class ProductEditViewModel @Inject constructor(
                                     form.attributeValues[it.attributeDefinitionId]
                                         ?: it.valueText.orEmpty()
                                     )
-                        }
+                        },
+                        brands = brands
                     )
                 }
             }
@@ -88,7 +98,8 @@ class ProductEditViewModel @Inject constructor(
                         productId = product.id,
                         categoryId = product.categoryId,
                         name = product.name,
-                        model = product.model
+                        model = product.model,
+                        brandId = product.brandId,
                     )
                 }
             }
@@ -130,7 +141,8 @@ class ProductEditViewModel @Inject constructor(
                     id = state.productId,
                     categoryId = state.categoryId,
                     name = state.name.trim(),
-                    model = state.model.trim()
+                    model = state.model.trim(),
+                    brandId = state.brandId,
                 )
             ).toInt()
 
@@ -148,6 +160,12 @@ class ProductEditViewModel @Inject constructor(
 
             formState.update { it.copy(isSaving = false) }
             onSuccess()
+        }
+    }
+
+    fun onBrandChange(value: Int?) {
+        formState.update {
+            it.copy(brandId = value)
         }
     }
 }

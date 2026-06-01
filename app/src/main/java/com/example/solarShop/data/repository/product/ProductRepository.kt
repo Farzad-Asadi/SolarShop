@@ -44,4 +44,5 @@ interface ProductRepository {
     ): Flow<ProductFullInfo?>
 
 
+    suspend fun getBrandById(brandId: Int): ProductBrandEntity?
 }

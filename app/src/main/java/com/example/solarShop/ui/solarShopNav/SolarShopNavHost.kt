@@ -13,6 +13,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.solarShop.feature.product.ui.ProductByCategoryScreen
 import com.example.solarShop.feature.product.ui.ProductListScreen
+import com.example.solarShop.feature.product.ui.brand.BrandEditScreen
+import com.example.solarShop.feature.product.ui.brand.BrandListScreen
 import com.example.solarShop.feature.product.ui.category.AttributeEditScreen
 import com.example.solarShop.feature.product.ui.category.CategoryAttributesScreen
 import com.example.solarShop.feature.product.ui.category.CategoryEditScreen
@@ -364,6 +366,11 @@ fun SolarShopNavHost(
                 },
                 onEditCategoryClick = { categoryId ->
                     nav.navigate(SolarRoute.CategoryEdit.name + "?categoryId=$categoryId")
+                },
+                onOpenBrands = {
+                    nav.navigate(
+                        SolarRoute.BrandList.name
+                    )
                 }
             )
         }
@@ -511,6 +518,32 @@ fun SolarShopNavHost(
             )
         }
 
+        composable(SolarRoute.BrandList.name) {
+            BrandListScreen(
+                onBack = { nav.navigateUp() },
+                onAddBrand = {
+                    nav.navigate(SolarRoute.BrandEdit.name + "?brandId=-1")
+                },
+                onEditBrand = { brandId ->
+                    nav.navigate(SolarRoute.BrandEdit.name + "?brandId=$brandId")
+                }
+            )
+        }
+
+        composable(
+            route = SolarRoute.BrandEdit.name + "?brandId={brandId}",
+            arguments = listOf(
+                navArgument("brandId") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) {
+            BrandEditScreen(
+                onClose = { nav.navigateUp() }
+            )
+        }
+
     }
 
 }
@@ -535,6 +568,8 @@ enum class SolarRoute {
     ProductDetail,
     PurchasePriceEdit,
     InventoryTransactionEdit,
+    BrandList,
+    BrandEdit,
 
 
 

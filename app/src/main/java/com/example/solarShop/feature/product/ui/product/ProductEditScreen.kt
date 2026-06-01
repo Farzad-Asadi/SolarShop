@@ -10,8 +10,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +25,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,6 +40,8 @@ fun ProductEditScreen(
     viewModel: ProductEditViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    var brandMenuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -77,7 +85,62 @@ fun ProductEditScreen(
             }
 
             item {
-                Divider()
+                val selectedBrandName =
+                    uiState.brands
+                        .firstOrNull { it.id == uiState.brandId }
+                        ?.name
+                        ?: "انتخاب نشده"
+
+                ExposedDropdownMenuBox(
+                    expanded = brandMenuExpanded,
+                    onExpandedChange = {
+                        brandMenuExpanded = !brandMenuExpanded
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = selectedBrandName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("برند") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = brandMenuExpanded
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = brandMenuExpanded,
+                        onDismissRequest = {
+                            brandMenuExpanded = false
+                        }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("بدون برند") },
+                            onClick = {
+                                viewModel.onBrandChange(null)
+                                brandMenuExpanded = false
+                            }
+                        )
+
+                        uiState.brands.forEach { brand ->
+                            DropdownMenuItem(
+                                text = { Text(brand.name) },
+                                onClick = {
+                                    viewModel.onBrandChange(brand.id)
+                                    brandMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                HorizontalDivider()
                 Text(
                     text = "مشخصات فنی",
                     style = MaterialTheme.typography.titleMedium

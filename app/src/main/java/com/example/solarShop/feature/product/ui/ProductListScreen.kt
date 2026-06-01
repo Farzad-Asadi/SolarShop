@@ -10,12 +10,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -41,16 +43,52 @@ fun ProductListScreen(
     viewModel: ProductListViewModel = hiltViewModel(),
     onAddCategoryClick: () -> Unit = {},
     onCategoryClick: (Int) -> Unit = {},
-    onEditCategoryClick: (Int) -> Unit = {}
+    onEditCategoryClick: (Int) -> Unit = {},
+    onOpenBrands: () -> Unit,
+
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    var showMenu by remember { mutableStateOf(false) }
 
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("دسته‌بندی کالاها") }
+                title = {
+                    Text("دسته بندی کالاها")
+                },
+                actions = {
+
+                    IconButton(
+                        onClick = {
+                            showMenu = true
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = null
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = {
+                            showMenu = false
+                        }
+                    ) {
+
+                        DropdownMenuItem(
+                            text = {
+                                Text("مدیریت برندها")
+                            },
+                            onClick = {
+                                showMenu = false
+                                onOpenBrands()
+                            }
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {

@@ -166,11 +166,21 @@ fun ProductByCategoryScreen(
                             }
 
                             Column {
+
+                                val brandName = item.productFullInfo.brand?.name
                                 Text(
                                     text = item.productFullInfo.product.name,
                                     style = MaterialTheme.typography.titleMedium,
                                     maxLines = 2
                                 )
+
+                                if (!brandName.isNullOrBlank()) {
+                                    Text(
+                                        text = brandName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1
+                                    )
+                                }
 
                                 if (item.productFullInfo.product.model.isNotBlank()) {
                                     Text(

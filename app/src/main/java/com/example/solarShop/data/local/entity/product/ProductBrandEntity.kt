@@ -18,6 +18,8 @@ data class ProductBrandEntity(
     val description: String = "",
     val isActive: Boolean = true,
 
+    val imageFileName: String? = null,
+
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

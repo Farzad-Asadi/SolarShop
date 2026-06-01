@@ -1,5 +1,6 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 
 data class ProductEditUiState(
@@ -9,6 +10,9 @@ data class ProductEditUiState(
 
     val name: String = "",
     val model: String = "",
+
+    val brandId: Int? = null,
+    val brands: List<ProductBrandEntity> = emptyList(),
 
     val attributes: List<ProductAttributeDisplayInfo> = emptyList(),
 

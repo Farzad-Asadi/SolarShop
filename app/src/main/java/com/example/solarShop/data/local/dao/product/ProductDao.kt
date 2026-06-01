@@ -145,4 +145,14 @@ interface ProductDao{
         productId: Int
     ): Flow<ProductFullInfo?>
 
+
+
+    @Query("""
+    SELECT * FROM product_brands
+    WHERE id = :brandId
+    LIMIT 1
+""")
+    suspend fun getBrandById(
+        brandId: Int
+    ): ProductBrandEntity?
 }
