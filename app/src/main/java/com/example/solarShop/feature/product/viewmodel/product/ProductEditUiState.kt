@@ -18,5 +18,15 @@ data class ProductEditUiState(
 
     val attributeValues: Map<Int, String> = emptyMap(),
 
+    val coverImageFileName: String? = null,
+
+    val buyPriceDollar: String = "",
+    val buyPriceToman: Long? = null,
+    val dollarRateToman: Long? = null,
+    val priceNote: String = "",
+
+    val initialQuantity: String = "",
+    val inventoryNote: String = "",
+
     val isSaving: Boolean = false
 )

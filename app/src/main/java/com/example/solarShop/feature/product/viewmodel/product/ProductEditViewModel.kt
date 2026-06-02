@@ -4,9 +4,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.repository.attribute.AttributeRepository
+import com.example.solarShop.data.repository.inventory.InventoryRepository
+import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
+import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +27,10 @@ import javax.inject.Inject
 class ProductEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val attributeRepository: AttributeRepository,
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val pricingRepository: PricingRepository,
+    private val inventoryRepository: InventoryRepository,
+    private val productImageRepository: ProductImageRepository
 ) : ViewModel() {
 
     private val productId: Int =
@@ -104,6 +111,15 @@ class ProductEditViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            val latestRate = pricingRepository.getLatestCurrencyRate("USD")
+
+            formState.update {
+                it.copy(
+                    dollarRateToman = latestRate?.rateToman
+                )
+            }
+        }
     }
 
     fun onNameChange(value: String) {
@@ -145,6 +161,29 @@ class ProductEditViewModel @Inject constructor(
                     brandId = state.brandId,
                 )
             ).toInt()
+            if (!isEditMode && state.buyPriceToman != null) {
+                pricingRepository.setNewPurchasePrice(
+                    ProductPurchasePriceEntity(
+                        productId = savedProductId,
+                        buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
+                        buyPriceToman = state.buyPriceToman,
+                        dollarRateToman = state.dollarRateToman,
+                        note = state.priceNote.trim()
+                    )
+                )
+            }
+
+            val initialQuantity = state.initialQuantity.toDoubleOrNull()
+
+            if (!isEditMode && initialQuantity != null && initialQuantity > 0.0) {
+                inventoryRepository.purchase(
+                    productId = savedProductId,
+                    quantity = initialQuantity,
+                    note = state.inventoryNote.trim().ifBlank {
+                        "موجودی اولیه"
+                    }
+                )
+            }
 
             state.attributeValues.forEach { (attributeDefinitionId, value) ->
                 if (value.isNotBlank()) {
@@ -166,6 +205,86 @@ class ProductEditViewModel @Inject constructor(
     fun onBrandChange(value: Int?) {
         formState.update {
             it.copy(brandId = value)
+        }
+    }
+
+    fun onBuyPriceDollarChange(value: String) {
+        val cleanValue = value.filter { it.isDigit() || it == '.' }
+        val dollar = cleanValue.toDoubleOrNull()
+        val rate = formState.value.dollarRateToman
+
+        formState.update {
+            it.copy(
+                buyPriceDollar = cleanValue,
+                buyPriceToman =
+                if (cleanValue.isBlank()) null
+                else if (dollar != null && rate != null) (dollar * rate).toLong()
+                else it.buyPriceToman
+            )
+        }
+    }
+
+    fun onBuyPriceTomanChange(value: Long?) {
+        val rate = formState.value.dollarRateToman
+
+        formState.update {
+            it.copy(
+                buyPriceToman = value,
+                buyPriceDollar =
+                if (value == null) ""
+                else if (rate != null && rate > 0)
+                    java.lang.String.format(
+                        java.util.Locale.US,
+                        "%.2f",
+                        value.toDouble() / rate.toDouble()
+                    )
+                else it.buyPriceDollar
+            )
+        }
+    }
+
+    fun onDollarRateChange(value: Long?) {
+        val state = formState.value
+        val dollar = state.buyPriceDollar.toDoubleOrNull()
+
+        formState.update {
+            it.copy(
+                dollarRateToman = value,
+                buyPriceToman =
+                if (state.buyPriceDollar.isBlank()) it.buyPriceToman
+                else if (dollar != null && value != null) (dollar * value).toLong()
+                else it.buyPriceToman
+            )
+        }
+    }
+
+    fun onPriceNoteChange(value: String) {
+        formState.update {
+            it.copy(priceNote = value)
+        }
+    }
+
+    fun onInitialQuantityChange(value: String) {
+        val filtered = value.filter { it.isDigit() || it == '.' }
+
+        formState.update {
+            it.copy(initialQuantity = filtered)
+        }
+    }
+
+    fun onInventoryNoteChange(value: String) {
+        formState.update {
+            it.copy(inventoryNote = value)
+        }
+    }
+
+    fun onCoverImageSelected(
+        fileName: String
+    ) {
+        formState.update {
+            it.copy(
+                coverImageFileName = fileName
+            )
         }
     }
 }
