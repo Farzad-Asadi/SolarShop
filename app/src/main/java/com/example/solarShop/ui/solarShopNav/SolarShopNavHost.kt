@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.solarShop.feature.backup.ui.SolarBackupRestoreScreen
 import com.example.solarShop.feature.product.ui.ProductByCategoryScreen
 import com.example.solarShop.feature.product.ui.ProductListScreen
 import com.example.solarShop.feature.product.ui.brand.BrandEditScreen
@@ -22,7 +23,6 @@ import com.example.solarShop.feature.product.ui.inventory.InventoryTransactionEd
 import com.example.solarShop.feature.product.ui.pricing.PurchasePriceEditScreen
 import com.example.solarShop.feature.product.ui.product.ProductDetailScreen
 import com.example.solarShop.feature.product.ui.product.ProductEditScreen
-import com.example.solarShop.ui.backUpRestore.BackUpRestoreScreen
 import com.example.solarShop.ui.contractScreen.ContractScreen
 import com.example.solarShop.ui.orderScreen.OrderScreen
 import com.example.solarShop.ui.orderScreen.orderCatalog.CatalogScreen
@@ -331,8 +331,8 @@ fun SolarShopNavHost(
             )
         }
         composable(route = SolarRoute.BackUpRestore.name) {
-            BackUpRestoreScreen(
-                onClose = { nav.navigateUp() } // ✅ همین
+            SolarBackupRestoreScreen(
+                onClose = { nav.navigateUp() }
             )
         }
 

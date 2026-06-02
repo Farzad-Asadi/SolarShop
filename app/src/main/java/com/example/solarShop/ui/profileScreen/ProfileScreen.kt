@@ -395,6 +395,23 @@ fun ProfileScreen(                               //صفحه پروفایل
                                         Text("تست بکاپ سولار")
                                     }
                                 }
+                                //تست ریستور
+                                item {
+                                    Button(
+                                        onClick = {
+                                            val file = File(
+                                                context.cacheDir,
+                                                "solar_backup_Test.zip"
+                                            )
+
+                                            vm2.restoreBackup(file) {
+                                                Log.d("SOLAR_BACKUP", "restore done")
+                                            }
+                                        }
+                                    ) {
+                                        Text("تست ریستور سولار")
+                                    }
+                                }
 
 
 

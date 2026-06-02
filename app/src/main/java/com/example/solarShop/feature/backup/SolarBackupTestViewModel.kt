@@ -21,4 +21,14 @@ class SolarBackupTestViewModel @Inject constructor(
             onDone(file)
         }
     }
+
+    fun restoreBackup(
+        file: File,
+        onDone: () -> Unit
+    ) {
+        viewModelScope.launch {
+            backupManager.restoreBackup(file)
+            onDone()
+        }
+    }
 }
