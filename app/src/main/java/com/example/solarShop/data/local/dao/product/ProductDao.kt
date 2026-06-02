@@ -155,4 +155,25 @@ interface ProductDao{
     suspend fun getBrandById(
         brandId: Int
     ): ProductBrandEntity?
+
+
+    // ---------- Backup ----------
+    @Query("SELECT * FROM product_categories")
+    suspend fun getAllCategoriesForBackup(): List<ProductCategoryEntity>
+
+    @Query("SELECT * FROM product_brands")
+    suspend fun getAllBrandsForBackup(): List<ProductBrandEntity>
+
+    @Query("SELECT * FROM products")
+    suspend fun getAllProductsForBackup(): List<ProductEntity>
+
+    // ---------- Restore ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategoriesForRestore(items: List<ProductCategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBrandsForRestore(items: List<ProductBrandEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProductsForRestore(items: List<ProductEntity>)
 }

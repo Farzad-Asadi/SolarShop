@@ -2,6 +2,7 @@ package com.example.solarShop.ui.profileScreen
 
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -159,6 +160,7 @@ import com.example.solarShop.data.entitlement.toPremiumUi
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.orderAll.OrderSummary
 import com.example.solarShop.data.room.tables.user.UserEntity
+import com.example.solarShop.feature.backup.SolarBackupTestViewModel
 import com.example.solarShop.ui.theme.BambooTheme
 import com.example.solarShop.utils.ConfirmDialogRtl
 import com.example.solarShop.utils.LoadingScreen
@@ -191,7 +193,8 @@ fun ProfileScreen(                               //صفحه پروفایل
     onClickBackUpRestore: () -> Unit,
     onClickProductList: () -> Unit,
     modifier: Modifier = Modifier,
-    vm: ProfileViewModel = hiltViewModel()
+    vm: ProfileViewModel = hiltViewModel(),
+    vm2: SolarBackupTestViewModel = hiltViewModel()
 ) {
 
     //region stats
@@ -378,6 +381,24 @@ fun ProfileScreen(                               //صفحه پروفایل
                                 //                        item { //db 2.3
                                 //                            CreateDumpSeed(onClickCreateDumpSeed = { vm.onClickCreateDumpSeed() })
                                 //                        }
+
+
+                                //تست یک اپ
+                                item {
+                                    Button(
+                                        onClick = {
+                                            vm2.createBackup { file ->
+                                                Log.d("SOLAR_BACKUP", "backup=${file.absolutePath}")
+                                            }
+                                        }
+                                    ) {
+                                        Text("تست بکاپ سولار")
+                                    }
+                                }
+
+
+
+
 
                             }
                             // دیالوگ تأیید حذف

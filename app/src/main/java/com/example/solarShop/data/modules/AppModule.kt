@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.example.solarShop.SESSION_PREFS
+import com.example.solarShop.data.backup.core.BackupModuleProvider
+import com.example.solarShop.data.backup.product.ProductBackupProvider
 import com.example.solarShop.data.backupRestore.AttachmentController
 import com.example.solarShop.data.backupRestore.v2.BackupCategory
 import com.example.solarShop.data.backupRestore.v2.BackupContext
@@ -102,6 +104,7 @@ import com.example.solarShop.repo.AuthRepositoryImpl
 import com.example.solarShop.repo.EntitlementRepository
 import com.example.solarShop.repo.EntitlementRepositoryImpl
 import com.example.solarShop.repo.ImageRepository
+import com.google.gson.Gson
 import dagger.Binds
 import dagger.MapKey
 import dagger.Module
@@ -110,6 +113,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoMap
+import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -199,7 +203,9 @@ object AppModule {
     ): QuestionTreePrefsDataStore = QuestionTreePrefsDataStore(context)
 
 
-
+    @Provides
+    @Singleton
+    fun provideGson(): Gson = Gson()
 
 
 
@@ -437,15 +443,25 @@ object AppModule {
     ): ProductImageRepository = ProductImageRepositoryImpl(productImageDao , imageRepository)
 
 
-//    @Provides
-//    @Singleton
-//    fun provideSolarProductSeeder(
-//        productDao: ProductDao
-//    ): SolarProductSeeder =
-//        SolarProductSeeder(productDao)
-//
-//
 
+
+
+
+
+
+}
+
+
+//backUp restore solarnew
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class SolarBackupBindModule {
+
+    @Binds
+    @IntoSet
+    abstract fun bindProductBackupProvider(
+        impl: ProductBackupProvider
+    ): BackupModuleProvider
 }
 
 

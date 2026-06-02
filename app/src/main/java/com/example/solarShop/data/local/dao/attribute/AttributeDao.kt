@@ -88,4 +88,22 @@ interface AttributeDao {
         productId: Int,
         categoryId: Int
     ): Flow<List<ProductAttributeDisplayInfo>>
+
+
+    // ---------- Backup ----------
+    @Query("SELECT * FROM category_attribute_definitions")
+    suspend fun getAllAttributeDefinitionsForBackup(): List<CategoryAttributeDefinitionEntity>
+
+    @Query("SELECT * FROM product_attribute_values")
+    suspend fun getAllAttributeValuesForBackup(): List<ProductAttributeValueEntity>
+
+
+
+    // ---------- Restore ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttributeDefinitionsForRestore(items: List<CategoryAttributeDefinitionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttributeValuesForRestore(items: List<ProductAttributeValueEntity>)
+
 }

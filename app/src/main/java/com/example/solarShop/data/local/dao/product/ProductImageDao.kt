@@ -3,6 +3,7 @@ package com.example.solarShop.data.local.dao.product
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import kotlinx.coroutines.flow.Flow
@@ -85,4 +86,15 @@ interface ProductImageDao {
     fun observeImagesForProducts(
         productIds: List<Int>
     ): Flow<List<ProductImageEntity>>
+
+
+
+    // ---------- Backup ----------
+    @Query("SELECT * FROM product_images")
+    suspend fun getAllImagesForBackup(): List<ProductImageEntity>
+
+    // ---------- Restore ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertImagesForRestore(items: List<ProductImageEntity>)
+
 }

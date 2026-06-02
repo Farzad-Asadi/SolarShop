@@ -2,6 +2,7 @@ package com.example.solarShop.data.local.dao.inventory
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -9,19 +10,25 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface InventoryDao {
 
+    // ---------- Inventory Transaction ----------
     @Insert
     suspend fun insertInventoryTransaction(
         transaction: InventoryTransactionEntity
     ): Long
 
+
+    // ---------- Inventory ----------
     @Query("""
         SELECT * FROM inventory_transactions
         WHERE productId = :productId
         ORDER BY createdAt DESC
     """)
+
+
     fun observeInventoryTransactions(
         productId: Int
     ): Flow<List<InventoryTransactionEntity>>
+
 
     @Query("""
         SELECT COALESCE(
@@ -43,4 +50,13 @@ interface InventoryDao {
     fun observeCurrentStock(
         productId: Int
     ): Flow<Double>
+
+
+    // ---------- Backup ----------
+    @Query("SELECT * FROM inventory_transactions")
+    suspend fun getAllInventoryTransactionsForBackup(): List<InventoryTransactionEntity>
+
+    // ---------- Restore ----------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInventoryTransactionsForRestore(items: List<InventoryTransactionEntity>)
 }
