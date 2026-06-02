@@ -22,6 +22,12 @@ class AttributeEditViewModel @Inject constructor(
     private val categoryId: Int =
         checkNotNull(savedStateHandle["categoryId"])
 
+    private val attributeId: Int =
+        savedStateHandle["attributeId"] ?: -1
+
+    val isEditMode: Boolean
+        get() = attributeId != -1
+
     private val _uiState = MutableStateFlow(
         AttributeEditUiState(
             categoryId = categoryId
@@ -29,6 +35,30 @@ class AttributeEditViewModel @Inject constructor(
     )
 
     val uiState = _uiState.asStateFlow()
+
+    init {
+        if (attributeId != -1) {
+            viewModelScope.launch {
+                val attribute =
+                    attributeRepository.getAttributeDefinitionById(attributeId)
+                        ?: return@launch
+
+
+
+                _uiState.update {
+                    it.copy(
+                        title = attribute.title,
+                        key = attribute.key,
+                        valueType = AttributeValueType.valueOf(attribute.valueType.uppercase()),
+                        unit = attribute.unit.orEmpty(),
+                        isRequired = attribute.isRequired,
+                        enumOptions = attribute.enumOptions.orEmpty(),
+                        sortOrder = attribute.sortOrder,
+                    )
+                }
+            }
+        }
+    }
 
     fun onTitleChange(value: String) {
         _uiState.update { it.copy(title = value) }
@@ -64,20 +94,40 @@ class AttributeEditViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
 
+            val sortOrder = if (attributeId == -1) {
+                attributeRepository.getNextAttributeSortOrder(state.categoryId)
+            } else {
+                state.sortOrder
+            }
+
             attributeRepository.upsertAttributeDefinition(
                 CategoryAttributeDefinitionEntity(
+                    id = if (attributeId == -1) null else attributeId,
                     categoryId = state.categoryId,
                     title = state.title.trim(),
                     key = state.key.trim(),
                     valueType = state.valueType.name.lowercase(),
                     unit = state.unit.trim().ifBlank { null },
-                    isRequired = state.isRequired
+                    isRequired = state.isRequired,
+                    enumOptions = state.enumOptions
+                        .split("\n")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .joinToString(",")
+                        .ifBlank { null },
+                    sortOrder = sortOrder,
                 )
             )
 
             _uiState.update { it.copy(isSaving = false) }
 
             onSuccess()
+        }
+    }
+
+    fun onEnumOptionsChange(value: String) {
+        _uiState.update {
+            it.copy(enumOptions = value)
         }
     }
 }

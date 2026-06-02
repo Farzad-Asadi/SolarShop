@@ -33,6 +33,19 @@ interface AttributeRepository {
 
 
 
+    suspend fun getAttributeDefinitionById(
+        id: Int
+    ): CategoryAttributeDefinitionEntity?
 
+
+    // ---------- Sort Order ----------
+    suspend fun updateAttributeSortOrder(
+        id: Int,
+        sortOrder: Int
+    )
+
+    suspend fun getNextAttributeSortOrder(
+        categoryId: Int
+    ): Int
 
 }

@@ -32,4 +32,26 @@ class AttributeRepositoryImpl @Inject constructor(
         productId: Int,
         attributeDefinitionId: Int
     ) = attributeDao.deleteAttributeValue(productId, attributeDefinitionId)
+
+    override suspend fun getAttributeDefinitionById(
+        id: Int
+    ): CategoryAttributeDefinitionEntity? {
+        return attributeDao.getAttributeDefinitionById(id)
+    }
+
+    override suspend fun updateAttributeSortOrder(
+        id: Int,
+        sortOrder: Int
+    ) {
+        attributeDao.updateAttributeSortOrder(
+            id = id,
+            sortOrder = sortOrder
+        )
+    }
+
+    override suspend fun getNextAttributeSortOrder(
+        categoryId: Int
+    ): Int {
+        return attributeDao.getNextAttributeSortOrder(categoryId)
+    }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -45,6 +46,7 @@ fun ProductListScreen(
     onCategoryClick: (Int) -> Unit = {},
     onEditCategoryClick: (Int) -> Unit = {},
     onOpenBrands: () -> Unit,
+    onHomeClick: () -> Unit = {},
 
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -57,6 +59,14 @@ fun ProductListScreen(
             TopAppBar(
                 title = {
                     Text("دسته بندی کالاها")
+                },
+                navigationIcon = {
+                    IconButton(onClick = onHomeClick) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "صفحه اصلی"
+                        )
+                    }
                 },
                 actions = {
 

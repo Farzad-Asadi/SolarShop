@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -44,7 +43,6 @@ import com.example.solarShop.feature.product.viewmodel.ProductByCategoryViewMode
 @Composable
 fun ProductByCategoryScreen(
     onBack: () -> Unit,
-    onOpenCategoryAttributes: (Int) -> Unit,
     onAddProduct: (Int) -> Unit,
     onProductClick: (Int) -> Unit,
     viewModel: ProductByCategoryViewModel = hiltViewModel(),
@@ -70,20 +68,6 @@ fun ProductByCategoryScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            uiState.categoryId?.let {
-                                onOpenCategoryAttributes(it)
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "مشخصات دسته"
-                        )
-                    }
-                }
             )
         },
         floatingActionButton = {

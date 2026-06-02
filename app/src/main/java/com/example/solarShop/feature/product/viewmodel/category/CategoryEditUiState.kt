@@ -1,5 +1,7 @@
 package com.example.solarShop.feature.product.viewmodel.category
 
+import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
+
 data class CategoryEditUiState(
     val categoryId: Int? = null,
 
@@ -8,5 +10,7 @@ data class CategoryEditUiState(
 
     val imageFileName: String? = null,
 
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+
+    val attributes: List<CategoryAttributeDefinitionEntity> = emptyList(),
 )

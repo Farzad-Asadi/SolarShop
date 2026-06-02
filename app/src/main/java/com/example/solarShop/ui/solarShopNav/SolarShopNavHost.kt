@@ -17,7 +17,6 @@ import com.example.solarShop.feature.product.ui.ProductListScreen
 import com.example.solarShop.feature.product.ui.brand.BrandEditScreen
 import com.example.solarShop.feature.product.ui.brand.BrandListScreen
 import com.example.solarShop.feature.product.ui.category.AttributeEditScreen
-import com.example.solarShop.feature.product.ui.category.CategoryAttributesScreen
 import com.example.solarShop.feature.product.ui.category.CategoryEditScreen
 import com.example.solarShop.feature.product.ui.inventory.InventoryTransactionEditScreen
 import com.example.solarShop.feature.product.ui.pricing.PurchasePriceEditScreen
@@ -371,7 +370,12 @@ fun SolarShopNavHost(
                     nav.navigate(
                         SolarRoute.BrandList.name
                     )
-                }
+                },
+                onHomeClick = {
+                    nav.navigate(
+                        SolarRoute.Profile.name
+                    )
+                },
             )
         }
         composable(
@@ -387,6 +391,17 @@ fun SolarShopNavHost(
             CategoryEditScreen(
                 onClose = {
                     nav.navigateUp()
+                },
+                onAddAttribute = { categoryId ->
+                    nav.navigate(
+                        SolarRoute.AttributeEdit.name + "/$categoryId?attributeId=-1"
+                    )
+                }
+                ,
+                onEditAttribute = { categoryId, attributeId ->
+                    nav.navigate(
+                        SolarRoute.AttributeEdit.name + "/$categoryId?attributeId=$attributeId"
+                    )
                 }
             )
         }
@@ -404,10 +419,6 @@ fun SolarShopNavHost(
                 onBack = {
                     nav.navigateUp()
                 },
-                onOpenCategoryAttributes = {
-                    val categoryId = it
-                    nav.navigate(SolarRoute.CategoryAttributes.name + "/$categoryId")
-                },
                 onAddProduct = { categoryId ->
                     nav.navigate(SolarRoute.ProductEdit.name + "/$categoryId?productId=-1")
                 },
@@ -417,21 +428,6 @@ fun SolarShopNavHost(
             )
         }
 
-        composable(
-            route = SolarRoute.CategoryAttributes.name + "/{categoryId}",
-            arguments = listOf(
-                navArgument("categoryId") {
-                    type = NavType.IntType
-                }
-            )
-        ) {
-            CategoryAttributesScreen(
-                onBack = { nav.navigateUp() },
-                onAddAttribute = { categoryId ->
-                    nav.navigate(SolarRoute.AttributeEdit.name + "/$categoryId?attributeId=-1")
-                }
-            )
-        }
 
         composable(
             route = SolarRoute.AttributeEdit.name + "/{categoryId}?attributeId={attributeId}",
@@ -562,7 +558,6 @@ enum class SolarRoute {
     ProductList,
     CategoryEdit,
     ProductByCategory,
-    CategoryAttributes,
     AttributeEdit,
     ProductEdit,
     ProductDetail,

@@ -1,8 +1,9 @@
 package com.example.solarShop.feature.product.ui.component
 
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,8 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 
@@ -38,7 +40,16 @@ fun CategoryCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(0.85f)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(18.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(18.dp)
+            )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -47,48 +58,47 @@ fun CategoryCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
-                modifier = Modifier.size(72.dp),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 if (imageUri != null) {
                     AsyncImage(
                         model = imageUri,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    // همان placeholder قبلی
-
                     Box(
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-
                         Icon(
                             imageVector = Icons.Outlined.Image,
                             contentDescription = null,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(42.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = name,
                 style = MaterialTheme.typography.titleMedium,
-                maxLines = 2
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

@@ -13,5 +13,9 @@ data class AttributeEditUiState(
     val unit: String = "",
     val isRequired: Boolean = false,
 
+    val enumOptions: String = "",
+
+    val sortOrder: Int = 0,
+
     val isSaving: Boolean = false
 )

@@ -106,4 +106,37 @@ interface AttributeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAttributeValuesForRestore(items: List<ProductAttributeValueEntity>)
 
+
+
+    // ---------- Helper ----------
+    @Query("""
+    SELECT * FROM category_attribute_definitions
+    WHERE id = :id
+    LIMIT 1
+""")
+    suspend fun getAttributeDefinitionById(
+        id: Int
+    ): CategoryAttributeDefinitionEntity?
+
+
+
+    // ---------- Sort Order ----------
+    @Query("""
+    UPDATE category_attribute_definitions
+    SET sortOrder = :sortOrder, updatedAt = :updatedAt
+    WHERE id = :id
+""")
+    suspend fun updateAttributeSortOrder(
+        id: Int,
+        sortOrder: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+    SELECT COALESCE(MAX(sortOrder), -1) + 1
+    FROM category_attribute_definitions
+    WHERE categoryId = :categoryId
+""")
+    suspend fun getNextAttributeSortOrder(categoryId: Int): Int
+
 }

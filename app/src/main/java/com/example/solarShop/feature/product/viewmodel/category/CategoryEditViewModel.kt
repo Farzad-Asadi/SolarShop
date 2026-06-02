@@ -4,7 +4,9 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.repo.ImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,6 +21,7 @@ import javax.inject.Inject
 class CategoryEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val productRepository: ProductRepository,
+    private val attributeRepository: AttributeRepository,
     private val imageRepository: ImageRepository
 ) : ViewModel() {
 
@@ -26,6 +29,12 @@ class CategoryEditViewModel @Inject constructor(
         checkNotNull(
             savedStateHandle.get<Int>("categoryId")
         )
+
+    val isEditMode: Boolean
+        get() = categoryId != -1
+
+    val currentCategoryId: Int?
+        get() = if (categoryId == -1) null else categoryId
 
     private val _uiState = MutableStateFlow(
         CategoryEditUiState()
@@ -50,6 +59,15 @@ class CategoryEditViewModel @Inject constructor(
                         imageFileName = category.imageFileName
                     )
                 }
+            }
+            viewModelScope.launch {
+                attributeRepository
+                    .observeActiveAttributeDefinitions(categoryId)
+                    .collect { attributes ->
+                        _uiState.update {
+                            it.copy(attributes = attributes)
+                        }
+                    }
             }
         }
     }
@@ -106,6 +124,23 @@ class CategoryEditViewModel @Inject constructor(
 
             _uiState.update {
                 it.copy(imageFileName = file.name)
+            }
+        }
+    }
+
+
+
+    fun saveAttributeOrder(
+        orderedAttributes: List<CategoryAttributeDefinitionEntity>
+    ) {
+        viewModelScope.launch {
+            orderedAttributes.forEachIndexed { index, attr ->
+                val id = attr.id ?: return@forEachIndexed
+
+                attributeRepository.updateAttributeSortOrder(
+                    id = id,
+                    sortOrder = index
+                )
             }
         }
     }

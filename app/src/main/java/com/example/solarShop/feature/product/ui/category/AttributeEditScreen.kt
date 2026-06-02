@@ -44,7 +44,15 @@ fun AttributeEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("مشخصه جدید") },
+                title = {
+                    Text(
+                        text = if (viewModel.isEditMode) {
+                            "ویرایش مشخصه"
+                        } else {
+                            "مشخصه جدید"
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(
@@ -118,6 +126,18 @@ fun AttributeEditScreen(
                     }
                 }
             }
+            if (uiState.valueType == AttributeValueType.ENUM) {
+                OutlinedTextField(
+                    value = uiState.enumOptions,
+                    onValueChange = viewModel::onEnumOptionsChange,
+                    label = { Text("گزینه‌ها") },
+                    supportingText = {
+                        Text("هر گزینه را در یک خط بنویس. مثال: N-Type")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4
+                )
+            }
 
             OutlinedTextField(
                 value = uiState.unit,
@@ -125,6 +145,8 @@ fun AttributeEditScreen(
                 label = { Text("واحد مثلا W یا V") },
                 modifier = Modifier.fillMaxWidth()
             )
+
+
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -147,7 +169,11 @@ fun AttributeEditScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    if (uiState.isSaving) "در حال ذخیره..." else "ذخیره مشخصه"
+                    text = when {
+                        uiState.isSaving -> "در حال ذخیره..."
+                        viewModel.isEditMode -> "ذخیره تغییرات"
+                        else -> "ایجاد مشخصه"
+                    }
                 )
             }
         }
