@@ -145,6 +145,7 @@ dependencies {
 
     // --- Hilt / Room ---
     implementation(libs.hilt.android)
+    implementation(libs.androidx.benchmark.traceprocessor.android)
     kapt(libs.hilt.android.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.androidx.room.ktx)

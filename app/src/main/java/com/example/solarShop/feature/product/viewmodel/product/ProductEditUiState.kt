@@ -1,6 +1,7 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
+import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 
 data class ProductEditUiState(
@@ -19,6 +20,7 @@ data class ProductEditUiState(
     val attributeValues: Map<Int, String> = emptyMap(),
 
     val coverImageFileName: String? = null,
+    val images: List<ProductImageEntity> = emptyList(),
 
     val buyPriceDollar: String = "",
     val buyPriceToman: Long? = null,
@@ -27,6 +29,7 @@ data class ProductEditUiState(
 
     val initialQuantity: String = "",
     val inventoryNote: String = "",
+
 
     val isSaving: Boolean = false
 )

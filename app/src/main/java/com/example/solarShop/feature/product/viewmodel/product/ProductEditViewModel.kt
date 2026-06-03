@@ -1,5 +1,6 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,7 +38,7 @@ class ProductEditViewModel @Inject constructor(
     private val productId: Int =
         checkNotNull(savedStateHandle["productId"])
 
-    private val isEditMode: Boolean =
+    val isEditMode: Boolean =
         productId != -1
 
     private val categoryId =
@@ -67,8 +69,11 @@ class ProductEditViewModel @Inject constructor(
                         productId = form.productId ?: -1,
                         categoryId = realCategoryId
                     ),
-                    productRepository.observeActiveBrands()
-                ) { attributes, brands ->
+                    productRepository.observeActiveBrands(),
+                    productImageRepository.observeImagesForProduct(
+                        productId = form.productId ?: -1
+                    )
+                ) { attributes, brands, images ->
 
                     form.copy(
                         attributes = attributes,
@@ -78,7 +83,9 @@ class ProductEditViewModel @Inject constructor(
                                         ?: it.valueText.orEmpty()
                                     )
                         },
-                        brands = brands
+                        brands = brands,
+                        images = images,
+                        coverImageFileName = images.firstOrNull()?.fileName
                     )
                 }
             }
@@ -161,6 +168,11 @@ class ProductEditViewModel @Inject constructor(
                     brandId = state.brandId,
                 )
             ).toInt()
+
+            formState.update {
+                it.copy(productId = savedProductId)
+            }
+
             if (!isEditMode && state.buyPriceToman != null) {
                 pricingRepository.setNewPurchasePrice(
                     ProductPurchasePriceEntity(
@@ -284,6 +296,34 @@ class ProductEditViewModel @Inject constructor(
         formState.update {
             it.copy(
                 coverImageFileName = fileName
+            )
+        }
+    }
+
+
+
+    fun createProductCameraTempUri(): Pair<File, Uri> {
+        return productImageRepository.createCameraTempUri()
+    }
+
+    fun importProductImageFromGallery(src: Uri) {
+        viewModelScope.launch {
+            val currentProductId = formState.value.productId ?: return@launch
+
+            productImageRepository.addImageFromUri(
+                productId = currentProductId,
+                src = src
+            )
+        }
+    }
+
+    fun importProductImageFromCameraTemp(tempFile: File) {
+        viewModelScope.launch {
+            val currentProductId = formState.value.productId ?: return@launch
+
+            productImageRepository.addImageFromCameraTemp(
+                productId = currentProductId,
+                tempFile = tempFile
             )
         }
     }

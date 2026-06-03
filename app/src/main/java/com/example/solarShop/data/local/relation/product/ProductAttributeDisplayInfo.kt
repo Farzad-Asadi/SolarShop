@@ -9,6 +9,7 @@ data class ProductAttributeDisplayInfo(
     val key: String,
     val valueType: String,
     val unit: String?,
+    val enumOptions: String?,
     val isRequired: Boolean,
     val sortOrder: Int,
 
