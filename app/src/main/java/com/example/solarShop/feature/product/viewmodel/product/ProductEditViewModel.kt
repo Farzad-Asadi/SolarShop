@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -58,6 +59,12 @@ class ProductEditViewModel @Inject constructor(
             categoryId = categoryId.takeIf { it != -1 }
         )
     )
+
+    private var loadedStock: Double? = null
+
+    private var loadedBuyPriceToman: Long? = null
+    private var loadedBuyPriceDollar: String = ""
+    private var loadedDollarRateToman: Long? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val attributesFlow =
@@ -140,15 +147,50 @@ class ProductEditViewModel @Inject constructor(
                         brandId = product.brandId,
                     )
                 }
+
+
+                val activePrice =
+                    pricingRepository.getActivePurchasePrice(productId)
+
+                loadedBuyPriceToman = activePrice?.buyPriceToman
+                loadedBuyPriceDollar = activePrice?.buyPriceDollar?.let {
+                    java.lang.String.format(
+                        java.util.Locale.US,
+                        "%.2f",
+                        it
+                    )
+                }.orEmpty()
+                loadedDollarRateToman = activePrice?.dollarRateToman
+
+                val currentStock =
+                    inventoryRepository.observeCurrentStock(productId).first()
+
+                loadedStock = currentStock
+
+                formState.update {
+                    it.copy(
+                        buyPriceToman = activePrice?.buyPriceToman,
+                        buyPriceDollar = loadedBuyPriceDollar,
+                        dollarRateToman = activePrice?.dollarRateToman,
+                        priceNote = activePrice?.note.orEmpty(),
+                        initialQuantity = if (currentStock % 1.0 == 0.0) {
+                            currentStock.toInt().toString()
+                        } else {
+                            currentStock.toString()
+                        }
+                    )
+                }
             }
         }
-        viewModelScope.launch {
-            val latestRate = pricingRepository.getLatestCurrencyRate("USD")
+        if (!isEditMode) {
+            viewModelScope.launch {
+                val latestRate = pricingRepository.getLatestCurrencyRate("USD")
 
-            formState.update {
-                it.copy(
-                    dollarRateToman = latestRate?.rateToman
-                )
+                formState.update {
+                    it.copy(
+                        dollarRateToman = latestRate?.rateToman
+                    )
+                }
             }
         }
     }
@@ -183,22 +225,40 @@ class ProductEditViewModel @Inject constructor(
         viewModelScope.launch {
             formState.update { it.copy(isSaving = true) }
 
-            val savedProductId = productRepository.upsertProduct(
-                ProductEntity(
-                    id = state.productId,
-                    categoryId = state.categoryId,
-                    name = state.name.trim(),
-                    model = state.model.trim(),
-                    brandId = state.brandId,
-                )
-            ).toInt()
+            val savedProductId =
+                if (isEditMode && state.productId != null) {
+                    productRepository.updateProductBasicInfo(
+                        id = state.productId,
+                        categoryId = state.categoryId,
+                        name = state.name.trim(),
+                        model = state.model.trim(),
+                        brandId = state.brandId
+                    )
 
-            state.pendingImageFiles.forEachIndexed { index, file ->
-                productImageRepository.addExistingImageFile(
-                    productId = savedProductId,
-                    fileName = file.name,
-                    sortOrder = index
-                )
+                    state.productId
+                } else {
+                    productRepository.upsertProduct(
+                        ProductEntity(
+                            id = null,
+                            categoryId = state.categoryId,
+                            name = state.name.trim(),
+                            model = state.model.trim(),
+                            brandId = state.brandId,
+                        )
+                    ).toInt()
+                }
+
+            if (state.pendingImageFiles.isNotEmpty()) {
+                val currentMaxOrder =
+                    productImageRepository.getMaxSortOrder(savedProductId) ?: -1
+
+                state.pendingImageFiles.forEachIndexed { index, file ->
+                    productImageRepository.addExistingImageFile(
+                        productId = savedProductId,
+                        fileName = file.name,
+                        sortOrder = currentMaxOrder + index + 1
+                    )
+                }
             }
 
             formState.update {
@@ -209,9 +269,6 @@ class ProductEditViewModel @Inject constructor(
                 )
             }
 
-            formState.update {
-                it.copy(productId = savedProductId)
-            }
 
             if (!isEditMode && state.buyPriceToman != null) {
                 pricingRepository.setNewPurchasePrice(
@@ -468,6 +525,38 @@ class ProductEditViewModel @Inject constructor(
                     productImageRepository.deleteImage(it)
                 }
             }
+        }
+    }
+
+    fun saveWithImageOrder(
+        imageItems: List<ProductEditImageItem>,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val orderedSavedImageIds =
+                imageItems.mapNotNull { it.id }
+
+            val orderedPendingFileNames =
+                imageItems
+                    .filter { it.isPending }
+                    .map { it.fileName }
+
+            val pendingMap =
+                formState.value.pendingImageFiles.associateBy { it.name }
+
+            formState.update { state ->
+                state.copy(
+                    pendingImageFiles = orderedPendingFileNames.mapNotNull { fileName ->
+                        pendingMap[fileName]
+                    }
+                )
+            }
+
+            if (orderedSavedImageIds.isNotEmpty()) {
+                productImageRepository.saveImageOrder(orderedSavedImageIds)
+            }
+
+            save(onSuccess = onSuccess)
         }
     }
 }

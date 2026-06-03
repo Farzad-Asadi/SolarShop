@@ -176,4 +176,26 @@ interface ProductDao{
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProductsForRestore(items: List<ProductEntity>)
+
+
+
+    // ---------- Update ----------
+    @Query("""
+    UPDATE products
+    SET 
+        categoryId = :categoryId,
+        name = :name,
+        model = :model,
+        brandId = :brandId,
+        updatedAt = :updatedAt
+    WHERE id = :id
+""")
+    suspend fun updateProductBasicInfo(
+        id: Int,
+        categoryId: Int,
+        name: String,
+        model: String,
+        brandId: Int?,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 }

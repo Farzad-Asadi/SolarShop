@@ -44,4 +44,6 @@ interface ProductImageRepository {
 
 
     suspend fun saveImageOrder(imageIds: List<Int>)
+
+    suspend fun getMaxSortOrder(productId: Int): Int?
 }

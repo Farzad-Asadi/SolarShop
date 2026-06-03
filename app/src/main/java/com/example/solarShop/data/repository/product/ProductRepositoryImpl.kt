@@ -68,6 +68,20 @@ class ProductRepositoryImpl @Inject constructor(
         brandId: Int
     ) = productDao.getBrandById(brandId)
 
-
+    override suspend fun updateProductBasicInfo(
+        id: Int,
+        categoryId: Int,
+        name: String,
+        model: String,
+        brandId: Int?
+    ) {
+        productDao.updateProductBasicInfo(
+            id = id,
+            categoryId = categoryId,
+            name = name,
+            model = model,
+            brandId = brandId
+        )
+    }
 
 }

@@ -45,4 +45,12 @@ interface ProductRepository {
 
 
     suspend fun getBrandById(brandId: Int): ProductBrandEntity?
+
+    suspend fun updateProductBasicInfo(
+        id: Int,
+        categoryId: Int,
+        name: String,
+        model: String,
+        brandId: Int?
+    )
 }

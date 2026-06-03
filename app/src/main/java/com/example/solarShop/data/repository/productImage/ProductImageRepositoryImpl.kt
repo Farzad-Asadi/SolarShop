@@ -140,4 +140,10 @@ class ProductImageRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getMaxSortOrder(
+        productId: Int
+    ): Int? = withContext(Dispatchers.IO) {
+        productImageDao.getMaxSortOrder(productId)
+    }
+
 }

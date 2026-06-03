@@ -176,7 +176,15 @@ fun ProductEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("کالای جدید") },
+                title = {
+                    Text(
+                        text = if (viewModel.isEditMode) {
+                            "ویرایش کالا"
+                        } else {
+                            "کالای جدید"
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(
@@ -279,12 +287,7 @@ fun ProductEditScreen(
                             onDragEnd = { _, _ ->
                                 draggingImages = false
 
-                                viewModel.saveImageOrder(
-                                    orderedSavedImageIds = imageItems.mapNotNull { it.id },
-                                    orderedPendingFileNames = imageItems
-                                        .filter { it.isPending }
-                                        .map { it.fileName }
-                                )
+
                             }
                         )
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -584,7 +587,8 @@ fun ProductEditScreen(
             item {
                 Button(
                     onClick = {
-                        viewModel.save(
+                        viewModel.saveWithImageOrder(
+                            imageItems = imageItems,
                             onSuccess = onClose
                         )
                     },
