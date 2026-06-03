@@ -22,6 +22,7 @@ data class CategoryAttributeDefinitionEntity(
 
     val title: String,
     val key: String,
+    val description: String = "",
 
     // text, number, boolean, enum
     val valueType: String = "text",

@@ -68,6 +68,7 @@ interface AttributeDao {
             category_attribute_definitions.title AS title,
             category_attribute_definitions.`key` AS `key`,
             category_attribute_definitions.valueType AS valueType,
+            category_attribute_definitions.description AS description,
             category_attribute_definitions.unit AS unit,
             category_attribute_definitions.enumOptions AS enumOptions,
             category_attribute_definitions.isRequired AS isRequired,

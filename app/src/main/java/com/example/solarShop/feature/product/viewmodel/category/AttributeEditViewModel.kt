@@ -50,6 +50,7 @@ class AttributeEditViewModel @Inject constructor(
                         title = attribute.title,
                         key = attribute.key,
                         valueType = AttributeValueType.valueOf(attribute.valueType.uppercase()),
+                        description = attribute.description,
                         unit = attribute.unit.orEmpty(),
                         isRequired = attribute.isRequired,
                         enumOptions = attribute.enumOptions.orEmpty(),
@@ -71,6 +72,16 @@ class AttributeEditViewModel @Inject constructor(
     fun onValueTypeChange(value: AttributeValueType) {
         _uiState.update {
             it.copy(valueType = value)
+        }
+    }
+
+    fun onDescriptionChange(
+        value: String
+    ) {
+        _uiState.update {
+            it.copy(
+                description = value
+            )
         }
     }
 
@@ -107,6 +118,7 @@ class AttributeEditViewModel @Inject constructor(
                     title = state.title.trim(),
                     key = state.key.trim(),
                     valueType = state.valueType.name.lowercase(),
+                    description = state.description,
                     unit = state.unit.trim().ifBlank { null },
                     isRequired = state.isRequired,
                     enumOptions = state.enumOptions

@@ -1,11 +1,13 @@
 package com.example.solarShop.feature.product.ui.category
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -69,7 +71,8 @@ fun AttributeEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(ScrollState(0)),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
@@ -83,6 +86,16 @@ fun AttributeEditScreen(
                 value = uiState.key,
                 onValueChange = viewModel::onKeyChange,
                 label = { Text("کلید داخلی مثلا power") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = uiState.description,
+                onValueChange = viewModel::onDescriptionChange,
+                label = {
+                    Text("توضیحات")
+                },
+                minLines = 3,
                 modifier = Modifier.fillMaxWidth()
             )
 

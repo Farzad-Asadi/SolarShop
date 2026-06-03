@@ -9,7 +9,7 @@ data class AttributeEditUiState(
     val key: String = "",
 
     val valueType: AttributeValueType = AttributeValueType.NUMBER,
-
+    val description: String = "",
     val unit: String = "",
     val isRequired: Boolean = false,
 

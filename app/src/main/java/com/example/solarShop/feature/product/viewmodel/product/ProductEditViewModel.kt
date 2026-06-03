@@ -6,19 +6,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.feature.product.model.ProductEditImageItem
 import com.example.solarShop.repo.ImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -56,50 +60,68 @@ class ProductEditViewModel @Inject constructor(
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState = formState
-        .flatMapLatest { form ->
-            val realCategoryId = form.categoryId
-
-            if (realCategoryId == null) {
-                productRepository.observeActiveBrands()
-                    .map { brands ->
-                        form.copy(brands = brands)
-                    }
-            } else {
-                combine(
+    private val attributesFlow =
+        formState
+            .map { it.productId to it.categoryId }
+            .distinctUntilChanged()
+            .flatMapLatest { (currentProductId, currentCategoryId) ->
+                if (currentCategoryId == null) {
+                    flowOf(emptyList())
+                } else {
                     attributeRepository.observeProductAttributeDisplayInfo(
-                        productId = form.productId ?: -1,
-                        categoryId = realCategoryId
-                    ),
-                    productRepository.observeActiveBrands(),
-                    productImageRepository.observeImagesForProduct(
-                        productId = form.productId ?: -1
-                    )
-                ) { attributes, brands, images ->
-
-                    form.copy(
-                        attributes = attributes,
-                        attributeValues = attributes.associate {
-                            it.attributeDefinitionId to (
-                                    form.attributeValues[it.attributeDefinitionId]
-                                        ?: it.valueText.orEmpty()
-                                    )
-                        },
-                        brands = brands,
-                        images = images,
-                        coverImageFileName = images.firstOrNull()?.fileName
+                        productId = currentProductId ?: -1,
+                        categoryId = currentCategoryId
                     )
                 }
             }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = ProductEditUiState(
-                productId = if (isEditMode) productId else null,
-                categoryId = categoryId.takeIf { it != -1 }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val imagesFlow =
+        formState
+            .map { it.productId }
+            .distinctUntilChanged()
+            .flatMapLatest { currentProductId ->
+                if (currentProductId == null) {
+                    flowOf(emptyList())
+                } else {
+                    productImageRepository.observeImagesForProduct(
+                        productId = currentProductId
+                    )
+                }
+            }
+
+    private val brandsFlow =
+        productRepository.observeActiveBrands()
+
+    val uiState =
+        combine(
+            formState,
+            brandsFlow,
+            attributesFlow,
+            imagesFlow
+        ) { form, brands, attributes, images ->
+
+            form.copy(
+                brands = brands,
+                attributes = attributes,
+                attributeValues = attributes.associate {
+                    it.attributeDefinitionId to (
+                            form.attributeValues[it.attributeDefinitionId]
+                                ?: it.valueText.orEmpty()
+                            )
+                },
+                images = images,
+                coverImageFileName = images.firstOrNull()?.fileName
             )
-        )
+        }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = ProductEditUiState(
+                    productId = if (isEditMode) productId else null,
+                    categoryId = categoryId.takeIf { it != -1 }
+                )
+            )
 
     init {
         if (isEditMode) {
@@ -366,6 +388,84 @@ class ProductEditViewModel @Inject constructor(
                     it.copy(
                         pendingImageFiles = it.pendingImageFiles + file
                     )
+                }
+            }
+        }
+    }
+
+    fun saveImageOrder(
+        orderedSavedImageIds: List<Int>,
+        orderedPendingFileNames: List<String>
+    ) {
+        formState.update { state ->
+            val pendingMap = state.pendingImageFiles.associateBy { it.name }
+
+            state.copy(
+                pendingImageFiles = orderedPendingFileNames.mapNotNull { fileName ->
+                    pendingMap[fileName]
+                }
+            )
+        }
+
+        if (orderedSavedImageIds.isNotEmpty()) {
+            viewModelScope.launch {
+                productImageRepository.saveImageOrder(orderedSavedImageIds)
+            }
+        }
+    }
+
+    fun createBrandAndSelect(
+        name: String,
+        onDone: () -> Unit = {}
+    ) {
+        val cleanName = name.trim()
+
+        if (cleanName.isBlank()) return
+
+        viewModelScope.launch {
+            val brandId = productRepository.upsertBrand(
+                ProductBrandEntity(
+                    name = cleanName
+                )
+            ).toInt()
+
+            formState.update {
+                it.copy(
+                    brandId = brandId
+                )
+            }
+
+            onDone()
+        }
+    }
+    fun removePendingImage(
+        fileName: String
+    ) {
+        formState.update { state ->
+            state.copy(
+                pendingImageFiles =
+                state.pendingImageFiles.filterNot {
+                    it.name == fileName
+                }
+            )
+        }
+    }
+
+    fun deleteImage(
+        item: ProductEditImageItem
+    ) {
+        viewModelScope.launch {
+
+            if (item.isPending) {
+
+                removePendingImage(
+                    item.fileName
+                )
+
+            } else {
+
+                item.id?.let {
+                    productImageRepository.deleteImage(it)
                 }
             }
         }

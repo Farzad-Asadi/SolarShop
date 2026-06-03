@@ -41,4 +41,7 @@ interface ProductImageRepository {
         fileName: String,
         sortOrder: Int
     )
+
+
+    suspend fun saveImageOrder(imageIds: List<Int>)
 }

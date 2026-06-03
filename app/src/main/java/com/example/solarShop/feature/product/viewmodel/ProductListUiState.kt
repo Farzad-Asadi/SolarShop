@@ -4,5 +4,6 @@ import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 
 data class ProductListUiState(
     val isLoading: Boolean = false,
-    val categories: List<ProductCategoryEntity> = emptyList()
+    val categories: List<ProductCategoryEntity> = emptyList(),
+
 )

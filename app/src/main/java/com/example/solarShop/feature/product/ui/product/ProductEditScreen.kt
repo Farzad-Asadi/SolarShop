@@ -2,8 +2,8 @@ package com.example.solarShop.feature.product.ui.product
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,15 +12,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -30,33 +36,52 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults.rememberTooltipPositionProvider
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
+import com.example.solarShop.feature.product.model.ProductEditImageItem
 import com.example.solarShop.feature.product.viewmodel.product.ProductEditViewModel
 import com.example.solarShop.utils.MyCurrencyField
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
+import kotlinx.coroutines.launch
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorderAfterLongPress
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,10 +92,54 @@ fun ProductEditScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    var draggingImages by remember { mutableStateOf(false) }
+
+
+    val sourceImages = remember(
+        uiState.images,
+        uiState.pendingImageFiles
+    ) {
+        buildList {
+            uiState.images.forEach { image ->
+                add(
+                    ProductEditImageItem(
+                        id = image.id,
+                        fileName = image.fileName,
+                        isPending = false
+                    )
+                )
+            }
+
+            uiState.pendingImageFiles.forEach { file ->
+                add(
+                    ProductEditImageItem(
+                        id = null,
+                        fileName = file.name,
+                        isPending = true
+                    )
+                )
+            }
+        }
+    }
+
+    var imageItems by remember { mutableStateOf(sourceImages) }
+
+    LaunchedEffect(sourceImages) {
+        if (!draggingImages) {
+            imageItems = sourceImages
+        }
+    }
+
     val context = LocalContext.current
     var showPickSheet by remember { mutableStateOf(false) }
     var pendingTempFile by remember { mutableStateOf<File?>(null) }
+    var imageToDelete by remember {
+        mutableStateOf<ProductEditImageItem?>(null)
+    }
 
+    var showDeleteDialog by remember {
+        mutableStateOf(false)
+    }
     val pickImage = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -100,6 +169,10 @@ fun ProductEditScreen(
 
     var brandMenuExpanded by remember { mutableStateOf(false) }
 
+    var showAddBrandDialog by remember { mutableStateOf(false) }
+    var newBrandName by remember { mutableStateOf("") }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -113,7 +186,9 @@ fun ProductEditScreen(
                     }
                 }
             )
-        }
+        },
+        modifier = Modifier.fillMaxSize()
+            .imePadding()
     ) { padding ->
 
         LazyColumn(
@@ -137,7 +212,13 @@ fun ProductEditScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
 
-                        val coverImage = uiState.images.firstOrNull()
+                        Text(
+                            text = "${imageItems.size} تصویر",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        val coverImage = imageItems.firstOrNull()
 
                         Box(
                             modifier = Modifier
@@ -179,42 +260,117 @@ fun ProductEditScreen(
                             }
                         }
 
-                        if (uiState.images.isNotEmpty()) {
-                            Row(
+                        val reorderState = rememberReorderableLazyListState(
+                            onMove = { from, to ->
+                                draggingImages = true
+
+                                val list = imageItems.toMutableList()
+                                if (list.isEmpty()) return@rememberReorderableLazyListState
+
+                                val fromIndex = from.index
+                                if (fromIndex !in list.indices) return@rememberReorderableLazyListState
+
+                                val item = list.removeAt(fromIndex)
+                                val toIndex = to.index.coerceIn(0, list.size)
+
+                                list.add(toIndex, item)
+                                imageItems = list
+                            },
+                            onDragEnd = { _, _ ->
+                                draggingImages = false
+
+                                viewModel.saveImageOrder(
+                                    orderedSavedImageIds = imageItems.mapNotNull { it.id },
+                                    orderedPendingFileNames = imageItems
+                                        .filter { it.isPending }
+                                        .map { it.fileName }
+                                )
+                            }
+                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            LazyRow(
+                                state = reorderState.listState,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
+                                    .reorderable(reorderState),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                uiState.images.forEach { image ->
-                                    val file = File(File(context.filesDir, "images"), image.fileName)
-                                    val uri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file
-                                    )
+                                items(
+                                    items = imageItems,
+                                    key = { item ->
+                                        item.id?.let { "saved_$it" } ?: "pending_${item.fileName}"
+                                    }
+                                ) { image ->
 
-                                    ElevatedCard(
-                                        modifier = Modifier.size(72.dp)
+                                    ReorderableItem(
+                                        state = reorderState,
+                                        key = image.id?.let { "saved_$it" }
+                                            ?: "pending_${image.fileName}"
+                                    ) { isDragging ->
+
+                                        val file =
+                                            File(File(context.filesDir, "images"), image.fileName)
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(if (isDragging) 96.dp else 88.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .clickable {
+                                                    imageToDelete = image
+                                                    showDeleteDialog = true
+                                                }
+                                                .detectReorderAfterLongPress(reorderState)
+                                        ) {
+                                            AsyncImage(
+                                                model = uri,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+
+                                            Icon(
+                                                imageVector = Icons.Default.DragHandle,
+                                                contentDescription = "جابجایی",
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(4.dp)
+                                                    .size(20.dp),
+                                                tint = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                        }
+                                    }
+                                }
+
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(88.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outline,
+                                                RoundedCornerShape(10.dp)
+                                            )
+                                            .clickable {
+                                                showPickSheet = true
+                                            },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        AsyncImage(
-                                            model = uri,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "افزودن تصویر",
+                                            modifier = Modifier.size(32.dp)
                                         )
                                     }
                                 }
                             }
-                        }
 
-                        OutlinedButton(
-                            onClick = {
-                                showPickSheet = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("افزودن تصویر")
+
                         }
                     }
                 }
@@ -288,6 +444,14 @@ fun ProductEditScreen(
                                         brandMenuExpanded = false
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("+ افزودن برند جدید") },
+                                    onClick = {
+                                        brandMenuExpanded = false
+                                        newBrandName = ""
+                                        showAddBrandDialog = true
+                                    }
+                                )
 
                                 uiState.brands.forEach { brand ->
                                     DropdownMenuItem(
@@ -337,6 +501,9 @@ fun ProductEditScreen(
                             value = uiState.buyPriceDollar,
                             onValueChange = viewModel::onBuyPriceDollarChange,
                             label = { Text("قیمت دلاری") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -368,6 +535,9 @@ fun ProductEditScreen(
                             value = uiState.initialQuantity,
                             onValueChange = viewModel::onInitialQuantityChange,
                             label = { Text("تعداد موجودی") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -465,6 +635,98 @@ fun ProductEditScreen(
             }
         }
     }
+    if (showAddBrandDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddBrandDialog = false
+            },
+            title = {
+                Text("افزودن برند جدید")
+            },
+            text = {
+                OutlinedTextField(
+                    value = newBrandName,
+                    onValueChange = {
+                        newBrandName = it
+                    },
+                    label = {
+                        Text("نام برند")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.createBrandAndSelect(
+                            name = newBrandName,
+                            onDone = {
+                                showAddBrandDialog = false
+                                newBrandName = ""
+                            }
+                        )
+                    }
+                ) {
+                    Text("افزودن")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddBrandDialog = false
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+    if (showDeleteDialog) {
+
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+            },
+
+            title = {
+                Text("حذف تصویر")
+            },
+
+            text = {
+                Text("این تصویر حذف شود؟")
+            },
+
+            confirmButton = {
+
+                TextButton(
+                    onClick = {
+
+                        imageToDelete?.let {
+                            viewModel.deleteImage(it)
+                        }
+
+                        showDeleteDialog = false
+                        imageToDelete = null
+                    }
+                ) {
+                    Text("حذف")
+                }
+            },
+
+            dismissButton = {
+
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        imageToDelete = null
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -474,8 +736,19 @@ private fun ProductAttributeInputField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    val labelText =
-        if (attr.unit.isNullOrBlank()) attr.title else "${attr.title} (${attr.unit})"
+    val labelText = buildString {
+        append(attr.title)
+
+        if (attr.key.isNotBlank()) {
+            append(" _ ")
+            append(attr.key)
+        }
+
+        if (!attr.unit.isNullOrBlank()) {
+            append(" _ (${attr.unit})")
+        }
+    }
+
 
     when (attr.valueType.lowercase()) {
 
@@ -491,6 +764,11 @@ private fun ProductAttributeInputField(
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal
                 ),
+                trailingIcon = {
+                    AttributeDescriptionIcon(
+                        description = attr.description,
+                    )
+                },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -517,6 +795,9 @@ private fun ProductAttributeInputField(
                             onValueChange(it.toString())
                         }
                     )
+                    AttributeDescriptionIcon(
+                        description = attr.description,
+                    )
                 }
             }
         }
@@ -531,51 +812,61 @@ private fun ProductAttributeInputField(
                     .map { it.trim() }
                     .filter { it.isNotBlank() }
 
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = {
-                    expanded = !expanded
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = value.ifBlank { "انتخاب نشده" },
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(labelText) },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(
-                            expanded = expanded
-                        )
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-
-                ExposedDropdownMenu(
+                ExposedDropdownMenuBox(
                     expanded = expanded,
-                    onDismissRequest = {
-                        expanded = false
-                    }
+                    onExpandedChange = {
+                        expanded = !expanded
+                    },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("پاک کردن انتخاب") },
-                        onClick = {
-                            onValueChange("")
-                            expanded = false
-                        }
+                    OutlinedTextField(
+                        value = value.ifBlank { "انتخاب نشده" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(labelText) },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = expanded
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
                     )
 
-                    options.forEach { option ->
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = {
+                            expanded = false
+                        }
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(option) },
+                            text = { Text("پاک کردن انتخاب") },
                             onClick = {
-                                onValueChange(option)
+                                onValueChange("")
                                 expanded = false
                             }
                         )
+
+                        options.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    onValueChange(option)
+                                    expanded = false
+                                }
+                            )
+                        }
                     }
                 }
+
+                AttributeDescriptionIcon(
+                    description = attr.description,
+                )
             }
         }
 
@@ -584,9 +875,71 @@ private fun ProductAttributeInputField(
                 value = value,
                 onValueChange = onValueChange,
                 label = { Text(labelText) },
+                textStyle = LocalTextStyle.current.copy(
+                    textDirection = TextDirection.Ltr
+                ),
+                trailingIcon = {
+                    AttributeDescriptionIcon(
+                        description = attr.description,
+                    )
+                },
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
 
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttributeDescriptionIcon(
+    description: String
+) {
+    if (description.isBlank()) return
+
+    val tooltipState = rememberTooltipState(
+        isPersistent = true
+    )
+    val scope = rememberCoroutineScope()
+
+    TooltipBox(
+        positionProvider = rememberTooltipPositionProvider(
+            TooltipAnchorPosition.Above
+        ),
+        tooltip = {
+            PlainTooltip {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(description)
+
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                tooltipState.dismiss()
+                            }
+                        }
+                    ) {
+                        Text("فهمیدم")
+                    }
+                }
+            }
+        },
+        state = tooltipState
+    ) {
+        IconButton(
+            onClick = {
+                scope.launch {
+                    tooltipState.show()
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "توضیح مشخصه"
+            )
+        }
+    }
+}
+
+

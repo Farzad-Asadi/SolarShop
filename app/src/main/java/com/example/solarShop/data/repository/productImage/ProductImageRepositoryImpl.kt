@@ -129,4 +129,15 @@ class ProductImageRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun saveImageOrder(
+        imageIds: List<Int>
+    ) = withContext(Dispatchers.IO) {
+        imageIds.forEachIndexed { index, imageId ->
+            productImageDao.updateOrder(
+                imageId = imageId,
+                sortOrder = index
+            )
+        }
+    }
+
 }

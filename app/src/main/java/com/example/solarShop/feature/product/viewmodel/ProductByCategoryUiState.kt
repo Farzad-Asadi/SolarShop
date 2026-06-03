@@ -8,5 +8,7 @@ data class ProductByCategoryUiState(
     val categoryId: Int? = null,
     val categoryName: String = "",
 
-    val products: List<ProductGridItemUi> = emptyList()
+    val products: List<ProductGridItemUi> = emptyList(),
+
+    val selectedProductIds: Set<Int> = emptySet()
 )

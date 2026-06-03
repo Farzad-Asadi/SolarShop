@@ -8,6 +8,7 @@ data class ProductAttributeDisplayInfo(
     val title: String,
     val key: String,
     val valueType: String,
+    val description: String,
     val unit: String?,
     val enumOptions: String?,
     val isRequired: Boolean,
