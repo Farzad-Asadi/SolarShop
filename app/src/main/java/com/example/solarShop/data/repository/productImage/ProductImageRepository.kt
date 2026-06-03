@@ -35,4 +35,10 @@ interface ProductImageRepository {
     fun observeImagesForProducts(
         productIds: List<Int>
     ): Flow<List<ProductImageEntity>>
+
+    suspend fun addExistingImageFile(
+        productId: Int,
+        fileName: String,
+        sortOrder: Int
+    )
 }

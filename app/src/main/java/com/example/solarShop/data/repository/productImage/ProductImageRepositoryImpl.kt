@@ -114,4 +114,19 @@ class ProductImageRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addExistingImageFile(
+        productId: Int,
+        fileName: String,
+        sortOrder: Int
+    ) = withContext(Dispatchers.IO) {
+        productImageDao.insert(
+            ProductImageEntity(
+                productId = productId,
+                fileName = fileName,
+                createdAt = System.currentTimeMillis(),
+                sortOrder = sortOrder
+            )
+        )
+    }
+
 }

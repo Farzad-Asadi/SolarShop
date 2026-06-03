@@ -2,6 +2,7 @@ package com.example.solarShop.feature.product.ui.product
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -141,7 +142,18 @@ fun ProductEditScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp),
+                                .height(220.dp)
+                                .clickable {
+                                    if (uiState.productId == null) {
+                                        viewModel.save(
+                                            onSuccess = {
+                                                showPickSheet = true
+                                            }
+                                        )
+                                    } else {
+                                        showPickSheet = true
+                                    }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             if (coverImage == null) {
@@ -198,21 +210,11 @@ fun ProductEditScreen(
 
                         OutlinedButton(
                             onClick = {
-                                if (uiState.productId == null) {
-                                    viewModel.save(onSuccess = {})
-                                } else {
-                                    showPickSheet = true
-                                }
+                                showPickSheet = true
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = if (uiState.productId == null) {
-                                    "ذخیره و سپس افزودن تصویر"
-                                } else {
-                                    "افزودن تصویر"
-                                }
-                            )
+                            Text("افزودن تصویر")
                         }
                     }
                 }

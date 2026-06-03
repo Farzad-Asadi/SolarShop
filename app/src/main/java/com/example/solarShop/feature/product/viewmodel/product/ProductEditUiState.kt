@@ -3,6 +3,7 @@ package com.example.solarShop.feature.product.viewmodel.product
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
+import java.io.File
 
 data class ProductEditUiState(
 
@@ -21,6 +22,7 @@ data class ProductEditUiState(
 
     val coverImageFileName: String? = null,
     val images: List<ProductImageEntity> = emptyList(),
+    val pendingImageFiles: List<File> = emptyList(),
 
     val buyPriceDollar: String = "",
     val buyPriceToman: Long? = null,

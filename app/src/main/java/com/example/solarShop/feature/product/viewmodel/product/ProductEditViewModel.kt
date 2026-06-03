@@ -12,6 +12,7 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.repo.ImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,8 @@ class ProductEditViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val pricingRepository: PricingRepository,
     private val inventoryRepository: InventoryRepository,
-    private val productImageRepository: ProductImageRepository
+    private val productImageRepository: ProductImageRepository,
+    private val imageRepository: ImageRepository
 ) : ViewModel() {
 
     private val productId: Int =
@@ -168,6 +170,22 @@ class ProductEditViewModel @Inject constructor(
                     brandId = state.brandId,
                 )
             ).toInt()
+
+            state.pendingImageFiles.forEachIndexed { index, file ->
+                productImageRepository.addExistingImageFile(
+                    productId = savedProductId,
+                    fileName = file.name,
+                    sortOrder = index
+                )
+            }
+
+            formState.update {
+                it.copy(
+                    isSaving = false,
+                    productId = savedProductId,
+                    pendingImageFiles = emptyList()
+                )
+            }
 
             formState.update {
                 it.copy(productId = savedProductId)
@@ -306,25 +324,50 @@ class ProductEditViewModel @Inject constructor(
         return productImageRepository.createCameraTempUri()
     }
 
+
+
+
     fun importProductImageFromGallery(src: Uri) {
         viewModelScope.launch {
-            val currentProductId = formState.value.productId ?: return@launch
+            val currentProductId = formState.value.productId
 
-            productImageRepository.addImageFromUri(
-                productId = currentProductId,
-                src = src
-            )
+            if (currentProductId != null) {
+                productImageRepository.addImageFromUri(
+                    productId = currentProductId,
+                    src = src
+                )
+            } else {
+                val (file, _) = imageRepository.saveCompressedToInternal(src)
+
+                formState.update {
+                    it.copy(
+                        pendingImageFiles = it.pendingImageFiles + file
+                    )
+                }
+            }
         }
     }
 
+
+
     fun importProductImageFromCameraTemp(tempFile: File) {
         viewModelScope.launch {
-            val currentProductId = formState.value.productId ?: return@launch
+            val currentProductId = formState.value.productId
 
-            productImageRepository.addImageFromCameraTemp(
-                productId = currentProductId,
-                tempFile = tempFile
-            )
+            if (currentProductId != null) {
+                productImageRepository.addImageFromCameraTemp(
+                    productId = currentProductId,
+                    tempFile = tempFile
+                )
+            } else {
+                val (file, _) = imageRepository.compressCameraTempToInternal(tempFile)
+
+                formState.update {
+                    it.copy(
+                        pendingImageFiles = it.pendingImageFiles + file
+                    )
+                }
+            }
         }
     }
 }
