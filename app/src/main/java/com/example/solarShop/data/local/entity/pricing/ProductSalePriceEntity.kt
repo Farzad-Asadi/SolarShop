@@ -27,6 +27,14 @@ data class ProductSalePriceEntity(
     val salePriceToman: Long,
 
     val profitPercent: Double? = null,
+
+// قیمت خرید/مبنای دلاری کالا در زمان محاسبه فروش
+    val baseDollarPrice: Double? = null,
+
+// نرخ دلاری که قیمت فروش با آن محاسبه شده
+    val dollarRateToman: Long? = null,
+
+// قیمت خرید تومانی مبنا، برای مراجعات بعدی
     val basePurchasePriceToman: Long? = null,
 
     val note: String = "",

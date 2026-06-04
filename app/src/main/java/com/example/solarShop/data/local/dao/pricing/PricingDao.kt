@@ -196,4 +196,58 @@ interface PricingDao{
 """)
     suspend fun deletePurchasePriceById(id: Int)
 
+    @Query("""
+    DELETE FROM product_sale_prices
+    WHERE id = :id
+""")
+    suspend fun deleteSalePriceById(id: Int)
+
+    @Query("""
+    UPDATE product_purchase_prices
+    SET
+        buyPriceDollar = :buyPriceDollar,
+        buyPriceToman = :buyPriceToman,
+        dollarRateToman = :dollarRateToman,
+        quantity = :quantity,
+        purchasedAt = :purchasedAt,
+        note = :note,
+        updatedAt = :updatedAt
+    WHERE id = :id
+""")
+    suspend fun updatePurchasePrice(
+        id: Int,
+        buyPriceDollar: Double?,
+        buyPriceToman: Long,
+        dollarRateToman: Long?,
+        quantity: Double?,
+        purchasedAt: Long,
+        note: String,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+    UPDATE product_sale_prices
+    SET
+        salePriceToman = :salePriceToman,
+        profitPercent = :profitPercent,
+        baseDollarPrice = :baseDollarPrice,
+        dollarRateToman = :dollarRateToman,
+        basePurchasePriceToman = :basePurchasePriceToman,
+        note = :note,
+        createdAt = :createdAt,
+        updatedAt = :updatedAt
+    WHERE id = :id
+""")
+    suspend fun updateSalePrice(
+        id: Int,
+        salePriceToman: Long,
+        profitPercent: Double?,
+        baseDollarPrice: Double?,
+        dollarRateToman: Long?,
+        basePurchasePriceToman: Long?,
+        note: String,
+        createdAt: Long,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
 }

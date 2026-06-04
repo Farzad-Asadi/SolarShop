@@ -48,6 +48,9 @@ class ProductEditViewModel @Inject constructor(
     private val productId: Int =
         checkNotNull(savedStateHandle["productId"])
 
+    val startedAsNewProduct: Boolean =
+        productId == -1
+
     val isEditMode: Boolean =
         productId != -1
 
@@ -63,11 +66,6 @@ class ProductEditViewModel @Inject constructor(
         )
     )
 
-    private var loadedStock: Double? = null
-
-    private var loadedBuyPriceToman: Long? = null
-    private var loadedBuyPriceDollar: String = ""
-    private var loadedDollarRateToman: Long? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val attributesFlow =
@@ -153,6 +151,9 @@ class ProductEditViewModel @Inject constructor(
             )
         }
 
+
+
+
     val uiState =
         combine(
             formState,
@@ -183,83 +184,159 @@ class ProductEditViewModel @Inject constructor(
                 )
             )
 
+
+
+
     init {
         if (isEditMode) {
             viewModelScope.launch {
-                val productFullInfo = productRepository.getProductFullInfo(productId)
-                    ?: return@launch
+                val productFullInfo =
+                    productRepository.getProductFullInfo(productId)
+                        ?: return@launch
 
                 val product = productFullInfo.product
-
-                formState.update {
-                    it.copy(
-                        productId = product.id,
-                        categoryId = product.categoryId,
-                        name = product.name,
-                        model = product.model,
-                        brandId = product.brandId,
-                    )
-                }
-
 
                 val activePrice =
                     pricingRepository.getActivePurchasePrice(productId)
 
-                loadedBuyPriceToman = activePrice?.buyPriceToman
-                loadedBuyPriceDollar = activePrice?.buyPriceDollar?.let {
-                    java.lang.String.format(
-                        java.util.Locale.US,
-                        "%.2f",
-                        it
-                    )
-                }.orEmpty()
-                loadedDollarRateToman = activePrice?.dollarRateToman
-
                 val currentStock =
                     inventoryRepository.observeCurrentStock(productId).first()
 
-                loadedStock = currentStock
+                val activeConsumerSale =
+                    pricingRepository.getActiveSalePrice(
+                        productId = productId,
+                        priceType = "consumer"
+                    )
 
-                formState.update {
-                    it.copy(
-                        buyPriceToman = activePrice?.buyPriceToman,
-                        buyPriceDollar = loadedBuyPriceDollar,
-                        dollarRateToman = activePrice?.dollarRateToman,
-                        priceNote = activePrice?.note.orEmpty(),
-                        selectedPurchasePriceId = activePrice?.id,
-                        initialQuantity = if (currentStock % 1.0 == 0.0) {
-                            currentStock.toInt().toString()
-                        } else {
-                            currentStock.toString()
-                        }
+                val activeColleagueSale =
+                    pricingRepository.getActiveSalePrice(
+                        productId = productId,
+                        priceType = "colleague"
+                    )
+
+                val latestRate =
+                    pricingRepository.getLatestCurrencyRate("USD")
+
+                val buyDollarText =
+                    activePrice?.buyPriceDollar?.let { value ->
+                        java.lang.String.format(
+                            java.util.Locale.US,
+                            "%.2f",
+                            value
+                        )
+                    }.orEmpty()
+
+                val saleBaseDollar =
+                    activeConsumerSale?.baseDollarPrice
+                        ?: activeColleagueSale?.baseDollarPrice
+                        ?: activePrice?.buyPriceDollar
+
+                val saleDollarRate =
+                    activeConsumerSale?.dollarRateToman
+                        ?: activeColleagueSale?.dollarRateToman
+                        ?: latestRate?.rateToman
+
+                formState.update { state ->
+                    recalculateSalePrices(
+                        state.copy(
+                            productId = product.id,
+                            categoryId = product.categoryId,
+                            name = product.name,
+                            model = product.model,
+                            brandId = product.brandId,
+
+                            buyPriceToman = activePrice?.buyPriceToman,
+                            buyPriceDollar = buyDollarText,
+                            dollarRateToman =
+                            activePrice?.dollarRateToman
+                                ?: latestRate?.rateToman,
+
+                            priceNote = activePrice?.note.orEmpty(),
+                            selectedPurchasePriceId = activePrice?.id,
+
+                            initialQuantity =
+                            if (currentStock % 1.0 == 0.0) {
+                                currentStock.toInt().toString()
+                            } else {
+                                currentStock.toString()
+                            },
+
+                            saleBaseDollarPrice =
+                            saleBaseDollar?.let { value ->
+                                java.lang.String.format(
+                                    java.util.Locale.US,
+                                    "%.2f",
+                                    value
+                                )
+                            }.orEmpty(),
+
+                            saleDollarRateToman = saleDollarRate,
+
+                            selectedConsumerSalePriceId = activeConsumerSale?.id,
+                            selectedColleagueSalePriceId = activeColleagueSale?.id,
+
+                            consumerProfitPercent =
+                            activeConsumerSale?.profitPercent
+                                ?.toString()
+                                .orEmpty(),
+
+                            colleagueProfitPercent =
+                            activeColleagueSale?.profitPercent
+                                ?.toString()
+                                .orEmpty(),
+
+                            saleDate =
+                            activeConsumerSale?.createdAt
+                                ?: activeColleagueSale?.createdAt
+                                ?: System.currentTimeMillis(),
+
+                            saleNote =
+                            activeConsumerSale?.note
+                                ?: activeColleagueSale?.note
+                                ?: ""
+                        )
                     )
                 }
             }
-        }
-        if (!isEditMode) {
+        } else {
             viewModelScope.launch {
-                val latestRate = pricingRepository.getLatestCurrencyRate("USD")
+                val latestRate =
+                    pricingRepository.getLatestCurrencyRate("USD")
 
-                val draftId = productRepository.upsertProduct(
-                    ProductEntity(
-                        categoryId = categoryId,
-                        name = "",
-                        model = "",
-                        brandId = null,
-                        isDraft = true
-                    )
-                ).toInt()
+                val draftId =
+                    productRepository.upsertProduct(
+                        ProductEntity(
+                            categoryId = categoryId,
+                            name = "",
+                            model = "",
+                            brandId = null,
+                            isDraft = true
+                        )
+                    ).toInt()
 
-                formState.update {
-                    it.copy(
-                        productId = draftId,
-                        categoryId = categoryId,
-                        dollarRateToman = latestRate?.rateToman
+                formState.update { state ->
+                    recalculateSalePrices(
+                        state.copy(
+                            productId = draftId,
+                            categoryId = categoryId,
+
+                            dollarRateToman = latestRate?.rateToman,
+                            saleDollarRateToman = latestRate?.rateToman,
+
+                            purchaseDate = System.currentTimeMillis(),
+                            saleDate = System.currentTimeMillis()
+                        )
                     )
                 }
             }
         }
     }
+
+
+
+
+
+
 
     fun onNameChange(value: String) {
         formState.update { it.copy(name = value) }
@@ -403,24 +480,9 @@ class ProductEditViewModel @Inject constructor(
         }
     }
 
-    fun onCoverImageSelected(
-        fileName: String
-    ) {
-        formState.update {
-            it.copy(
-                coverImageFileName = fileName
-            )
-        }
-    }
-
-
-
     fun createProductCameraTempUri(): Pair<File, Uri> {
         return productImageRepository.createCameraTempUri()
     }
-
-
-
 
     fun importProductImageFromGallery(src: Uri) {
         viewModelScope.launch {
@@ -443,8 +505,6 @@ class ProductEditViewModel @Inject constructor(
         }
     }
 
-
-
     fun importProductImageFromCameraTemp(tempFile: File) {
         viewModelScope.launch {
             val currentProductId = formState.value.productId
@@ -462,27 +522,6 @@ class ProductEditViewModel @Inject constructor(
                         pendingImageFiles = it.pendingImageFiles + file
                     )
                 }
-            }
-        }
-    }
-
-    fun saveImageOrder(
-        orderedSavedImageIds: List<Int>,
-        orderedPendingFileNames: List<String>
-    ) {
-        formState.update { state ->
-            val pendingMap = state.pendingImageFiles.associateBy { it.name }
-
-            state.copy(
-                pendingImageFiles = orderedPendingFileNames.mapNotNull { fileName ->
-                    pendingMap[fileName]
-                }
-            )
-        }
-
-        if (orderedSavedImageIds.isNotEmpty()) {
-            viewModelScope.launch {
-                productImageRepository.saveImageOrder(orderedSavedImageIds)
             }
         }
     }
@@ -576,138 +615,66 @@ class ProductEditViewModel @Inject constructor(
         }
     }
 
-    fun onNewPurchasePriceTomanChange(value: Long?) {
-        formState.update {
-            it.copy(newPurchasePriceToman = value)
-        }
-    }
-
-    fun onNewPurchaseDollarRateChange(value: Long?) {
-        formState.update {
-            it.copy(newPurchaseDollarRateToman = value)
-        }
-    }
-
-    fun onNewPurchasePriceDollarChange(value: String) {
-        formState.update {
-            it.copy(
-                newPurchasePriceDollar = value.filter { ch ->
-                    ch.isDigit() || ch == '.'
-                }
-            )
-        }
-    }
-
-    fun onNewPurchaseQuantityChange(value: String) {
-        formState.update {
-            it.copy(
-                newPurchaseQuantity = value.filter { ch ->
-                    ch.isDigit() || ch == '.'
-                }
-            )
-        }
-    }
-
-    fun onNewPurchaseNoteChange(value: String) {
-        formState.update {
-            it.copy(newPurchaseNote = value)
-        }
-    }
-
-    fun addPurchasePrice() {
-        val state = uiState.value
-        val currentProductId = state.productId ?: return
-        val priceToman = state.newPurchasePriceToman ?: return
-
-        viewModelScope.launch {
-            pricingRepository.setNewPurchasePrice(
-                ProductPurchasePriceEntity(
-                    productId = currentProductId,
-                    buyPriceToman = priceToman,
-                    buyPriceDollar = state.newPurchasePriceDollar.toDoubleOrNull(),
-                    dollarRateToman = state.newPurchaseDollarRateToman,
-                    quantity = state.newPurchaseQuantity.toDoubleOrNull(),
-                    purchasedAt = System.currentTimeMillis(),
-                    note = state.newPurchaseNote.trim()
-                )
-            )
-
-            formState.update {
-                it.copy(
-                    newPurchasePriceToman = null,
-                    newPurchaseDollarRateToman = null,
-                    newPurchasePriceDollar = "",
-                    newPurchaseQuantity = "",
-                    newPurchaseNote = ""
-                )
-            }
-        }
-    }
-
     fun onPurchaseDateChange(value: Long) {
         formState.update {
             it.copy(purchaseDate = value)
         }
     }
+
     fun addCurrentPurchaseToHistory() {
         viewModelScope.launch {
-            val currentProductId = uiState.value.productId ?: return@launch
+            val currentProductId =
+                uiState.value.productId ?: return@launch
 
             val state = formState.value
-            val priceToman = state.buyPriceToman
-                ?: return@launch
+            val priceToman =
+                state.buyPriceToman ?: return@launch
 
-            pricingRepository.setNewPurchasePrice(
-                ProductPurchasePriceEntity(
-                    productId = currentProductId,
-                    buyPriceToman = priceToman,
+            val selectedId =
+                state.selectedPurchasePriceId
+
+            if (selectedId != null) {
+                pricingRepository.updatePurchasePrice(
+                    id = selectedId,
                     buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
+                    buyPriceToman = priceToman,
                     dollarRateToman = state.dollarRateToman,
                     quantity = state.initialQuantity.toDoubleOrNull(),
                     purchasedAt = state.purchaseDate,
                     note = state.priceNote.trim()
                 )
-            )
+            } else {
+                pricingRepository.setNewPurchasePrice(
+                    ProductPurchasePriceEntity(
+                        productId = currentProductId,
+                        buyPriceToman = priceToman,
+                        buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
+                        dollarRateToman = state.dollarRateToman,
+                        quantity = state.initialQuantity.toDoubleOrNull(),
+                        purchasedAt = state.purchaseDate,
+                        note = state.priceNote.trim()
+                    )
+                )
+            }
 
             formState.update {
-                it.copy(
-                    buyPriceToman = null,
-                    buyPriceDollar = "",
-                    initialQuantity = "",
-                    priceNote = "",
-                    purchaseDate = System.currentTimeMillis(),
-                    productId = currentProductId
-                    // dollarRateToman عمداً پاک نمی‌شود
+                recalculateSalePrices(
+                    it.copy(
+                        selectedPurchasePriceId = null,
+
+                        buyPriceToman = null,
+                        buyPriceDollar = "",
+                        initialQuantity = "",
+                        priceNote = "",
+                        purchaseDate = System.currentTimeMillis(),
+
+                        saleBaseDollarPrice = state.buyPriceDollar
+
+                        // dollarRateToman عمداً پاک نمی‌شود
+                    )
                 )
             }
         }
-    }
-
-    private suspend fun ensureProductSaved(): Int? {
-        val state = formState.value
-
-        if (state.categoryId == null) return null
-        if (state.name.isBlank()) return null
-
-        state.productId?.let {
-            return it
-        }
-
-        val savedProductId = productRepository.upsertProduct(
-            ProductEntity(
-                id = null,
-                categoryId = state.categoryId,
-                name = state.name.trim(),
-                model = state.model.trim(),
-                brandId = state.brandId
-            )
-        ).toInt()
-
-        formState.update {
-            it.copy(productId = savedProductId)
-        }
-
-        return savedProductId
     }
 
     fun deletePurchasePrice(id: Int) {
@@ -719,29 +686,300 @@ class ProductEditViewModel @Inject constructor(
     fun selectPurchasePrice(
         price: ProductPurchasePriceEntity
     ) {
-        formState.update {
-            it.copy(
-                selectedPurchasePriceId = price.id,
+        val priceId = price.id ?: return
 
-                buyPriceToman = price.buyPriceToman,
-                buyPriceDollar = price.buyPriceDollar?.let { value ->
-                    java.lang.String.format(
-                        java.util.Locale.US,
-                        "%.2f",
-                        value
-                    )
-                }.orEmpty(),
-                dollarRateToman = price.dollarRateToman,
-                initialQuantity = price.quantity?.let { value ->
-                    if (value % 1.0 == 0.0) {
-                        value.toInt().toString()
-                    } else {
-                        value.toString()
-                    }
-                }.orEmpty(),
-                purchaseDate = price.purchasedAt,
-                priceNote = price.note
+        formState.update { state ->
+
+            if (state.selectedPurchasePriceId == priceId) {
+                state.copy(
+                    selectedPurchasePriceId = null,
+
+                    buyPriceToman = null,
+                    buyPriceDollar = "",
+                    initialQuantity = "",
+                    priceNote = "",
+                    purchaseDate = System.currentTimeMillis()
+
+                    // dollarRateToman عمداً پاک نمی‌شود
+                )
+            } else {
+                state.copy(
+                    selectedPurchasePriceId = priceId,
+
+                    buyPriceToman = price.buyPriceToman,
+                    buyPriceDollar = price.buyPriceDollar?.let { value ->
+                        java.lang.String.format(
+                            java.util.Locale.US,
+                            "%.2f",
+                            value
+                        )
+                    }.orEmpty(),
+                    dollarRateToman = price.dollarRateToman,
+                    initialQuantity = price.quantity?.let { value ->
+                        if (value % 1.0 == 0.0) {
+                            value.toInt().toString()
+                        } else {
+                            value.toString()
+                        }
+                    }.orEmpty(),
+                    purchaseDate = price.purchasedAt,
+                    priceNote = price.note
+                )
+            }
+        }
+    }
+
+    private fun calculateSalePriceToman(
+        baseDollarPrice: String,
+        dollarRateToman: Long?,
+        profitPercent: String
+    ): Long? {
+
+        val baseDollar = baseDollarPrice.toDoubleOrNull()
+        val rate = dollarRateToman
+        val profit = profitPercent.toDoubleOrNull()
+
+        if (baseDollar == null || rate == null || profit == null) {
+            return null
+        }
+
+        val basePrice = baseDollar * rate
+
+        val profitAmount =
+            basePrice * profit / 100.0
+
+        return (basePrice + profitAmount).toLong()
+    }
+
+    private fun recalculateSalePrices(state: ProductEditUiState): ProductEditUiState {
+        return state.copy(
+            consumerSalePriceToman = calculateSalePriceToman(
+                baseDollarPrice = state.saleBaseDollarPrice,
+                dollarRateToman = state.saleDollarRateToman,
+                profitPercent = state.consumerProfitPercent
+            ),
+            colleagueSalePriceToman = calculateSalePriceToman(
+                baseDollarPrice = state.saleBaseDollarPrice,
+                dollarRateToman = state.saleDollarRateToman,
+                profitPercent = state.colleagueProfitPercent
             )
+        )
+    }
+
+    fun onSaleBaseDollarPriceChange(value: String) {
+        val clean = value.filter { it.isDigit() || it == '.' }
+
+        formState.update {
+            recalculateSalePrices(
+                it.copy(saleBaseDollarPrice = clean)
+            )
+        }
+    }
+
+    fun onSaleDollarRateChange(value: Long?) {
+        formState.update {
+            recalculateSalePrices(
+                it.copy(saleDollarRateToman = value)
+            )
+        }
+    }
+
+    fun onConsumerProfitPercentChange(value: String) {
+        val clean = value.filter { it.isDigit() || it == '.' }
+
+        formState.update {
+            recalculateSalePrices(
+                it.copy(consumerProfitPercent = clean)
+            )
+        }
+    }
+
+    fun onColleagueProfitPercentChange(value: String) {
+        val clean = value.filter { it.isDigit() || it == '.' }
+
+        formState.update {
+            recalculateSalePrices(
+                it.copy(colleagueProfitPercent = clean)
+            )
+        }
+    }
+
+    fun onSaleDateChange(value: Long) {
+        formState.update {
+            it.copy(saleDate = value)
+        }
+    }
+
+    fun onSaleNoteChange(value: String) {
+        formState.update {
+            it.copy(saleNote = value)
+        }
+    }
+
+    fun addCurrentSalePricesToHistory() {
+        val state = uiState.value
+        val currentProductId = state.productId ?: return
+        val baseDollarPrice = state.saleBaseDollarPrice.toDoubleOrNull()
+        val dollarRate = state.saleDollarRateToman
+
+        viewModelScope.launch {
+            val selectedConsumerId =
+                state.selectedConsumerSalePriceId
+
+            val selectedColleagueId =
+                state.selectedColleagueSalePriceId
+
+            if (state.consumerSalePriceToman != null) {
+                if (selectedConsumerId != null) {
+                    pricingRepository.updateSalePrice(
+                        id = selectedConsumerId,
+                        salePriceToman = state.consumerSalePriceToman,
+                        profitPercent = state.consumerProfitPercent.toDoubleOrNull(),
+                        baseDollarPrice = baseDollarPrice,
+                        dollarRateToman = dollarRate,
+                        basePurchasePriceToman = state.buyPriceToman,
+                        note = state.saleNote.trim(),
+                        createdAt = state.saleDate
+                    )
+                } else {
+                    pricingRepository.setNewActiveSalePrice(
+                        ProductSalePriceEntity(
+                            productId = currentProductId,
+                            priceType = "consumer",
+                            salePriceToman = state.consumerSalePriceToman,
+                            profitPercent = state.consumerProfitPercent.toDoubleOrNull(),
+                            baseDollarPrice = baseDollarPrice,
+                            dollarRateToman = dollarRate,
+                            basePurchasePriceToman = state.buyPriceToman,
+                            note = state.saleNote.trim(),
+                            createdAt = state.saleDate
+                        )
+                    )
+                }
+            }
+
+            if (state.colleagueSalePriceToman != null) {
+                if (selectedColleagueId != null) {
+                    pricingRepository.updateSalePrice(
+                        id = selectedColleagueId,
+                        salePriceToman = state.colleagueSalePriceToman,
+                        profitPercent = state.colleagueProfitPercent.toDoubleOrNull(),
+                        baseDollarPrice = baseDollarPrice,
+                        dollarRateToman = dollarRate,
+                        basePurchasePriceToman = state.buyPriceToman,
+                        note = state.saleNote.trim(),
+                        createdAt = state.saleDate
+                    )
+                } else {
+                    pricingRepository.setNewActiveSalePrice(
+                        ProductSalePriceEntity(
+                            productId = currentProductId,
+                            priceType = "colleague",
+                            salePriceToman = state.colleagueSalePriceToman,
+                            profitPercent = state.colleagueProfitPercent.toDoubleOrNull(),
+                            baseDollarPrice = baseDollarPrice,
+                            dollarRateToman = dollarRate,
+                            basePurchasePriceToman = state.buyPriceToman,
+                            note = state.saleNote.trim(),
+                            createdAt = state.saleDate
+                        )
+                    )
+                }
+            }
+
+            formState.update {
+                recalculateSalePrices(
+                    it.copy(
+                        selectedConsumerSalePriceId = null,
+                        selectedColleagueSalePriceId = null,
+
+                        consumerProfitPercent = "",
+                        consumerSalePriceToman = null,
+                        colleagueProfitPercent = "",
+                        colleagueSalePriceToman = null,
+
+                        saleBaseDollarPrice = "",
+                        saleNote = "",
+                        saleDate = System.currentTimeMillis()
+
+                        // saleDollarRateToman عمداً پاک نمی‌شود
+                    )
+                )
+            }
+        }
+    }
+
+    fun deleteSalePrice(id: Int) {
+        viewModelScope.launch {
+            pricingRepository.deleteSalePriceById(id)
+
+            formState.update {
+                it.copy(
+                    selectedConsumerSalePriceId =
+                    if (it.selectedConsumerSalePriceId == id) null else it.selectedConsumerSalePriceId,
+                    selectedColleagueSalePriceId =
+                    if (it.selectedColleagueSalePriceId == id) null else it.selectedColleagueSalePriceId
+                )
+            }
+        }
+    }
+
+    fun selectSaleGroup(
+        consumer: ProductSalePriceEntity?,
+        colleague: ProductSalePriceEntity?
+    ) {
+        val base =
+            consumer ?: colleague ?: return
+
+        formState.update { state ->
+
+            val isSameGroup =
+                (consumer?.id != null && consumer.id == state.selectedConsumerSalePriceId) ||
+                        (colleague?.id != null && colleague.id == state.selectedColleagueSalePriceId)
+
+            if (isSameGroup) {
+                recalculateSalePrices(
+                    state.copy(
+                        selectedConsumerSalePriceId = null,
+                        selectedColleagueSalePriceId = null,
+
+                        saleBaseDollarPrice = "",
+                        consumerProfitPercent = "",
+                        consumerSalePriceToman = null,
+                        colleagueProfitPercent = "",
+                        colleagueSalePriceToman = null,
+                        saleNote = "",
+                        saleDate = System.currentTimeMillis()
+
+                        // saleDollarRateToman عمداً پاک نمی‌شود
+                    )
+                )
+            } else {
+                recalculateSalePrices(
+                    state.copy(
+                        selectedConsumerSalePriceId = consumer?.id,
+                        selectedColleagueSalePriceId = colleague?.id,
+
+                        saleBaseDollarPrice = base.baseDollarPrice?.let {
+                            java.lang.String.format(
+                                java.util.Locale.US,
+                                "%.2f",
+                                it
+                            )
+                        }.orEmpty(),
+
+                        saleDollarRateToman = base.dollarRateToman,
+                        saleDate = base.createdAt,
+                        saleNote = base.note,
+
+                        consumerProfitPercent =
+                        consumer?.profitPercent?.toString().orEmpty(),
+
+                        colleagueProfitPercent =
+                        colleague?.profitPercent?.toString().orEmpty()
+                    )
+                )
+            }
         }
     }
 

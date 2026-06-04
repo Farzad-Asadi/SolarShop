@@ -64,4 +64,27 @@ interface PricingRepository {
 
 
     suspend fun deletePurchasePriceById(id: Int)
+
+    suspend fun deleteSalePriceById(id: Int)
+
+    suspend fun updatePurchasePrice(
+        id: Int,
+        buyPriceDollar: Double?,
+        buyPriceToman: Long,
+        dollarRateToman: Long?,
+        quantity: Double?,
+        purchasedAt: Long,
+        note: String
+    )
+
+    suspend fun updateSalePrice(
+        id: Int,
+        salePriceToman: Long,
+        profitPercent: Double?,
+        baseDollarPrice: Double?,
+        dollarRateToman: Long?,
+        basePurchasePriceToman: Long?,
+        note: String,
+        createdAt: Long
+    )
 }

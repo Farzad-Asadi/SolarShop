@@ -110,4 +110,50 @@ class PricingRepositoryImpl @Inject constructor(
         pricingDao.deletePurchasePriceById(id)
     }
 
+    override suspend fun deleteSalePriceById(id: Int) {
+        pricingDao.deleteSalePriceById(id)
+    }
+
+    override suspend fun updatePurchasePrice(
+        id: Int,
+        buyPriceDollar: Double?,
+        buyPriceToman: Long,
+        dollarRateToman: Long?,
+        quantity: Double?,
+        purchasedAt: Long,
+        note: String
+    ) {
+        pricingDao.updatePurchasePrice(
+            id = id,
+            buyPriceDollar = buyPriceDollar,
+            buyPriceToman = buyPriceToman,
+            dollarRateToman = dollarRateToman,
+            quantity = quantity,
+            purchasedAt = purchasedAt,
+            note = note
+        )
+    }
+
+    override suspend fun updateSalePrice(
+        id: Int,
+        salePriceToman: Long,
+        profitPercent: Double?,
+        baseDollarPrice: Double?,
+        dollarRateToman: Long?,
+        basePurchasePriceToman: Long?,
+        note: String,
+        createdAt: Long
+    ) {
+        pricingDao.updateSalePrice(
+            id = id,
+            salePriceToman = salePriceToman,
+            profitPercent = profitPercent,
+            baseDollarPrice = baseDollarPrice,
+            dollarRateToman = dollarRateToman,
+            basePurchasePriceToman = basePurchasePriceToman,
+            note = note,
+            createdAt = createdAt
+        )
+    }
+
 }

@@ -44,6 +44,21 @@ data class ProductEditUiState(
     val priceNote: String = "",
     val purchaseDate: Long = System.currentTimeMillis(),
 
+    val saleBaseDollarPrice: String = "",
+    val saleDollarRateToman: Long? = null,
+
+    val consumerProfitPercent: String = "",
+    val consumerSalePriceToman: Long? = null,
+
+    val colleagueProfitPercent: String = "",
+    val colleagueSalePriceToman: Long? = null,
+
+    val saleDate: Long = System.currentTimeMillis(),
+    val saleNote: String = "",
+
+    val selectedConsumerSalePriceId: Int? = null,
+    val selectedColleagueSalePriceId: Int? = null,
+
     val initialQuantity: String = "",
     val inventoryNote: String = "",
 

@@ -75,6 +75,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.feature.product.model.ProductEditImageItem
 import com.example.solarShop.feature.product.viewmodel.product.ProductEditViewModel
@@ -180,6 +181,13 @@ fun ProductEditScreen(
     var purchaseToDelete by remember {
         mutableStateOf<ProductPurchasePriceEntity?>(null)
     }
+    var saleGroupToDelete by remember {
+        mutableStateOf<List<ProductSalePriceEntity>>(emptyList())
+    }
+
+    var showDeleteSaleDialog by remember {
+        mutableStateOf(false)
+    }
 
     var showDeletePurchaseDialog by remember {
         mutableStateOf(false)
@@ -190,10 +198,10 @@ fun ProductEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (uiState.productId != null) {
-                            "ویرایش کالا"
-                        } else {
+                        text = if (viewModel.startedAsNewProduct) {
                             "کالای جدید"
+                        } else {
+                            "ویرایش کالا"
                         }
                     )
                 },
@@ -569,7 +577,13 @@ fun ProductEditScreen(
                             enabled = uiState.productId != null && uiState.buyPriceToman != null,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("ثبت این خرید در تاریخچه")
+                            Text(
+                                if (uiState.selectedPurchasePriceId != null) {
+                                    "ویرایش این خرید"
+                                } else {
+                                    "ثبت این خرید در تاریخچه"
+                                }
+                            )
                         }
 
                         HorizontalDivider()
@@ -657,6 +671,132 @@ fun ProductEditScreen(
                 }
             }
 
+            //کارت فروش
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "قیمت فروش",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        OutlinedTextField(
+                            value = uiState.saleBaseDollarPrice,
+                            onValueChange = viewModel::onSaleBaseDollarPriceChange,
+                            label = { Text("قیمت دلاری مبنا") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        MyCurrencyField(
+                            value = uiState.saleDollarRateToman,
+                            onValueChange = viewModel::onSaleDollarRateChange,
+                            label = "نرخ دلار فروش",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.consumerProfitPercent,
+                                onValueChange = viewModel::onConsumerProfitPercentChange,
+                                label = { Text("درصد مصرف‌کننده") },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                ),
+                                modifier = Modifier.weight(0.45f)
+                            )
+
+                            Text(
+                                text = uiState.consumerSalePriceToman?.let {
+                                    "$it تومان"
+                                } ?: "-",
+                                modifier = Modifier.weight(0.55f),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.colleagueProfitPercent,
+                                onValueChange = viewModel::onColleagueProfitPercentChange,
+                                label = { Text("درصد همکار") },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                ),
+                                modifier = Modifier.weight(0.45f)
+                            )
+
+                            Text(
+                                text = uiState.colleagueSalePriceToman?.let {
+                                    "$it تومان"
+                                } ?: "-",
+                                modifier = Modifier.weight(0.55f),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        DatePickerField(
+                            label = "تاریخ قیمت فروش",
+                            epochMs = uiState.saleDate,
+                            onPick = viewModel::onSaleDateChange
+                        )
+
+                        OutlinedTextField(
+                            value = uiState.saleNote,
+                            onValueChange = viewModel::onSaleNoteChange,
+                            label = { Text("یادداشت فروش") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        val isEditingSale =
+                            uiState.selectedConsumerSalePriceId != null ||
+                                    uiState.selectedColleagueSalePriceId != null
+
+                        Button(
+                            onClick = {
+                                viewModel.addCurrentSalePricesToHistory()
+                            },
+                            enabled =
+                            uiState.productId != null &&
+                                    uiState.saleBaseDollarPrice.isNotBlank() &&
+                                    uiState.saleDollarRateToman != null &&
+                                    (
+                                            uiState.consumerSalePriceToman != null ||
+                                                    uiState.colleagueSalePriceToman != null
+                                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                if (isEditingSale) {
+                                    "ویرایش این فروش"
+                                } else {
+                                    "ثبت این فروش در تاریخچه"
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             //کارت تاریخچه فروش
             item {
@@ -681,38 +821,116 @@ fun ProductEditScreen(
                         if (uiState.salePrices.isEmpty()) {
                             Text("هنوز قیمت فروشی ثبت نشده است.")
                         } else {
-                            uiState.salePrices.forEach { price ->
-                                val typeTitle =
-                                    when (price.priceType) {
-                                        "consumer" -> "مصرف‌کننده"
-                                        "colleague" -> "همکار"
-                                        else -> price.priceType
-                                    }
+                            val groupedSales =
+                                uiState.salePrices
+                                    .groupBy { it.createdAt }
+                                    .toSortedMap(compareByDescending { it })
 
-                                Text(
-                                    text = "$typeTitle: ${price.salePriceToman} تومان"
-                                )
+                            groupedSales.forEach { (createdAt, prices) ->
 
-                                Text(
-                                    text = "سود: ${price.profitPercent ?: "-"}٪",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                val consumer =
+                                    prices.firstOrNull { it.priceType == "consumer" }
 
-                                Text(
-                                    text = formatPersianDateTime(price.createdAt),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                val colleague =
+                                    prices.firstOrNull { it.priceType == "colleague" }
 
-                                if (price.note.isNotBlank()) {
-                                    Text(
-                                        text = price.note,
-                                        style = MaterialTheme.typography.bodySmall
+                                val base =
+                                    consumer ?: colleague
+
+                                val isSelected =
+                                    consumer?.id == uiState.selectedConsumerSalePriceId ||
+                                            colleague?.id == uiState.selectedColleagueSalePriceId
+
+                                ElevatedCard(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = if (isSelected) 2.dp else 0.dp,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            viewModel.selectSaleGroup(
+                                                consumer = consumer,
+                                                colleague = colleague
+                                            )
+                                        },
+                                    colors = CardDefaults.elevatedCardColors(
+                                        containerColor = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        }
                                     )
-                                }
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    text = formatPersianDateTime(createdAt),
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
 
-                                HorizontalDivider()
+                                                Text(
+                                                    text = "دلار: ${base?.dollarRateToman ?: "-"}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+
+                                            IconButton(
+                                                onClick = {
+                                                    saleGroupToDelete = prices
+                                                    showDeleteSaleDialog = true
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "حذف رکورد فروش"
+                                                )
+                                            }
+                                        }
+
+                                        consumer?.let { price ->
+                                            Text(
+                                                text = "مصرف‌کننده: ${price.salePriceToman} تومان | سود: ${price.profitPercent ?: "-"}٪",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+
+                                        colleague?.let { price ->
+                                            Text(
+                                                text = "همکار: ${price.salePriceToman} تومان | سود: ${price.profitPercent ?: "-"}٪",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+
+                                        val note =
+                                            base?.note.orEmpty()
+
+                                        if (note.isNotBlank()) {
+                                            Text(
+                                                text = note,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -960,6 +1178,46 @@ fun ProductEditScreen(
                     onClick = {
                         showDeletePurchaseDialog = false
                         purchaseToDelete = null
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+    if (showDeleteSaleDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteSaleDialog = false
+                saleGroupToDelete = emptyList()
+            },
+            title = {
+                Text("حذف رکورد فروش")
+            },
+            text = {
+                Text("آیا از حذف این رکورد فروش مطمئنی؟")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        saleGroupToDelete.forEach { item ->
+                            item.id?.let { id ->
+                                viewModel.deleteSalePrice(id)
+                            }
+                        }
+
+                        showDeleteSaleDialog = false
+                        saleGroupToDelete = emptyList()
+                    }
+                ) {
+                    Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteSaleDialog = false
+                        saleGroupToDelete = emptyList()
                     }
                 ) {
                     Text("انصراف")
