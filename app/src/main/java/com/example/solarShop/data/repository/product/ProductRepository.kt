@@ -60,4 +60,10 @@ interface ProductRepository {
         model: String,
         brandId: Int?
     )
+
+    suspend fun cleanupOldDraftProducts(
+        olderThanMillis: Long = 24 * 60 * 60 * 1000L
+    )
+
+
 }

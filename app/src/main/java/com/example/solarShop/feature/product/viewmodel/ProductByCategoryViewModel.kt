@@ -100,6 +100,14 @@ class ProductByCategoryViewModel @Inject constructor(
         ProductByCategoryUiState()
     )
 
+
+    init {
+        viewModelScope.launch {
+            productRepository.cleanupOldDraftProducts()
+        }
+    }
+
+
     fun startSelection(productId: Int) {
         selectedProductIds.value = setOf(productId)
     }

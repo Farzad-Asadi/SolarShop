@@ -216,4 +216,13 @@ interface ProductDao{
         brandId: Int?,
         updatedAt: Long = System.currentTimeMillis()
     )
+
+    @Query("""
+    DELETE FROM products
+    WHERE isDraft = 1
+    AND createdAt < :threshold
+""")
+    suspend fun deleteOldDraftProducts(
+        threshold: Long
+    )
 }

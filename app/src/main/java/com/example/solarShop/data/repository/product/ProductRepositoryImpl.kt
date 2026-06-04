@@ -98,4 +98,15 @@ class ProductRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun cleanupOldDraftProducts(
+        olderThanMillis: Long
+    ) {
+        val threshold =
+            System.currentTimeMillis() - olderThanMillis
+
+        productDao.deleteOldDraftProducts(
+            threshold = threshold
+        )
+    }
+
 }
