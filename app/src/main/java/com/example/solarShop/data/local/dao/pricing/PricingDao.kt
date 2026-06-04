@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -121,5 +122,78 @@ interface PricingDao{
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPurchasePricesForRestore(items: List<ProductPurchasePriceEntity>)
 
+
+
+    // ---------- Observe ----------
+    @Query("""
+    SELECT * FROM product_purchase_prices
+    WHERE productId = :productId
+    ORDER BY purchasedAt DESC, createdAt DESC
+""")
+    fun observePurchasePrices(
+        productId: Int
+    ): Flow<List<ProductPurchasePriceEntity>>
+
+
+    // Sale Price
+
+    @Query("""
+    SELECT * FROM product_sale_prices
+    WHERE productId = :productId
+    ORDER BY createdAt DESC
+""")
+    fun observeSalePrices(
+        productId: Int
+    ): Flow<List<ProductSalePriceEntity>>
+
+    @Query("""
+    SELECT * FROM product_sale_prices
+    WHERE productId = :productId
+    AND priceType = :priceType
+    AND isActive = 1
+    ORDER BY createdAt DESC
+    LIMIT 1
+""")
+    suspend fun getActiveSalePrice(
+        productId: Int,
+        priceType: String
+    ): ProductSalePriceEntity?
+
+    @Query("""
+    UPDATE product_sale_prices
+    SET isActive = 0, updatedAt = :updatedAt
+    WHERE productId = :productId
+    AND priceType = :priceType
+""")
+    suspend fun deactivateActiveSalePrices(
+        productId: Int,
+        priceType: String,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Insert
+    suspend fun insertSalePrice(
+        price: ProductSalePriceEntity
+    ): Long
+
+    @Transaction
+    suspend fun setNewActiveSalePrice(
+        price: ProductSalePriceEntity
+    ) {
+        deactivateActiveSalePrices(
+            productId = price.productId,
+            priceType = price.priceType
+        )
+
+        insertSalePrice(
+            price.copy(isActive = true)
+        )
+    }
+
+    @Query("""
+    DELETE FROM product_purchase_prices
+    WHERE id = :id
+""")
+    suspend fun deletePurchasePriceById(id: Int)
 
 }

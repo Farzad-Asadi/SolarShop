@@ -5,30 +5,31 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-
 @Entity(
-    tableName = "product_purchase_prices",
+    tableName = "product_sale_prices",
     indices = [
         Index("productId"),
+        Index("priceType"),
         Index("createdAt"),
-        Index(value = ["productId", "isActive"])
+        Index(value = ["productId", "priceType", "isActive"])
     ]
 )
-data class ProductPurchasePriceEntity(
+data class ProductSalePriceEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int? = null,
     val uid: String = UUID.randomUUID().toString(),
 
     val productId: Int,
 
-    val buyPriceDollar: Double? = null,
-    val buyPriceToman: Long? = null,
-    val dollarRateToman: Long? = null,
+    // consumer یا colleague
+    val priceType: String,
 
-    val quantity: Double? = null,
-    val purchasedAt: Long = System.currentTimeMillis(),
+    val salePriceToman: Long,
+
+    val profitPercent: Double? = null,
+    val basePurchasePriceToman: Long? = null,
+
     val note: String = "",
-
     val isActive: Boolean = true,
 
     val createdAt: Long = System.currentTimeMillis(),

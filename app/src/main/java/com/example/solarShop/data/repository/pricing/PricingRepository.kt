@@ -2,6 +2,7 @@ package com.example.solarShop.data.repository.pricing
 
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
 import com.example.solarShop.domain.product.ProductSalePriceResult
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,23 @@ interface PricingRepository {
         productId: Int
     ): ProductPurchasePriceEntity?
 
+    fun observePurchasePrices(
+        productId: Int
+    ): Flow<List<ProductPurchasePriceEntity>>
+
+    fun observeSalePrices(
+        productId: Int
+    ): Flow<List<ProductSalePriceEntity>>
+
+    suspend fun setNewActiveSalePrice(
+        price: ProductSalePriceEntity
+    )
+
+    suspend fun getActiveSalePrice(
+        productId: Int,
+        priceType: String
+    ): ProductSalePriceEntity?
 
 
+    suspend fun deletePurchasePriceById(id: Int)
 }

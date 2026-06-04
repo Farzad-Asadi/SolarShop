@@ -84,4 +84,18 @@ class ProductRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun finalizeDraftProduct(
+        id: Int,
+        name: String,
+        model: String,
+        brandId: Int?
+    ) {
+        productDao.finalizeDraftProduct(
+            id = id,
+            name = name,
+            model = model,
+            brandId = brandId
+        )
+    }
+
 }

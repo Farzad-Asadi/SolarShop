@@ -16,6 +16,7 @@ import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEn
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
@@ -149,6 +150,7 @@ import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.Use
         CurrencyRateEntity::class,
         ProfitRuleEntity::class,
         InventoryTransactionEntity::class,
+        ProductSalePriceEntity::class,
 
     ],
     version = 2,

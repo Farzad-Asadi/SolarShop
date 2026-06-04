@@ -4,6 +4,7 @@ import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProfitRuleEntity
 import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.domain.product.ProductSalePriceResult
@@ -80,4 +81,33 @@ class PricingRepositoryImpl @Inject constructor(
     ): ProductPurchasePriceEntity? {
         return pricingDao.getActivePurchasePrice(productId)
     }
+
+    override fun observePurchasePrices(
+        productId: Int
+    ) = pricingDao.observePurchasePrices(productId)
+
+    override fun observeSalePrices(
+        productId: Int
+    ) = pricingDao.observeSalePrices(productId)
+
+    override suspend fun setNewActiveSalePrice(
+        price: ProductSalePriceEntity
+    ) {
+        pricingDao.setNewActiveSalePrice(price)
+    }
+
+    override suspend fun getActiveSalePrice(
+        productId: Int,
+        priceType: String
+    ): ProductSalePriceEntity? {
+        return pricingDao.getActiveSalePrice(
+            productId = productId,
+            priceType = priceType
+        )
+    }
+
+    override suspend fun deletePurchasePriceById(id: Int) {
+        pricingDao.deletePurchasePriceById(id)
+    }
+
 }

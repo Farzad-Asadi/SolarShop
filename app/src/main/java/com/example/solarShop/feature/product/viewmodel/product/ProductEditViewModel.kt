@@ -6,8 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.local.entity.product.ProductImageEntity
+import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
@@ -97,28 +100,78 @@ class ProductEditViewModel @Inject constructor(
                 }
             }
 
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val purchasePricesFlow =
+        formState
+            .map { it.productId }
+            .distinctUntilChanged()
+            .flatMapLatest { currentProductId ->
+
+                if (currentProductId == null) {
+                    flowOf(emptyList())
+                } else {
+                    pricingRepository.observePurchasePrices(
+                        currentProductId
+                    )
+                }
+            }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val salePricesFlow =
+        formState
+            .map { it.productId }
+            .distinctUntilChanged()
+            .flatMapLatest { currentProductId ->
+
+                if (currentProductId == null) {
+                    flowOf(emptyList())
+                } else {
+                    pricingRepository.observeSalePrices(
+                        currentProductId
+                    )
+                }
+            }
+
     private val brandsFlow =
         productRepository.observeActiveBrands()
+
+    private val extraDataFlow =
+        combine(
+            brandsFlow,
+            attributesFlow,
+            imagesFlow,
+            purchasePricesFlow,
+            salePricesFlow
+        ) { brands, attributes, images, purchasePrices, salePrices ->
+            ProductEditExtraData(
+                brands = brands,
+                attributes = attributes,
+                images = images,
+                purchasePrices = purchasePrices,
+                salePrices = salePrices
+            )
+        }
 
     val uiState =
         combine(
             formState,
-            brandsFlow,
-            attributesFlow,
-            imagesFlow
-        ) { form, brands, attributes, images ->
+            extraDataFlow
+        ) { form, extra ->
 
             form.copy(
-                brands = brands,
-                attributes = attributes,
-                attributeValues = attributes.associate {
+                brands = extra.brands,
+                attributes = extra.attributes,
+                attributeValues = extra.attributes.associate {
                     it.attributeDefinitionId to (
                             form.attributeValues[it.attributeDefinitionId]
                                 ?: it.valueText.orEmpty()
                             )
                 },
-                images = images,
-                coverImageFileName = images.firstOrNull()?.fileName
+                images = extra.images,
+                purchasePrices = extra.purchasePrices,
+                salePrices = extra.salePrices,
+                coverImageFileName = extra.images.firstOrNull()?.fileName
             )
         }
             .stateIn(
@@ -173,6 +226,7 @@ class ProductEditViewModel @Inject constructor(
                         buyPriceDollar = loadedBuyPriceDollar,
                         dollarRateToman = activePrice?.dollarRateToman,
                         priceNote = activePrice?.note.orEmpty(),
+                        selectedPurchasePriceId = activePrice?.id,
                         initialQuantity = if (currentStock % 1.0 == 0.0) {
                             currentStock.toInt().toString()
                         } else {
@@ -186,8 +240,20 @@ class ProductEditViewModel @Inject constructor(
             viewModelScope.launch {
                 val latestRate = pricingRepository.getLatestCurrencyRate("USD")
 
+                val draftId = productRepository.upsertProduct(
+                    ProductEntity(
+                        categoryId = categoryId,
+                        name = "",
+                        model = "",
+                        brandId = null,
+                        isDraft = true
+                    )
+                ).toInt()
+
                 formState.update {
                     it.copy(
+                        productId = draftId,
+                        categoryId = categoryId,
                         dollarRateToman = latestRate?.rateToman
                     )
                 }
@@ -220,79 +286,22 @@ class ProductEditViewModel @Inject constructor(
         val state = uiState.value
 
         if (state.categoryId == null) return
+        if (state.productId == null) return
         if (state.name.isBlank()) return
 
         viewModelScope.launch {
-            formState.update { it.copy(isSaving = true) }
-
-            val savedProductId =
-                if (isEditMode && state.productId != null) {
-                    productRepository.updateProductBasicInfo(
-                        id = state.productId,
-                        categoryId = state.categoryId,
-                        name = state.name.trim(),
-                        model = state.model.trim(),
-                        brandId = state.brandId
-                    )
-
-                    state.productId
-                } else {
-                    productRepository.upsertProduct(
-                        ProductEntity(
-                            id = null,
-                            categoryId = state.categoryId,
-                            name = state.name.trim(),
-                            model = state.model.trim(),
-                            brandId = state.brandId,
-                        )
-                    ).toInt()
-                }
-
-            if (state.pendingImageFiles.isNotEmpty()) {
-                val currentMaxOrder =
-                    productImageRepository.getMaxSortOrder(savedProductId) ?: -1
-
-                state.pendingImageFiles.forEachIndexed { index, file ->
-                    productImageRepository.addExistingImageFile(
-                        productId = savedProductId,
-                        fileName = file.name,
-                        sortOrder = currentMaxOrder + index + 1
-                    )
-                }
-            }
-
             formState.update {
-                it.copy(
-                    isSaving = false,
-                    productId = savedProductId,
-                    pendingImageFiles = emptyList()
-                )
+                it.copy(isSaving = true)
             }
 
+            val savedProductId = state.productId
 
-            if (!isEditMode && state.buyPriceToman != null) {
-                pricingRepository.setNewPurchasePrice(
-                    ProductPurchasePriceEntity(
-                        productId = savedProductId,
-                        buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
-                        buyPriceToman = state.buyPriceToman,
-                        dollarRateToman = state.dollarRateToman,
-                        note = state.priceNote.trim()
-                    )
-                )
-            }
-
-            val initialQuantity = state.initialQuantity.toDoubleOrNull()
-
-            if (!isEditMode && initialQuantity != null && initialQuantity > 0.0) {
-                inventoryRepository.purchase(
-                    productId = savedProductId,
-                    quantity = initialQuantity,
-                    note = state.inventoryNote.trim().ifBlank {
-                        "موجودی اولیه"
-                    }
-                )
-            }
+            productRepository.finalizeDraftProduct(
+                id = savedProductId,
+                name = state.name.trim(),
+                model = state.model.trim(),
+                brandId = state.brandId
+            )
 
             state.attributeValues.forEach { (attributeDefinitionId, value) ->
                 if (value.isNotBlank()) {
@@ -306,7 +315,14 @@ class ProductEditViewModel @Inject constructor(
                 }
             }
 
-            formState.update { it.copy(isSaving = false) }
+            formState.update {
+                it.copy(
+                    isSaving = false,
+                    productId = savedProductId,
+                    pendingImageFiles = emptyList()
+                )
+            }
+
             onSuccess()
         }
     }
@@ -559,4 +575,183 @@ class ProductEditViewModel @Inject constructor(
             save(onSuccess = onSuccess)
         }
     }
+
+    fun onNewPurchasePriceTomanChange(value: Long?) {
+        formState.update {
+            it.copy(newPurchasePriceToman = value)
+        }
+    }
+
+    fun onNewPurchaseDollarRateChange(value: Long?) {
+        formState.update {
+            it.copy(newPurchaseDollarRateToman = value)
+        }
+    }
+
+    fun onNewPurchasePriceDollarChange(value: String) {
+        formState.update {
+            it.copy(
+                newPurchasePriceDollar = value.filter { ch ->
+                    ch.isDigit() || ch == '.'
+                }
+            )
+        }
+    }
+
+    fun onNewPurchaseQuantityChange(value: String) {
+        formState.update {
+            it.copy(
+                newPurchaseQuantity = value.filter { ch ->
+                    ch.isDigit() || ch == '.'
+                }
+            )
+        }
+    }
+
+    fun onNewPurchaseNoteChange(value: String) {
+        formState.update {
+            it.copy(newPurchaseNote = value)
+        }
+    }
+
+    fun addPurchasePrice() {
+        val state = uiState.value
+        val currentProductId = state.productId ?: return
+        val priceToman = state.newPurchasePriceToman ?: return
+
+        viewModelScope.launch {
+            pricingRepository.setNewPurchasePrice(
+                ProductPurchasePriceEntity(
+                    productId = currentProductId,
+                    buyPriceToman = priceToman,
+                    buyPriceDollar = state.newPurchasePriceDollar.toDoubleOrNull(),
+                    dollarRateToman = state.newPurchaseDollarRateToman,
+                    quantity = state.newPurchaseQuantity.toDoubleOrNull(),
+                    purchasedAt = System.currentTimeMillis(),
+                    note = state.newPurchaseNote.trim()
+                )
+            )
+
+            formState.update {
+                it.copy(
+                    newPurchasePriceToman = null,
+                    newPurchaseDollarRateToman = null,
+                    newPurchasePriceDollar = "",
+                    newPurchaseQuantity = "",
+                    newPurchaseNote = ""
+                )
+            }
+        }
+    }
+
+    fun onPurchaseDateChange(value: Long) {
+        formState.update {
+            it.copy(purchaseDate = value)
+        }
+    }
+    fun addCurrentPurchaseToHistory() {
+        viewModelScope.launch {
+            val currentProductId = uiState.value.productId ?: return@launch
+
+            val state = formState.value
+            val priceToman = state.buyPriceToman
+                ?: return@launch
+
+            pricingRepository.setNewPurchasePrice(
+                ProductPurchasePriceEntity(
+                    productId = currentProductId,
+                    buyPriceToman = priceToman,
+                    buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
+                    dollarRateToman = state.dollarRateToman,
+                    quantity = state.initialQuantity.toDoubleOrNull(),
+                    purchasedAt = state.purchaseDate,
+                    note = state.priceNote.trim()
+                )
+            )
+
+            formState.update {
+                it.copy(
+                    buyPriceToman = null,
+                    buyPriceDollar = "",
+                    initialQuantity = "",
+                    priceNote = "",
+                    purchaseDate = System.currentTimeMillis(),
+                    productId = currentProductId
+                    // dollarRateToman عمداً پاک نمی‌شود
+                )
+            }
+        }
+    }
+
+    private suspend fun ensureProductSaved(): Int? {
+        val state = formState.value
+
+        if (state.categoryId == null) return null
+        if (state.name.isBlank()) return null
+
+        state.productId?.let {
+            return it
+        }
+
+        val savedProductId = productRepository.upsertProduct(
+            ProductEntity(
+                id = null,
+                categoryId = state.categoryId,
+                name = state.name.trim(),
+                model = state.model.trim(),
+                brandId = state.brandId
+            )
+        ).toInt()
+
+        formState.update {
+            it.copy(productId = savedProductId)
+        }
+
+        return savedProductId
+    }
+
+    fun deletePurchasePrice(id: Int) {
+        viewModelScope.launch {
+            pricingRepository.deletePurchasePriceById(id)
+        }
+    }
+
+    fun selectPurchasePrice(
+        price: ProductPurchasePriceEntity
+    ) {
+        formState.update {
+            it.copy(
+                selectedPurchasePriceId = price.id,
+
+                buyPriceToman = price.buyPriceToman,
+                buyPriceDollar = price.buyPriceDollar?.let { value ->
+                    java.lang.String.format(
+                        java.util.Locale.US,
+                        "%.2f",
+                        value
+                    )
+                }.orEmpty(),
+                dollarRateToman = price.dollarRateToman,
+                initialQuantity = price.quantity?.let { value ->
+                    if (value % 1.0 == 0.0) {
+                        value.toInt().toString()
+                    } else {
+                        value.toString()
+                    }
+                }.orEmpty(),
+                purchaseDate = price.purchasedAt,
+                priceNote = price.note
+            )
+        }
+    }
+
 }
+
+
+private data class ProductEditExtraData(
+    val brands: List<ProductBrandEntity>,
+    val attributes: List<ProductAttributeDisplayInfo>,
+    val images: List<ProductImageEntity>,
+    val purchasePrices: List<ProductPurchasePriceEntity>,
+    val salePrices: List<ProductSalePriceEntity>
+)

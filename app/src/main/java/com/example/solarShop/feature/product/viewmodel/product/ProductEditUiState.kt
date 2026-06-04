@@ -1,5 +1,7 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
@@ -24,10 +26,23 @@ data class ProductEditUiState(
     val images: List<ProductImageEntity> = emptyList(),
     val pendingImageFiles: List<File> = emptyList(),
 
+    val purchasePrices: List<ProductPurchasePriceEntity> = emptyList(),
+
+    val newPurchasePriceToman: Long? = null,
+    val newPurchaseDollarRateToman: Long? = null,
+    val newPurchasePriceDollar: String = "",
+    val newPurchaseQuantity: String = "",
+    val newPurchaseNote: String = "",
+
+    val salePrices: List<ProductSalePriceEntity> = emptyList(),
+
+    val selectedPurchasePriceId: Int? = null,
+
     val buyPriceDollar: String = "",
     val buyPriceToman: Long? = null,
     val dollarRateToman: Long? = null,
     val priceNote: String = "",
+    val purchaseDate: Long = System.currentTimeMillis(),
 
     val initialQuantity: String = "",
     val inventoryNote: String = "",

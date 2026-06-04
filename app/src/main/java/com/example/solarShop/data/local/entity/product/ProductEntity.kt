@@ -13,7 +13,8 @@ import java.util.UUID
         Index("unitId"),
         Index("name"),
         Index("model"),
-        Index("isArchived")
+        Index("isArchived"),
+        Index("isDraft")
     ]
 )
 data class ProductEntity(
@@ -30,6 +31,7 @@ data class ProductEntity(
     val description: String = "",
 
     val isArchived: Boolean = false,
+    val isDraft: Boolean = false,
 
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

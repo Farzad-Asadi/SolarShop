@@ -53,4 +53,11 @@ interface ProductRepository {
         model: String,
         brandId: Int?
     )
+
+    suspend fun finalizeDraftProduct(
+        id: Int,
+        name: String,
+        model: String,
+        brandId: Int?
+    )
 }

@@ -23,11 +23,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,10 +74,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.feature.product.model.ProductEditImageItem
 import com.example.solarShop.feature.product.viewmodel.product.ProductEditViewModel
+import com.example.solarShop.utils.DateUi
 import com.example.solarShop.utils.MyCurrencyField
+import com.example.solarShop.utils.PersianDateUiAdapter
+import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
 import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableItem
@@ -171,14 +177,20 @@ fun ProductEditScreen(
 
     var showAddBrandDialog by remember { mutableStateOf(false) }
     var newBrandName by remember { mutableStateOf("") }
+    var purchaseToDelete by remember {
+        mutableStateOf<ProductPurchasePriceEntity?>(null)
+    }
 
+    var showDeletePurchaseDialog by remember {
+        mutableStateOf(false)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = if (viewModel.isEditMode) {
+                        text = if (uiState.productId != null) {
                             "ویرایش کالا"
                         } else {
                             "کالای جدید"
@@ -209,7 +221,13 @@ fun ProductEditScreen(
             //کارت تصویر
             item {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -382,9 +400,15 @@ fun ProductEditScreen(
             //کارت اطلاعات اصلی
             item {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -475,9 +499,15 @@ fun ProductEditScreen(
             //کارت قیمت خرید
             item {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -509,6 +539,21 @@ fun ProductEditScreen(
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
+                        OutlinedTextField(
+                            value = uiState.initialQuantity,
+                            onValueChange = viewModel::onInitialQuantityChange,
+                            label = { Text("تعداد خرید") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        DatePickerField(
+                            label = "تاریخ خرید",
+                            epochMs = uiState.purchaseDate,
+                            onPick = viewModel::onPurchaseDateChange
+                        )
 
                         OutlinedTextField(
                             value = uiState.priceNote,
@@ -516,16 +561,177 @@ fun ProductEditScreen(
                             label = { Text("یادداشت قیمت") },
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        Button(
+                            onClick = {
+                                viewModel.addCurrentPurchaseToHistory()
+                            },
+                            enabled = uiState.productId != null && uiState.buyPriceToman != null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("ثبت این خرید در تاریخچه")
+                        }
+
+                        HorizontalDivider()
+
+                        Text(
+                            text = "تاریخچه خرید",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+
+                        if (uiState.purchasePrices.isEmpty()) {
+                            Text("هنوز رکورد خریدی ثبت نشده است.")
+                        } else {
+                            uiState.purchasePrices.forEach { price ->
+                                val isSelected =
+                                    price.id != null && price.id == uiState.selectedPurchasePriceId
+
+                                ElevatedCard(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = if (isSelected) 2.dp else 0.dp,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            viewModel.selectPurchasePrice(price)
+                                        },
+                                    colors = CardDefaults.elevatedCardColors(
+                                        containerColor = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        }
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text("${price.buyPriceToman} تومان | دلار: ${price.dollarRateToman ?: "-"}")
+
+                                            Text(
+                                                text = formatPersianDateTime(price.purchasedAt),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+
+                                            if (price.note.isNotBlank()) {
+                                                Text(
+                                                    text = price.note,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                purchaseToDelete = price
+                                                showDeletePurchaseDialog = true
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "حذف رکورد خرید"
+                                            )
+                                        }
+                                    }
+                                }
+
+                                HorizontalDivider()
+                            }
+                        }
                     }
                 }
             }
 
+
+            //کارت تاریخچه فروش
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "تاریخچه قیمت فروش",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        if (uiState.salePrices.isEmpty()) {
+                            Text("هنوز قیمت فروشی ثبت نشده است.")
+                        } else {
+                            uiState.salePrices.forEach { price ->
+                                val typeTitle =
+                                    when (price.priceType) {
+                                        "consumer" -> "مصرف‌کننده"
+                                        "colleague" -> "همکار"
+                                        else -> price.priceType
+                                    }
+
+                                Text(
+                                    text = "$typeTitle: ${price.salePriceToman} تومان"
+                                )
+
+                                Text(
+                                    text = "سود: ${price.profitPercent ?: "-"}٪",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Text(
+                                    text = formatPersianDateTime(price.createdAt),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                if (price.note.isNotBlank()) {
+                                    Text(
+                                        text = price.note,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                HorizontalDivider()
+                            }
+                        }
+                    }
+                }
+            }
+
+
             //کارت موجودی اولیه
             item {
                 ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = 6.dp
+                    )
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -534,15 +740,7 @@ fun ProductEditScreen(
                             style = MaterialTheme.typography.titleMedium
                         )
 
-                        OutlinedTextField(
-                            value = uiState.initialQuantity,
-                            onValueChange = viewModel::onInitialQuantityChange,
-                            label = { Text("تعداد موجودی") },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
 
                         OutlinedTextField(
                             value = uiState.inventoryNote,
@@ -724,6 +922,44 @@ fun ProductEditScreen(
                     onClick = {
                         showDeleteDialog = false
                         imageToDelete = null
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+    if (showDeletePurchaseDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeletePurchaseDialog = false
+                purchaseToDelete = null
+            },
+            title = {
+                Text("حذف رکورد خرید")
+            },
+            text = {
+                Text("آیا از حذف این رکورد خرید مطمئنی؟")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        purchaseToDelete?.id?.let { id ->
+                            viewModel.deletePurchasePrice(id)
+                        }
+
+                        showDeletePurchaseDialog = false
+                        purchaseToDelete = null
+                    }
+                ) {
+                    Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeletePurchaseDialog = false
+                        purchaseToDelete = null
                     }
                 ) {
                     Text("انصراف")
@@ -946,4 +1182,43 @@ private fun AttributeDescriptionIcon(
     }
 }
 
+@Composable
+private fun DatePickerField(
+    label: String,
+    epochMs: Long,
+    onPick: (Long) -> Unit,
+    noClock: Boolean = true,
+    dateUi: DateUi = PersianDateUiAdapter
+) {
+    var open by remember { mutableStateOf(false) }
 
+    OutlinedTextField(
+        value = formatPersianDateTime(epochMs, noClock = noClock),
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+        trailingIcon = {
+            TextButton(
+                onClick = {
+                    open = true
+                }
+            ) {
+                Text("انتخاب")
+            }
+        }
+    )
+
+    if (open) {
+        dateUi.Picker(
+            currentEpochMs = epochMs,
+            onPick = { picked ->
+                onPick(picked)
+                open = false
+            },
+            onDismiss = {
+                open = false
+            }
+        )
+    }
+}

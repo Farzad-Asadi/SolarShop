@@ -49,14 +49,14 @@ interface ProductDao{
 
     @Query("""
         SELECT * FROM products
-        WHERE isArchived = 0
+        WHERE isArchived = 0 AND isDraft = 0
         ORDER BY name ASC
     """)
     fun observeActiveProducts(): Flow<List<ProductEntity>>
 
     @Query("""
         SELECT * FROM products
-        WHERE categoryId = :categoryId AND isArchived = 0
+        WHERE categoryId = :categoryId AND isArchived = 0 AND isDraft = 0
         ORDER BY name ASC
     """)
     fun observeProductsByCategory(categoryId: Int): Flow<List<ProductEntity>>
@@ -70,7 +70,7 @@ interface ProductDao{
     @Transaction
     @Query("""
     SELECT * FROM products
-    WHERE isArchived = 0
+    WHERE isArchived = 0 AND isDraft = 0
     ORDER BY name ASC
 """)
     fun observeActiveProductsFullInfo(): Flow<List<ProductFullInfo>>
@@ -128,7 +128,7 @@ interface ProductDao{
     @Query("""
     SELECT * FROM products
     WHERE categoryId = :categoryId
-    AND isArchived = 0
+    AND isArchived = 0 AND isDraft = 0
     ORDER BY name ASC
 """)
     fun observeProductsByCategoryFullInfo(
@@ -193,6 +193,24 @@ interface ProductDao{
     suspend fun updateProductBasicInfo(
         id: Int,
         categoryId: Int,
+        name: String,
+        model: String,
+        brandId: Int?,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+    UPDATE products
+    SET 
+        name = :name,
+        model = :model,
+        brandId = :brandId,
+        isDraft = 0,
+        updatedAt = :updatedAt
+    WHERE id = :id
+""")
+    suspend fun finalizeDraftProduct(
+        id: Int,
         name: String,
         model: String,
         brandId: Int?,
