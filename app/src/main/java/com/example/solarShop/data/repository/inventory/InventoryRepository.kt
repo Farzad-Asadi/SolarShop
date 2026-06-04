@@ -1,5 +1,6 @@
 package com.example.solarShop.data.repository.inventory
 
+import com.example.solarShop.InventoryTransactionType
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -28,4 +29,22 @@ interface InventoryRepository {
         quantity: Double,
         note: String = ""
     )
+
+    suspend fun updateTransaction(
+        id: Int,
+        transactionType: InventoryTransactionType,
+        quantity: Double,
+        note: String,
+        createdAt: Long
+    )
+
+    suspend fun deleteTransactionById(
+        id: Int
+    )
+
+    suspend fun addTransaction(
+        transaction: InventoryTransactionEntity
+    ): Long
+
+
 }

@@ -59,4 +59,34 @@ class InventoryRepositoryImpl @Inject constructor(
             )
         )
     }
+
+    override suspend fun updateTransaction(
+        id: Int,
+        transactionType: InventoryTransactionType,
+        quantity: Double,
+        note: String,
+        createdAt: Long
+    ) {
+        inventoryDao.updateTransaction(
+            id = id,
+            type = transactionType,
+            quantity = quantity,
+            note = note,
+            createdAt = createdAt
+        )
+    }
+
+    override suspend fun deleteTransactionById(
+        id: Int
+    ) {
+        inventoryDao.deleteTransactionById(id)
+    }
+
+
+    override suspend fun addTransaction(
+        transaction: InventoryTransactionEntity
+    ): Long {
+        return inventoryDao.insertInventoryTransaction(transaction)
+    }
+
 }

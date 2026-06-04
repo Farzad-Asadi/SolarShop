@@ -74,6 +74,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
@@ -99,9 +101,63 @@ fun ProductEditScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+
+
+
+    val context = LocalContext.current
+
+
+
+
     var draggingImages by remember { mutableStateOf(false) }
-
-
+    var showPickSheet by remember { mutableStateOf(false) }
+    var pendingTempFile by remember { mutableStateOf<File?>(null) }
+    var imageToDelete by remember {
+        mutableStateOf<ProductEditImageItem?>(null)
+    }
+    var showDeleteDialog by remember {
+        mutableStateOf(false)
+    }
+    var brandMenuExpanded by remember { mutableStateOf(false) }
+    var showAddBrandDialog by remember { mutableStateOf(false) }
+    var newBrandName by remember { mutableStateOf("") }
+    var purchaseToDelete by remember {
+        mutableStateOf<ProductPurchasePriceEntity?>(null)
+    }
+    var saleGroupToDelete by remember {
+        mutableStateOf<List<ProductSalePriceEntity>>(emptyList())
+    }
+    var showDeleteSaleDialog by remember {
+        mutableStateOf(false)
+    }
+    var showDeletePurchaseDialog by remember {
+        mutableStateOf(false)
+    }
+    val pickImage = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importProductImageFromGallery(uri)
+        }
+    }
+    val cameraController = rememberCameraCaptureLauncher(
+        requiredPermissions = { emptyArray() },
+        createOutputUri = {
+            val (tmpFile, tmpUri) = viewModel.createProductCameraTempUri()
+            pendingTempFile = tmpFile
+            tmpUri
+        },
+        onResult = { _, success ->
+            val tmp = pendingTempFile
+            if (success && tmp != null) {
+                viewModel.importProductImageFromCameraTemp(tmp)
+            } else {
+                tmp?.let { runCatching { it.delete() } }
+            }
+            pendingTempFile = null
+        },
+        onMessage = {}
+    )
     val sourceImages = remember(
         uiState.images,
         uiState.pendingImageFiles
@@ -128,8 +184,17 @@ fun ProductEditScreen(
             }
         }
     }
-
     var imageItems by remember { mutableStateOf(sourceImages) }
+    var inventoryToDelete by remember {
+        mutableStateOf<InventoryTransactionEntity?>(null)
+    }
+    var showDeleteInventoryDialog by remember {
+        mutableStateOf(false)
+    }
+
+
+
+
 
     LaunchedEffect(sourceImages) {
         if (!draggingImages) {
@@ -137,61 +202,6 @@ fun ProductEditScreen(
         }
     }
 
-    val context = LocalContext.current
-    var showPickSheet by remember { mutableStateOf(false) }
-    var pendingTempFile by remember { mutableStateOf<File?>(null) }
-    var imageToDelete by remember {
-        mutableStateOf<ProductEditImageItem?>(null)
-    }
-
-    var showDeleteDialog by remember {
-        mutableStateOf(false)
-    }
-    val pickImage = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.importProductImageFromGallery(uri)
-        }
-    }
-
-    val cameraController = rememberCameraCaptureLauncher(
-        requiredPermissions = { emptyArray() },
-        createOutputUri = {
-            val (tmpFile, tmpUri) = viewModel.createProductCameraTempUri()
-            pendingTempFile = tmpFile
-            tmpUri
-        },
-        onResult = { _, success ->
-            val tmp = pendingTempFile
-            if (success && tmp != null) {
-                viewModel.importProductImageFromCameraTemp(tmp)
-            } else {
-                tmp?.let { runCatching { it.delete() } }
-            }
-            pendingTempFile = null
-        },
-        onMessage = {}
-    )
-
-    var brandMenuExpanded by remember { mutableStateOf(false) }
-
-    var showAddBrandDialog by remember { mutableStateOf(false) }
-    var newBrandName by remember { mutableStateOf("") }
-    var purchaseToDelete by remember {
-        mutableStateOf<ProductPurchasePriceEntity?>(null)
-    }
-    var saleGroupToDelete by remember {
-        mutableStateOf<List<ProductSalePriceEntity>>(emptyList())
-    }
-
-    var showDeleteSaleDialog by remember {
-        mutableStateOf(false)
-    }
-
-    var showDeletePurchaseDialog by remember {
-        mutableStateOf(false)
-    }
 
     Scaffold(
         topBar = {
@@ -794,25 +804,9 @@ fun ProductEditScreen(
                                 }
                             )
                         }
-                    }
-                }
-            }
 
-            //کارت تاریخچه فروش
-            item {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(
-                        defaultElevation = 6.dp
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                        HorizontalDivider()
+
                         Text(
                             text = "تاریخچه قیمت فروش",
                             style = MaterialTheme.typography.titleMedium
@@ -933,10 +927,10 @@ fun ProductEditScreen(
                                 }
                             }
                         }
+
                     }
                 }
             }
-
 
             //کارت موجودی اولیه
             item {
@@ -954,11 +948,35 @@ fun ProductEditScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "موجودی اولیه",
+                            text = "موجودی",
                             style = MaterialTheme.typography.titleMedium
                         )
 
+                        Text(
+                            text = "موجودی فعلی: ${uiState.currentStock}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
 
+                        OutlinedTextField(
+                            value = uiState.inventoryQuantity,
+                            onValueChange = viewModel::onInventoryQuantityChange,
+                            label = { Text("تعداد") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        InventoryTypeSelector(
+                            selectedType = uiState.inventoryTransactionType,
+                            onTypeChange = viewModel::onInventoryTransactionTypeChange
+                        )
+
+                        DatePickerField(
+                            label = "تاریخ تراکنش",
+                            epochMs = uiState.inventoryTransactionDate,
+                            onPick = viewModel::onInventoryTransactionDateChange
+                        )
 
                         OutlinedTextField(
                             value = uiState.inventoryNote,
@@ -966,13 +984,110 @@ fun ProductEditScreen(
                             label = { Text("یادداشت موجودی") },
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        Button(
+                            onClick = {
+                                viewModel.addOrUpdateInventoryTransaction()
+                            },
+                            enabled = uiState.productId != null &&
+                                    uiState.inventoryQuantity.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                if (uiState.selectedInventoryTransactionId != null) {
+                                    "ویرایش این تراکنش موجودی"
+                                } else {
+                                    "ثبت این تراکنش در تاریخچه"
+                                }
+                            )
+                        }
+
+                        HorizontalDivider()
+
+                        Text(
+                            text = "تاریخچه موجودی",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        if (uiState.inventoryTransactions.isEmpty()) {
+                            Text("هنوز تراکنش موجودی ثبت نشده است.")
+                        } else {
+                            uiState.inventoryTransactions.forEach { item ->
+
+                                val isSelected =
+                                    item.id == uiState.selectedInventoryTransactionId
+
+                                ElevatedCard(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(
+                                            width = if (isSelected) 2.dp else 0.dp,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            viewModel.selectInventoryTransaction(item)
+                                        },
+                                    colors = CardDefaults.elevatedCardColors(
+                                        containerColor = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        }
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "${inventoryTypeTitle(item.transactionType)} | تعداد: ${item.quantity}"
+                                            )
+
+                                            Text(
+                                                text = formatPersianDateTime(item.createdAt),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+
+                                            if (item.note.isNotBlank()) {
+                                                Text(
+                                                    text = item.note,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                inventoryToDelete = item
+                                                showDeleteInventoryDialog = true
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "حذف تراکنش موجودی"
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
             //کارت مشخصات فنی
-
-
             item {
                 HorizontalDivider()
                 Text(
@@ -1218,6 +1333,44 @@ fun ProductEditScreen(
                     onClick = {
                         showDeleteSaleDialog = false
                         saleGroupToDelete = emptyList()
+                    }
+                ) {
+                    Text("انصراف")
+                }
+            }
+        )
+    }
+    if (showDeleteInventoryDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteInventoryDialog = false
+                inventoryToDelete = null
+            },
+            title = {
+                Text("حذف تراکنش موجودی")
+            },
+            text = {
+                Text("آیا از حذف این تراکنش موجودی مطمئنی؟")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        inventoryToDelete?.id?.let { id ->
+                            viewModel.deleteInventoryTransaction(id)
+                        }
+
+                        showDeleteInventoryDialog = false
+                        inventoryToDelete = null
+                    }
+                ) {
+                    Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteInventoryDialog = false
+                        inventoryToDelete = null
                     }
                 ) {
                     Text("انصراف")
@@ -1478,5 +1631,75 @@ private fun DatePickerField(
                 open = false
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InventoryTypeSelector(
+    selectedType: InventoryTransactionType,
+    onTypeChange: (InventoryTransactionType) -> Unit
+) {
+    val options = listOf(
+        InventoryTransactionType.PURCHASE,
+        InventoryTransactionType.SALE,
+        InventoryTransactionType.SALE_RETURN,
+        InventoryTransactionType.PURCHASE_RETURN,
+        InventoryTransactionType.ADJUSTMENT
+    )
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = {
+            expanded = !expanded
+        }
+    ) {
+        OutlinedTextField(
+            value = inventoryTypeTitle(selectedType),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("نوع تراکنش") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(
+                    expanded = expanded
+                )
+            },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            }
+        ) {
+            options.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(inventoryTypeTitle(type)) },
+                    onClick = {
+                        onTypeChange(type)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun inventoryTypeTitle(
+    type: InventoryTransactionType
+): String {
+    return when (type) {
+        InventoryTransactionType.PURCHASE -> "خرید / ورود کالا"
+        InventoryTransactionType.SALE -> "فروش / خروج کالا"
+        InventoryTransactionType.SALE_RETURN -> "برگشت از مشتری"
+        InventoryTransactionType.PURCHASE_RETURN -> "برگشت به تأمین‌کننده"
+        InventoryTransactionType.ADJUSTMENT -> "اصلاح دستی"
     }
 }
