@@ -90,6 +90,37 @@ object NetworkModule {
     @Provides @Singleton
     fun provideEntitlementApi(@Named("plain") client: HttpClient, session: SessionDataStore): EntitlementApi =
         EntitlementApi(client, session)
+
+    @Provides
+    @Singleton
+    @Named("external")
+    fun provideExternalClient(
+        @Named("networkJson") json: Json
+    ): HttpClient {
+        return HttpClient(OkHttp.create {}) {
+            expectSuccess = false
+
+            install(ContentNegotiation) {
+                json(json)
+            }
+
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.BODY
+            }
+
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 15_000
+            }
+
+            defaultRequest {
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header(HttpHeaders.Accept, ContentType.Application.Json)
+            }
+        }
+    }
 }
 
 

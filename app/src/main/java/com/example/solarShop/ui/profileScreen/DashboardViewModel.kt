@@ -1,5 +1,6 @@
 package com.example.solarShop.ui.profileScreen
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.CurrencyUnit
@@ -7,9 +8,13 @@ import com.example.solarShop.LengthUnit
 import com.example.solarShop.OrderTimeline
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.dataStore.DisplayPreferencesDataSource
+import com.example.solarShop.data.dataStore.DollarRatePreferencesDataSource
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.entitlement.EntitlementCenter
 import com.example.solarShop.data.entitlement.EntitlementState
+import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
+import com.example.solarShop.data.remote.currency.CurrencyRemoteDataSource
+import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.client.ClientRepository
 import com.example.solarShop.data.room.tables.client.ClientWithOrders
@@ -28,6 +33,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -37,12 +43,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class ProfileViewModel @Inject constructor(
+class DashboardViewModel @Inject constructor(
     private val userRepo: UserRepository,
     private val clientRepo: ClientRepository,
     private val orderRepo: OrderRepository,
@@ -53,6 +60,9 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     entitlementCenter: EntitlementCenter,
     private val orderAllRepository: OrderAllRepository,
+    private val pricingRepository: PricingRepository,
+    private val dollarRatePrefs: DollarRatePreferencesDataSource,
+    private val currencyRemoteDataSource: CurrencyRemoteDataSource,
 
     ) : ViewModel() {
 
@@ -131,6 +141,21 @@ class ProfileViewModel @Inject constructor(
             }
             .distinctUntilChanged()
 
+    private val latestDollarRateFlow: Flow<Long?> =
+        pricingRepository
+            .observeCurrencyRateHistory("USD")
+            .map { list ->
+                list.firstOrNull()?.rateToman
+            }
+            .flowOn(Dispatchers.IO)
+
+    private val manualDollarRateFlow =
+        dollarRatePrefs.manualDollarRateFlow
+
+    private val dollarRateUiState =
+        MutableStateFlow(
+            DollarRateUiState()
+        )
 
     // UiState نهایی
     @Suppress("UNCHECKED_CAST")
@@ -141,6 +166,9 @@ class ProfileViewModel @Inject constructor(
             templateFlow,
             orderEntityListFlow,
             orderSummariesFlow,
+            latestDollarRateFlow,
+            manualDollarRateFlow,
+            dollarRateUiState,
         ) { arr: Array<Any?> ->
 
 
@@ -149,6 +177,14 @@ class ProfileViewModel @Inject constructor(
             val template = arr[2] as ContractTemplateFull?
             val orderEntityList = arr[3] as List<OrderEntity>?
             val orderSummaries = arr[4] as List<OrderSummary>?
+            val latestDollarRateToman = arr[5] as Long?
+            val manualDollarRateToman = arr[6] as Long?
+            val dollarRateUi = arr[7] as DollarRateUiState
+
+            val manualDollarRate = latestDollarRateToman
+
+            val effectiveDollarRateToman =
+                manualDollarRateToman ?: latestDollarRateToman
 
             ProfileUiState(
                 currentUserEntity = currentUser,
@@ -156,13 +192,25 @@ class ProfileViewModel @Inject constructor(
                 template = template,
                 orderEntityList = orderEntityList,
                 orderSummaries = orderSummaries,
-                isDataLoaded = true
+                isDataLoaded = true,
+                latestDollarRateToman = latestDollarRateToman,
+                apiDollarRateToman = latestDollarRateToman,
+                manualDollarRateToman = manualDollarRateToman,
+                effectiveDollarRateToman = effectiveDollarRateToman,
+                isFetchingDollarRate = dollarRateUi.isFetchingDollarRate,
+                dollarRateMessage = dollarRateUi.message,
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ProfileUiState()
         )
+
+
+
+
+
+
 //endregion State
 
 //region funs
@@ -252,6 +300,65 @@ class ProfileViewModel @Inject constructor(
 
         }
     }
+
+
+    fun onManualDollarRateChange(value: Long?) {
+        viewModelScope.launch {
+            dollarRatePrefs.setManualDollarRate(value)
+        }
+    }
+
+    fun fetchDollarRateFromApi() {
+        viewModelScope.launch {
+            dollarRateUiState.update {
+                it.copy(
+                    isFetchingDollarRate = true,
+                    message = null
+                )
+            }
+
+            try {
+                val rate = withContext(Dispatchers.IO) {
+                    currencyRemoteDataSource.fetchUsdRateToman()
+                }
+
+                if (rate == null) {
+                    dollarRateUiState.update {
+                        it.copy(
+                            isFetchingDollarRate = false,
+                            message = "نرخ دلار از API پیدا نشد."
+                        )
+                    }
+                    return@launch
+                }
+
+                pricingRepository.insertCurrencyRate(
+                    CurrencyRateEntity(
+                        currencyCode = "USD",
+                        rateToman = rate
+                    )
+                )
+
+                dollarRateUiState.update {
+                    it.copy(
+                        isFetchingDollarRate = false,
+                        message = "نرخ دلار از API دریافت و ذخیره شد."
+                    )
+                }
+
+            } catch (e: Exception) {
+                dollarRateUiState.update {
+                    it.copy(
+                        isFetchingDollarRate = false,
+                        message = "خطا در دریافت نرخ دلار: ${e.message.orEmpty()}"
+
+                    )
+
+                }
+                Log.e("DashboardViewModel", "Error fetching dollar rate: ${e.message}", e)
+            }
+        }
+    }
 //endregion funs
 
 
@@ -264,7 +371,20 @@ class ProfileViewModel @Inject constructor(
         val orderEntityList: List<OrderEntity>? = listOf(),
         val template: ContractTemplateFull? = null,
         val orderSummaries: List<OrderSummary>? = null,
+        val latestDollarRateToman: Long? = null,
+
+        val apiDollarRateToman: Long? = null,
+        val manualDollarRateToman: Long? = null,
+        val effectiveDollarRateToman: Long? = null,
+        val isFetchingDollarRate: Boolean = false,
+        val dollarRateMessage: String? = null,
+
         val isDataLoaded: Boolean = false
+    )
+
+    data class DollarRateUiState(
+        val isFetchingDollarRate: Boolean = false,
+        val message: String? = null
     )
 //endregion dataClasses
 

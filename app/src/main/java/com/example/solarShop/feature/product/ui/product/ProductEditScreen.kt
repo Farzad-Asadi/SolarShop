@@ -51,6 +51,7 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults.rememberTooltipPositionProvider
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -84,6 +85,7 @@ import com.example.solarShop.feature.product.viewmodel.product.ProductEditViewMo
 import com.example.solarShop.utils.DateUi
 import com.example.solarShop.utils.MyCurrencyField
 import com.example.solarShop.utils.PersianDateUiAdapter
+import com.example.solarShop.utils.currency.toPriceString
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
 import kotlinx.coroutines.launch
@@ -225,7 +227,8 @@ fun ProductEditScreen(
                 }
             )
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .imePadding()
     ) { padding ->
 
@@ -644,17 +647,32 @@ fun ProductEditScreen(
                                             modifier = Modifier.weight(1f),
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            Text("${price.buyPriceToman} تومان | دلار: ${price.dollarRateToman ?: "-"}")
+                                            Text("${price.buyPriceToman.toPriceString()} تومان | دلار: ${price.buyPriceDollar ?: "-"}")
 
-                                            Text(
-                                                text = formatPersianDateTime(price.purchasedAt),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Row(
+                                                modifier = Modifier
+                                                    .padding(10.dp),
+                                            ) {
+                                                Text(
+                                                    text = formatPersianDateTime(
+                                                        price.purchasedAt,
+                                                        true
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                VerticalDivider(thickness = 2.dp)
+                                                Text(
+                                                    text = "   نرخ دلار خرید :${ price.dollarRateToman.toPriceString() } ",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
 
                                             if (price.note.isNotBlank()) {
                                                 Text(
                                                     text = price.note,
+                                                    maxLines = 1,
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                             }
@@ -867,6 +885,22 @@ fun ProductEditScreen(
                                             .padding(10.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
+
+
+                                        consumer?.let { price ->
+                                            Text(
+                                                text = "مصرف‌کننده: ${price.salePriceToman.toPriceString()} تومان | سود: ${price.profitPercent ?: "-"}٪",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+
+                                        colleague?.let { price ->
+                                            Text(
+                                                text = "همکار:          ${price.salePriceToman.toPriceString()} تومان | سود: ${price.profitPercent ?: "-"}٪",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically
@@ -897,20 +931,6 @@ fun ProductEditScreen(
                                                     contentDescription = "حذف رکورد فروش"
                                                 )
                                             }
-                                        }
-
-                                        consumer?.let { price ->
-                                            Text(
-                                                text = "مصرف‌کننده: ${price.salePriceToman} تومان | سود: ${price.profitPercent ?: "-"}٪",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-
-                                        colleague?.let { price ->
-                                            Text(
-                                                text = "همکار: ${price.salePriceToman} تومان | سود: ${price.profitPercent ?: "-"}٪",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
                                         }
 
                                         val note =

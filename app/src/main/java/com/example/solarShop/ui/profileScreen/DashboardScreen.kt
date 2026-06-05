@@ -22,6 +22,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,14 +36,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -71,7 +70,6 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Diamond
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Inventory2
@@ -90,7 +88,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -153,6 +154,8 @@ import com.example.solarShop.AppLanguageViewModel
 import com.example.solarShop.CurrencyUnit
 import com.example.solarShop.LengthUnit
 import com.example.solarShop.R
+import com.example.solarShop.USER_ROLE_OPTIONS
+import com.example.solarShop.USER_ROLE_SELLER
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.entitlement.EntitlementState
 import com.example.solarShop.data.entitlement.toPremiumUi
@@ -163,12 +166,14 @@ import com.example.solarShop.ui.theme.BambooTheme
 import com.example.solarShop.utils.ConfirmDialogRtl
 import com.example.solarShop.utils.LoadingScreen
 import com.example.solarShop.utils.MediaPictureStore
+import com.example.solarShop.utils.MyCurrencyField
 import com.example.solarShop.utils.MyLandlineField
 import com.example.solarShop.utils.MyNationalCodeField
 import com.example.solarShop.utils.MyPhoneField
 import com.example.solarShop.utils.MyStringField
 import com.example.solarShop.utils.PictureBucket
 import com.example.solarShop.utils.bambooAngledBackground
+import com.example.solarShop.utils.currency.toPriceString
 import com.example.solarShop.utils.dbToLocalDisplay
 import com.example.solarShop.utils.digitsToLatinInline
 import com.example.solarShop.utils.formatIranMobileForDisplay
@@ -183,7 +188,7 @@ val horizontalPadding = 8.dp
 val verticalPadding = 8.dp
 
 @Composable
-fun ProfileScreen(                               //صفحه پروفایل
+fun DashboardScreen(                               //صفحه پروفایل
     onClickAddOrder: (Int) -> Unit,
     onClickOrder: (Int) -> Unit,
     onSignedOut: () -> Unit,
@@ -191,14 +196,14 @@ fun ProfileScreen(                               //صفحه پروفایل
     onClickBackUpRestore: () -> Unit,
     onClickProductList: () -> Unit,
     modifier: Modifier = Modifier,
-    vm: ProfileViewModel = hiltViewModel(),
+    viewModel: DashboardViewModel = hiltViewModel(),
 ) {
 
     //region stats
 
-    val ui by vm.uiState.collectAsStateWithLifecycle()
-    val entState by vm.entitlement.collectAsStateWithLifecycle(initialValue = EntitlementState.Inactive)
-    val prefs by vm.displayPrefsState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val entState by viewModel.entitlement.collectAsStateWithLifecycle(initialValue = EntitlementState.Inactive)
+    val prefs by viewModel.displayPrefsState.collectAsStateWithLifecycle()
 
     val langVm: AppLanguageViewModel = hiltViewModel()
     val appLang by langVm.appLanguage.collectAsStateWithLifecycle()
@@ -219,8 +224,16 @@ fun ProfileScreen(                               //صفحه پروفایل
 
     var choiceClientId by rememberSaveable { mutableIntStateOf(1) }
 
-    val clients = ui.currentClientWithOrders?.map { it.clientEntity } ?: listOf()
-    val orderSummaries = ui.orderSummaries ?: emptyList()
+    var indicatorsExpanded by rememberSaveable { mutableStateOf(true) }
+    var marketExpanded by rememberSaveable { mutableStateOf(true) }
+    var actionsExpanded by rememberSaveable { mutableStateOf(true) }
+    var clientsExpanded by rememberSaveable { mutableStateOf(true) }
+    var manualDollarText by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    val clients = uiState.currentClientWithOrders?.map { it.clientEntity } ?: listOf()
+    val orderSummaries = uiState.orderSummaries ?: emptyList()
 
     BackHandler {
         if (
@@ -242,7 +255,7 @@ fun ProfileScreen(                               //صفحه پروفایل
 
 //endregion stats
 
-    if (ui.isDataLoaded) {
+    if (uiState.isDataLoaded) {
 
         // اسکرین نیمه‌شفاف روی همه‌چیز جهت
         Box(Modifier.fillMaxSize()) {
@@ -260,7 +273,7 @@ fun ProfileScreen(                               //صفحه پروفایل
 
                 Scaffold(
                     topBar = {
-                        ui.currentUserEntity?.let {
+                        uiState.currentUserEntity?.let {
                             ProfileTopBar(
                                 user = it,
                                 entState = entState,
@@ -270,8 +283,8 @@ fun ProfileScreen(                               //صفحه پروفایل
                                 onClickSignedOut = { showSignOutDialog = true },
                                 onClickAvatar = { showEditeProfileSheet = true },
                                 onClickPremium = { showPremiumSheet = true },
-                                onChangeCurrency = vm::onChangeCurrency,
-                                onChangeLength = vm::onChangeLength
+                                onChangeCurrency = viewModel::onChangeCurrency,
+                                onChangeLength = viewModel::onChangeLength
                             )
 
                         }
@@ -296,95 +309,169 @@ fun ProfileScreen(                               //صفحه پروفایل
                                 modifier = Modifier.fillMaxSize()
 
                             ) {
+
+                                //شاخص‌ها
                                 item {
-                                    QuickAccessRow(
-                                        modifier = Modifier,
-                                        onClickProductList = { onClickProductList() },
-                                        onClickEditContract = onShowEditeContract,
-                                        onClickBackup = onClickBackUpRestore,
-                                        //                                    onClickBackup = { vm.onExportClicked() },
-                                        //                                    onClickRestore = { pickBackupLauncher.launch(arrayOf("application/zip")) },
-                                        onClickUserData = {},
-                                    )
-                                    Spacer(modifier = Modifier.height(22.dp))
-                                    HorizontalDivider()
+                                    Spacer(Modifier.height(12.dp))
 
-                                }
-                                item {
-                                    ClientsHeaderRow(
-                                        count = clients.size,
-                                        onClickAddClient = { showAddClientSheet = true }
-                                    )
-                                }
-                                items(clients, key = { it.id!! }) { client ->
-                                    val numberOfOrderOfThisClient =
-                                        ui.orderEntityList?.count { it.clientId == client.id } ?: 0
-
-
-                                    // ۱) دیگه از confirmValueChange استفاده نمی‌کنیم
-                                    val state = rememberSwipeToDismissBoxState()
-
-                                    // ۲) تعریف تارگت‌ها بر اساس RTL / LTR
-                                    val deleteTarget =
-                                        if (isRtl) SwipeToDismissBoxValue.StartToEnd else SwipeToDismissBoxValue.EndToStart
-                                    val editTarget =
-                                        if (isRtl) SwipeToDismissBoxValue.EndToStart else SwipeToDismissBoxValue.StartToEnd
-
-                                    // ۳) واکنش به تغییر استیت با LaunchedEffect
-                                    LaunchedEffect(state.currentValue) {
-                                        when (state.currentValue) {
-                                            deleteTarget -> {
-                                                // سوایپ جهت حذف
-                                                pendingDelete = client
-                                                // آیتم رو برگردون به حالت اولیه
-                                                state.snapTo(SwipeToDismissBoxValue.Settled)
-                                            }
-
-                                            editTarget -> {
-                                                // سوایپ جهت ویرایش
-                                                showEditeClientSheet = true
-                                                client.id?.let { choiceClientId = it }
-                                                // آیتم رو برگردون به حالت اولیه
-                                                state.snapTo(SwipeToDismissBoxValue.Settled)
-                                            }
-
-                                            SwipeToDismissBoxValue.Settled -> Unit
-                                            else -> Unit
-                                        }
+                                    DashboardExpandableCard(
+                                        title = "شاخص‌ها",
+                                        expanded = indicatorsExpanded,
+                                        onExpandedChange = { indicatorsExpanded = it }
+                                    ) {
+                                        Text("اینجا بعداً ارزش انبار، درآمد، سود و شاخص‌های لحظه‌ای قرار می‌گیرد.")
                                     }
+                                }
 
-                                    SwipeToDismissBox(
-                                        state = state,
-                                        backgroundContent = {
-                                            DismissBackground(
-                                                state = state,
-                                                isRtl = isRtl
-                                            )
-                                        },
-                                        content = {
-                                            ClientRowCard(
-                                                client = client,
-                                                numberOfOrderOfThisClient = numberOfOrderOfThisClient,
-                                                onClickClient = {
-                                                    showClientSheet = true
-                                                    choiceClientId = client.id!!
+                                //متغیرهای بازار
+                                item {
+                                    DashboardExpandableCard(
+                                        title = "متغیرهای بازار",
+                                        expanded = marketExpanded,
+                                        onExpandedChange = { marketExpanded = it }
+                                    ) {
+                                        Text(
+                                            text = "نرخ API: ${
+                                                uiState.apiDollarRateToman?.toPriceString() ?: "-"
+                                            }"
+                                        )
+
+                                        Text(
+                                            text = "نرخ موثر: ${
+                                                uiState.effectiveDollarRateToman?.toPriceString() ?: "-"
+                                            }"
+                                        )
+                                        MyCurrencyField(
+                                            value = uiState.manualDollarRateToman,
+                                            onValueChange = viewModel::onManualDollarRateChange,
+                                            label = "نرخ دلار دستی",
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        Button(
+                                            onClick = viewModel::fetchDollarRateFromApi,
+                                            enabled = !uiState.isFetchingDollarRate,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                if (uiState.isFetchingDollarRate) {
+                                                    "در حال دریافت..."
+                                                } else {
+                                                    "دریافت نرخ دلار از API"
                                                 }
                                             )
                                         }
-                                    )
+                                        uiState.dollarRateMessage?.let { message ->
+                                            Text(
+                                                text = message,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
 
-                                item { Spacer(Modifier.height(24.dp)) }
+                                //دسترسی سریع
+                                item {
+                                    DashboardExpandableCard(
+                                        title = "دسترسی سریع",
+                                        expanded = actionsExpanded,
+                                        onExpandedChange = { actionsExpanded = it }
+                                    ) {
+                                        QuickAccessRow(
+                                            onClickProductList = onClickProductList,
+                                            onClickEditContract = onShowEditeContract,
+                                            onClickBackup = onClickBackUpRestore,
+                                            onClickUserData = {}
+                                        )
+                                    }
+                                }
+
+                                //مشتریان
+                                item {
+                                    DashboardExpandableCard(
+                                        title = "مشتریان",
+                                        expanded = clientsExpanded,
+                                        onExpandedChange = { clientsExpanded = it }
+                                    ) {
+                                        ClientsHeaderRow(
+                                            count = clients.size,
+                                            onClickAddClient = {
+                                                showAddClientSheet = true
+                                            }
+                                        )
+
+                                        if (clients.isEmpty()) {
+                                            Text(
+                                                text = "هنوز مشتری ثبت نشده است.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            clients.forEach { client ->
+                                                val numberOfOrderOfThisClient =
+                                                    uiState.orderEntityList?.count { it.clientId == client.id } ?: 0
+
+
+                                                // ۱) دیگه از confirmValueChange استفاده نمی‌کنیم
+                                                val state = rememberSwipeToDismissBoxState()
+
+                                                // ۲) تعریف تارگت‌ها بر اساس RTL / LTR
+                                                val deleteTarget =
+                                                    if (isRtl) SwipeToDismissBoxValue.StartToEnd else SwipeToDismissBoxValue.EndToStart
+                                                val editTarget =
+                                                    if (isRtl) SwipeToDismissBoxValue.EndToStart else SwipeToDismissBoxValue.StartToEnd
+
+                                                // ۳) واکنش به تغییر استیت با LaunchedEffect
+                                                LaunchedEffect(state.currentValue) {
+                                                    when (state.currentValue) {
+                                                        deleteTarget -> {
+                                                            // سوایپ جهت حذف
+                                                            pendingDelete = client
+                                                            // آیتم رو برگردون به حالت اولیه
+                                                            state.snapTo(SwipeToDismissBoxValue.Settled)
+                                                        }
+
+                                                        editTarget -> {
+                                                            // سوایپ جهت ویرایش
+                                                            showEditeClientSheet = true
+                                                            client.id?.let { choiceClientId = it }
+                                                            // آیتم رو برگردون به حالت اولیه
+                                                            state.snapTo(SwipeToDismissBoxValue.Settled)
+                                                        }
+
+                                                        SwipeToDismissBoxValue.Settled -> Unit
+                                                        else -> Unit
+                                                    }
+                                                }
+
+                                                SwipeToDismissBox(
+                                                    state = state,
+                                                    backgroundContent = {
+                                                        DismissBackground(
+                                                            state = state,
+                                                            isRtl = isRtl
+                                                        )
+                                                    },
+                                                    content = {
+                                                        ClientRowCard(
+                                                            client = client,
+                                                            numberOfOrderOfThisClient = numberOfOrderOfThisClient,
+                                                            onClickClient = {
+                                                                showClientSheet = true
+                                                                choiceClientId = client.id!!
+                                                            }
+                                                        )
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+
                                 //                        item { //db 2.3
                                 //                            CreateDumpSeed(onClickCreateDumpSeed = { vm.onClickCreateDumpSeed() })
                                 //                        }
-
-
-
-
-
-
-
 
                             }
                             // دیالوگ تأیید حذف
@@ -403,7 +490,7 @@ fun ProfileScreen(                               //صفحه پروفایل
                                     },
                                     confirmButton = {
                                         TextButton(onClick = {
-                                            vm.onClickDeleteClient(pendingDelete!!)
+                                            viewModel.onClickDeleteClient(pendingDelete!!)
                                             pendingDelete = null
                                         }) { Text(stringResource(R.string.common_yes)) }
                                     },
@@ -425,7 +512,7 @@ fun ProfileScreen(                               //صفحه پروفایل
             if (showEditeProfileSheet) {
                 Scaffold(
                     topBar = {
-                        ui.currentUserEntity?.let {
+                        uiState.currentUserEntity?.let {
                             AddAndEditeClientTopBar(
                                 topBarTitle = stringResource(R.string.profile_edit_title),
                                 onClickBack = { showEditeProfileSheet = false },
@@ -436,10 +523,10 @@ fun ProfileScreen(                               //صفحه پروفایل
                 ) { innerPadding ->
                     EditProfileSheet(
                         modifier = Modifier.padding(innerPadding),
-                        userEntity = ui.currentUserEntity,
+                        userEntity = uiState.currentUserEntity,
                         onBackClick = { showEditeProfileSheet = false },
                         onConfirmClick = {
-                            showEditeProfileSheet = false;vm.onClickConfirmInEditProfile(it)
+                            showEditeProfileSheet = false;viewModel.onClickConfirmInEditProfile(it)
                         }
                     )
                 }
@@ -447,7 +534,7 @@ fun ProfileScreen(                               //صفحه پروفایل
             if (showAddClientSheet) {
                 Scaffold(
                     topBar = {
-                        ui.currentUserEntity?.let {
+                        uiState.currentUserEntity?.let {
                             AddAndEditeClientTopBar(
                                 topBarTitle =  stringResource(R.string.profile_new_client_title),
                                 onClickBack = { showAddClientSheet = false },
@@ -456,14 +543,14 @@ fun ProfileScreen(                               //صفحه پروفایل
                     },
                     modifier = modifier
                 ) { innerPadding ->
-                    ui.currentUserEntity?.userKey?.let { userKey ->
+                    uiState.currentUserEntity?.userKey?.let { userKey ->
                         AddAndEditeClientSheet(
                             userKey = userKey,
                             modifier = Modifier.padding(innerPadding),
                             clientEntity = clients.find { it.id == choiceClientId },
                             onBackClick = { showAddClientSheet = false },
                             onConfirmClick = {
-                                showAddClientSheet = false; vm.onClickConfirmInAddClient(
+                                showAddClientSheet = false; viewModel.onClickConfirmInAddClient(
                                 it
                             )
                             },
@@ -475,7 +562,7 @@ fun ProfileScreen(                               //صفحه پروفایل
             if (showEditeClientSheet) {
                 Scaffold(
                     topBar = {
-                        ui.currentUserEntity?.let {
+                        uiState.currentUserEntity?.let {
                             AddAndEditeClientTopBar(
                                 topBarTitle = stringResource(R.string.profile_edit_client_title),
                                 onClickBack = {
@@ -486,14 +573,14 @@ fun ProfileScreen(                               //صفحه پروفایل
                     },
                     modifier = modifier
                 ) { innerPadding ->
-                    ui.currentUserEntity?.userKey?.let { userKey ->
+                    uiState.currentUserEntity?.userKey?.let { userKey ->
                         AddAndEditeClientSheet(
                             userKey = userKey,
                             modifier = Modifier.padding(innerPadding),
                             clientEntity = clients.find { it.id == choiceClientId },
                             onBackClick = { showEditeClientSheet = false },
                             onConfirmClick = {
-                                showEditeClientSheet = false; vm.onClickConfirmInEditClient(
+                                showEditeClientSheet = false; viewModel.onClickConfirmInEditClient(
                                 it
                             )
                             },
@@ -504,7 +591,7 @@ fun ProfileScreen(                               //صفحه پروفایل
             if (showPremiumSheet) {
                 Scaffold(
                     topBar = {
-                        ui.currentUserEntity?.let {
+                        uiState.currentUserEntity?.let {
                             EditePremiumTopBar(
                                 onClickBack = { showPremiumSheet = false },
                             )
@@ -514,7 +601,7 @@ fun ProfileScreen(                               //صفحه پروفایل
                 ) { innerPadding ->
                     PremiumSheet(
                         modifier = Modifier.padding(innerPadding),
-                        user = ui.currentUserEntity,
+                        user = uiState.currentUserEntity,
                         entState = entState
                     )
                 }
@@ -539,14 +626,14 @@ fun ProfileScreen(                               //صفحه پروفایل
                                 showClientSheet = false; onClickOrder(orderId)
                             },
                             onClickAddOrder = { clientId ->
-                                vm.onClickAddOrder(clientId) { newOrderId ->
+                                viewModel.onClickAddOrder(clientId) { newOrderId ->
                                     onClickAddOrder(newOrderId)   // وقتی ساخت، بفرست بالا
                                 }
                             },
                             onClickEditClient = {
                                 showClientSheet = false; showEditeClientSheet = true
                             },
-                            onClickDeleteOrder = vm::onClickDeleteOrder,
+                            onClickDeleteOrder = viewModel::onClickDeleteOrder,
                             onDismiss = { showClientSheet = false }
                         )
                     }
@@ -568,7 +655,7 @@ fun ProfileScreen(                               //صفحه پروفایل
             ConfirmDialogRtl(
                 visible = showSignOutDialog,
                 onDismiss = { showSignOutDialog = false },
-                onConfirm = { vm.signOut(onSignedOut) },
+                onConfirm = { viewModel.signOut(onSignedOut) },
                 title = stringResource(R.string.profile_signout_title),
                 message = stringResource(R.string.profile_signout_message),
                 confirmText = stringResource(R.string.common_sign_out),
@@ -602,6 +689,7 @@ fun ProfileScreen(                               //صفحه پروفایل
 
 //region Sheets
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileSheet(
     userEntity: UserEntity?,
@@ -702,11 +790,11 @@ fun EditProfileSheet(
 
     var workshop by rememberSaveable { mutableStateOf(userEntity?.workshop.orEmpty()) }
     var address by rememberSaveable { mutableStateOf(userEntity?.address.orEmpty()) }
-//    var role by rememberSaveable {
-//        mutableStateOf(
-//            userEntity?.role ?: USER_ROLE_CUSTOMER
-//        )
-//    }
+    var role by rememberSaveable(userEntity?.id, userEntity?.role) {
+        mutableStateOf(
+            userEntity?.role ?: USER_ROLE_SELLER
+        )
+    }
 
 
     Card(
@@ -865,19 +953,48 @@ fun EditProfileSheet(
                     }
                 )
 
-                // --- Role (single choice) ---
-//                    Column(
-//                        verticalArrangement = Arrangement.spacedBy(8.dp)
-//                    ) {
-//                        Text(
-//                            "نوع کاربر",
-//                            style = MaterialTheme.typography.labelLarge
-//                        )
-//                        RoleRadioRow(
-//                            selected = role,
-//                            onSelected = { role = it }
-//                        )
-//                    }
+                var roleExpanded by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = roleExpanded,
+                    onExpandedChange = {
+                        roleExpanded = !roleExpanded
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = role,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("نقش کاربر") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = roleExpanded
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = roleExpanded,
+                        onDismissRequest = {
+                            roleExpanded = false
+                        }
+                    ) {
+                        USER_ROLE_OPTIONS.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    role = option
+                                    roleExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
 
             }
@@ -912,7 +1029,7 @@ fun EditProfileSheet(
                                         workshop = workshop,
                                         address = address,
                                         avatar = avatar, // ← مسیر آواتار ذخیره می‌شود
-//                                            role = role
+                                        role = role
                                     )
                                 )
                             }
@@ -1701,42 +1818,42 @@ private fun ProfileTopBar(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // Premium
-                Box(
-                    modifier = Modifier.wrapContentSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconButton(
-                        onClick = { onClickPremium() },
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = iconTint)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Diamond,
-                            contentDescription = if (ui.isPremium)
-                                "پریمیوم؛ ${ui.daysLeft} روز باقی‌مانده"
-                            else
-                                "غیرپریمیوم؛ 0 روز باقی‌مانده",
-                            tint = iconTint,
-                            modifier = Modifier.size(iconSize)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .offset(x = (-2).dp, y = (-2).dp)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = ui.daysLeft.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (ui.isPremium) MaterialTheme.colorScheme.onSurface else grey,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.widthIn(min = 14.dp)
-                        )
-                    }
-                }
+//                Box(
+//                    modifier = Modifier.wrapContentSize(),
+//                    contentAlignment = Alignment.Center
+//                ) {
+//                    IconButton(
+//                        onClick = { onClickPremium() },
+//                        colors = IconButtonDefaults.iconButtonColors(contentColor = iconTint)
+//                    ) {
+//                        Icon(
+//                            imageVector = Icons.Outlined.Diamond,
+//                            contentDescription = if (ui.isPremium)
+//                                "پریمیوم؛ ${ui.daysLeft} روز باقی‌مانده"
+//                            else
+//                                "غیرپریمیوم؛ 0 روز باقی‌مانده",
+//                            tint = iconTint,
+//                            modifier = Modifier.size(iconSize)
+//                        )
+//                    }
+//
+//                    Box(
+//                        modifier = Modifier
+//                            .align(Alignment.BottomEnd)
+//                            .offset(x = (-2).dp, y = (-2).dp)
+//                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+//                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+//                            .padding(horizontal = 4.dp, vertical = 1.dp)
+//                    ) {
+//                        Text(
+//                            text = ui.daysLeft.toString(),
+//                            style = MaterialTheme.typography.labelSmall,
+//                            color = if (ui.isPremium) MaterialTheme.colorScheme.onSurface else grey,
+//                            textAlign = TextAlign.Center,
+//                            modifier = Modifier.widthIn(min = 14.dp)
+//                        )
+//                    }
+//                }
 
                 SettingsButtonWithMenu(
                     prefs = prefs,
@@ -2588,7 +2705,56 @@ private fun BadgeSmall(text: String) {
 
 
 
+@Composable
+private fun DashboardExpandableCard(
+    title: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onExpandedChange(!expanded) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
 
+                Text(
+                    text = if (expanded) "▲" else "▼",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
 
 
 

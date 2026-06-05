@@ -29,7 +29,7 @@ import com.example.solarShop.ui.orderScreen.orderCosts.CostScreen
 import com.example.solarShop.ui.orderScreen.orderInvoice.OrderInvoiceScreen
 import com.example.solarShop.ui.orderScreen.orderPicture.OrderPictureScreen
 import com.example.solarShop.ui.orderScreen.orderPriceEstimate.PriceEstimateScreen
-import com.example.solarShop.ui.profileScreen.ProfileScreen
+import com.example.solarShop.ui.profileScreen.DashboardScreen
 import com.example.solarShop.ui.questionInfoScreen.QuestionInfoScreen
 import com.example.solarShop.ui.questionTreeScreen.QuestionTreeScreen
 import com.example.solarShop.ui.signInScreen.SignInScreen
@@ -91,7 +91,7 @@ fun SolarShopNavHost(
             )
         ) {
 
-            ProfileScreen(
+            DashboardScreen(
                 onClickAddOrder = { orderId ->
                     nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
                         popUpTo(SolarRoute.Profile.name) { inclusive = false }

@@ -6,7 +6,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import com.example.solarShop.USER_ROLE_CABINET_MAKER
+import com.example.solarShop.USER_ROLE_SELLER
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.question_answers.question.QuestionEntity
 
@@ -27,7 +27,7 @@ data class UserEntity(
     val workshop: String="",
     val address: String="",
     val avatar: String="",
-    val role : String=USER_ROLE_CABINET_MAKER,
+    val role: String = USER_ROLE_SELLER,
     val createdAt: Long,
     val updatedAt: Long?=null
 )

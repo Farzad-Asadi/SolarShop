@@ -9,8 +9,17 @@ const val USER_PAYMENT_STATE_NOT_PAY = "userPaymentStateNotPay"
 const val USER_PAYMENT_STATE_PAYED = "userPaymentStatePayed"
 
 //userRole
-const val USER_ROLE_CABINET_MAKER = "کابینت ساز"
+const val USER_ROLE_SELLER = "فروشنده"
+const val USER_ROLE_INSTALLER = "نصاب"
+const val USER_ROLE_MANAGER = "مدیر فروشگاه"
 const val USER_ROLE_CUSTOMER = "مشتری"
+
+val USER_ROLE_OPTIONS = listOf(
+    USER_ROLE_SELLER,
+    USER_ROLE_INSTALLER,
+    USER_ROLE_MANAGER,
+    USER_ROLE_CUSTOMER
+)
 
 //shairePreferences
 const val PREF_IS_SIGNED_IN = "is_signed_in"
