@@ -29,7 +29,8 @@ class ProductBackupProvider @Inject constructor(
             attributeDefinitions = attributeDao.getAllAttributeDefinitionsForBackup(),
             attributeValues = attributeDao.getAllAttributeValuesForBackup(),
             purchasePrices = pricingDao.getAllPurchasePricesForBackup(),
-            inventoryTransactions = inventoryDao.getAllInventoryTransactionsForBackup()
+            salePrices = pricingDao.getAllSalePricesForBackup(),
+            inventoryTransactions = inventoryDao.getAllInventoryTransactionsForBackup(),
         )
 
         return gson.toJson(data)
@@ -52,6 +53,7 @@ class ProductBackupProvider @Inject constructor(
         attributeDao.insertAttributeValuesForRestore(data.attributeValues)
 
         pricingDao.insertPurchasePricesForRestore(data.purchasePrices)
+        pricingDao.insertSalePricesForRestore(data.salePrices)
         inventoryDao.insertInventoryTransactionsForRestore(data.inventoryTransactions)
     }
 }

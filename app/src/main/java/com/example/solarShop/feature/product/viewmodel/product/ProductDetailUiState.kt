@@ -2,6 +2,7 @@ package com.example.solarShop.feature.product.viewmodel.product
 
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.data.local.relation.product.ProductFullInfo
 import com.example.solarShop.domain.product.ProductSalePriceResult
@@ -16,6 +17,10 @@ data class ProductDetailUiState(
     val activePurchasePrice: ProductPurchasePriceEntity? = null,
 
     val salePriceResult: ProductSalePriceResult? = null,
+
+    val salePrices: List<ProductSalePriceEntity> = emptyList(),
+
+    val dailyDollarRateToman: Long? = null,
 
     val currentStock: Double = 0.0,
 

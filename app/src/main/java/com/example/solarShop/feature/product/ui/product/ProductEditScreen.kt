@@ -752,7 +752,7 @@ fun ProductEditScreen(
                             )
 
                             Text(
-                                text = uiState.consumerSalePriceToman?.let {
+                                text = uiState.consumerSalePriceToman?.toPriceString().let {
                                     "$it تومان"
                                 } ?: "-",
                                 modifier = Modifier.weight(0.55f),
@@ -776,7 +776,7 @@ fun ProductEditScreen(
                             )
 
                             Text(
-                                text = uiState.colleagueSalePriceToman?.let {
+                                text = uiState.colleagueSalePriceToman?.toPriceString().let {
                                     "$it تومان"
                                 } ?: "-",
                                 modifier = Modifier.weight(0.55f),

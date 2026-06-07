@@ -117,10 +117,18 @@ interface PricingDao{
     @Query("SELECT * FROM product_purchase_prices")
     suspend fun getAllPurchasePricesForBackup(): List<ProductPurchasePriceEntity>
 
+    @Query("SELECT * FROM product_sale_prices")
+    suspend fun getAllSalePricesForBackup(): List<ProductSalePriceEntity>
+
 
     // ---------- Restore ----------
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPurchasePricesForRestore(items: List<ProductPurchasePriceEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSalePricesForRestore(
+        items: List<ProductSalePriceEntity>
+    )
 
 
 

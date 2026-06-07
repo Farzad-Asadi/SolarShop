@@ -6,6 +6,8 @@ import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.entity.product.ProductUnitEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class ProductRepositoryImpl @Inject constructor(
@@ -107,6 +109,30 @@ class ProductRepositoryImpl @Inject constructor(
         productDao.deleteOldDraftProducts(
             threshold = threshold
         )
+    }
+
+    override fun observeProductCountByCategory():
+            Flow<Map<Int, Int>> {
+
+        return productDao.observeProductCountByCategory()
+            .map { list ->
+                list.associate {
+                    it.categoryId to it.count
+                }
+            }
+    }
+
+    override suspend fun updateCategorySortOrders(
+        categories: List<ProductCategoryEntity>
+    ) {
+        categories.forEachIndexed { index, category ->
+            val id = category.id ?: return@forEachIndexed
+
+            productDao.updateCategorySortOrder(
+                categoryId = id,
+                sortOrder = (index + 1) * 10
+            )
+        }
     }
 
 }

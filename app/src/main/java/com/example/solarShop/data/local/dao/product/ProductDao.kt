@@ -12,6 +12,7 @@ import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.entity.product.ProductUnitEntity
 import com.example.solarShop.data.local.relation.product.ProductFullInfo
+import com.example.solarShop.feature.product.viewmodel.CategoryProductCount
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -224,5 +225,29 @@ interface ProductDao{
 """)
     suspend fun deleteOldDraftProducts(
         threshold: Long
+    )
+
+    @Query("""
+    SELECT
+        categoryId,
+        COUNT(*) AS count
+    FROM products
+    WHERE isArchived = 0
+      AND isDraft = 0
+    GROUP BY categoryId
+""")
+    fun observeProductCountByCategory():
+            Flow<List<CategoryProductCount>>
+
+    @Query("""
+    UPDATE product_categories
+    SET sortOrder = :sortOrder,
+        updatedAt = :updatedAt
+    WHERE id = :categoryId
+""")
+    suspend fun updateCategorySortOrder(
+        categoryId: Int,
+        sortOrder: Int,
+        updatedAt: Long = System.currentTimeMillis()
     )
 }

@@ -65,5 +65,10 @@ interface ProductRepository {
         olderThanMillis: Long = 24 * 60 * 60 * 1000L
     )
 
+    fun observeProductCountByCategory(): Flow<Map<Int, Int>>
+
+    suspend fun updateCategorySortOrders(
+        categories: List<ProductCategoryEntity>
+    )
 
 }

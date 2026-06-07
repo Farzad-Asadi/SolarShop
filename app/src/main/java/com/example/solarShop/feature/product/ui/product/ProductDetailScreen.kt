@@ -19,13 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Button
@@ -61,6 +59,7 @@ import com.example.solarShop.domain.inventory.signedQuantity
 import com.example.solarShop.feature.product.viewmodel.product.ProductDetailViewModel
 import com.example.solarShop.feature.product.viewmodel.product.ProductImageUi
 import com.example.solarShop.utils.FullscreenImageViewer
+import com.example.solarShop.utils.currency.toPriceString
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
 import java.io.File
@@ -156,16 +155,7 @@ fun ProductDetailScreen(
                 },
                 actions = {
                     product?.product?.id?.let { productId ->
-                        IconButton(
-                            onClick = {
-                                onEditPurchasePrice(productId)
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AttachMoney,
-                                contentDescription = "قیمت خرید"
-                            )
-                        }
+
                         IconButton(
                             onClick = { onEditProduct(productId) }
                         ) {
@@ -249,132 +239,215 @@ fun ProductDetailScreen(
 
                     // کارت قیمت
                     item {
+                        val latestConsumerSale =
+                            uiState.salePrices.firstOrNull {
+                                it.priceType == "consumer"
+                            }
 
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
+                        val latestColleagueSale =
+                            uiState.salePrices.firstOrNull {
+                                it.priceType == "colleague"
+                            }
+
+                        val liveConsumerPrice =
+                            calculateLiveSalePrice(
+                                baseDollarPrice = latestConsumerSale?.baseDollarPrice,
+                                dailyDollarRateToman = uiState.dailyDollarRateToman,
+                                profitPercent = latestConsumerSale?.profitPercent
+                            )
+
+                        val liveColleaguePrice =
+                            calculateLiveSalePrice(
+                                baseDollarPrice = latestColleagueSale?.baseDollarPrice,
+                                dailyDollarRateToman = uiState.dailyDollarRateToman,
+                                profitPercent = latestColleagueSale?.profitPercent
+                            )
+
+                        val priceSummary =
+                            liveConsumerPrice?.let {
+                                "${it.toPriceString()} تومان"
+                            } ?: "قیمت فروش ثبت نشده"
+
+                        DetailExpandableCard(
+                            title = "قیمت‌ها",
+                            summary = priceSummary,
+                            expanded = priceExpanded,
+                            onExpandedChange = {
+                                priceExpanded = it
+                            }
                         ) {
+                            Text(
+                                text = "نرخ دلار روز: ${
+                                    uiState.dailyDollarRateToman?.toPriceString() ?: "-"
+                                } تومان",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
 
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            HorizontalDivider()
 
+                            Text(
+                                text = "قیمت فروش روز",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            Text(
+                                text = "مصرف‌کننده: ${
+                                    liveConsumerPrice?.toPriceString() ?: "-"
+                                } تومان"
+                            )
+
+                            Text(
+                                text = "همکار: ${
+                                    liveColleaguePrice?.toPriceString() ?: "-"
+                                } تومان"
+                            )
+
+                            HorizontalDivider()
+
+                            Text(
+                                text = "آخرین رکورد خرید",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            val activePurchase =
+                                uiState.activePurchasePrice
+
+                            if (activePurchase == null) {
+                                Text("قیمت خریدی ثبت نشده است.")
+                            } else {
                                 Text(
-                                    text = "آخرین قیمت خرید",
-                                    style = MaterialTheme.typography.titleMedium
+                                    text = "خرید: ${activePurchase.buyPriceToman.toPriceString()} تومان"
                                 )
 
-                                val price = uiState.activePurchasePrice
+                                Text(
+                                    text = "قیمت دلاری خرید: ${activePurchase.buyPriceDollar ?: "-"}"
+                                )
 
-                                if (price == null) {
+                                Text(
+                                    text = "دلار زمان خرید: ${
+                                        activePurchase.dollarRateToman?.toPriceString() ?: "-"
+                                    }"
+                                )
 
-                                    Text("هنوز قیمتی ثبت نشده است")
+                                Text(
+                                    text = "تاریخ خرید: ${
+                                        formatPersianDateTime(activePurchase.purchasedAt, true)
+                                    }"
+                                )
+                            }
 
-                                } else {
+                            HorizontalDivider()
 
-                                    price.buyPriceDollar?.let {
-                                        Text("$it $")
-                                    }
+                            Text(
+                                text = "آخرین رکورد فروش",
+                                style = MaterialTheme.typography.titleSmall
+                            )
 
-                                    price.buyPriceToman?.let {
-                                        Text(
-                                            "${String.format("%,d", it)} تومان"
-                                        )
-                                    }
+                            latestConsumerSale?.let { sale ->
+                                Text(
+                                    text = "مصرف‌کننده: سود ${sale.profitPercent ?: "-"}٪، مبنا ${sale.baseDollarPrice ?: "-"} دلار"
+                                )
+                            }
 
-                                    val salePrice = uiState.salePriceResult
+                            latestColleagueSale?.let { sale ->
+                                Text(
+                                    text = "همکار: سود ${sale.profitPercent ?: "-"}٪، مبنا ${sale.baseDollarPrice ?: "-"} دلار"
+                                )
+                            }
 
-                                    if (salePrice != null) {
-                                        HorizontalDivider()
-
-                                        Text(
-                                            text = "قیمت فروش پیشنهادی",
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-
-                                        Text(
-                                            text = "${String.format("%,d", salePrice.finalSalePriceToman)} تومان",
-                                            style = MaterialTheme.typography.headlineSmall
-                                        )
-
-                                        Text(
-                                            text = "سود: ${String.format("%,d", salePrice.profitAmountToman)} تومان",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                    }
-
-                                    price.dollarRateToman?.let {
-                                        Text(
-                                            "نرخ دلار: ${
-                                                String.format("%,d", it)
-                                            }"
-                                        )
-                                    }
-                                }
+                            if (latestConsumerSale == null && latestColleagueSale == null) {
+                                Text("رکورد فروش ثبت نشده است.")
                             }
                         }
                     }
 
                     //موجودی
                     item {
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "موجودی فعلی",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
 
-                                Text(
-                                    text = "${uiState.currentStock} عدد",
-                                    style = MaterialTheme.typography.headlineSmall
-                                )
-                                product.product.id?.let { productId ->
-                                    Button(
-                                        onClick = { onAddInventoryTransaction(productId) },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text("ثبت ورود / خروج موجودی")
-                                    }
-                                }
+                        val stockSummary =
+                            "${uiState.currentStock} عدد"
 
-
+                        DetailExpandableCard(
+                            title = "موجودی",
+                            summary = stockSummary,
+                            expanded = inventoryExpanded,
+                            onExpandedChange = {
+                                inventoryExpanded = it
                             }
-                        }
-                    }
+                        ) {
 
-                    //تاریخچه موجودی
-                    if (uiState.inventoryTransactions.isNotEmpty()) {
-                        item {
+                            Text(
+                                text = "موجودی فعلی",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            Text(
+                                text = stockSummary,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+
+
+                            HorizontalDivider()
+
                             Text(
                                 text = "تاریخچه موجودی",
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleSmall
                             )
-                        }
 
-                        items(uiState.inventoryTransactions.take(5)) { tx ->
-                            ElevatedCard(
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp)
-                                ) {
-                                    val signedQty = tx.transactionType.signedQuantity(tx.quantity)
+                            if (uiState.inventoryTransactions.isEmpty()) {
 
-                                    Text(
-                                        text = "${tx.transactionType.labelFa()}  |  $signedQty",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        text = formatPersianDateTime(tx.createdAt),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    if (tx.note.isNotBlank()) {
-                                        Text(tx.note)
+                                Text(
+                                    text = "تراکنشی ثبت نشده است."
+                                )
+
+                            } else {
+
+                                uiState.inventoryTransactions.forEach { tx ->
+
+                                    val signedQty =
+                                        tx.transactionType
+                                            .signedQuantity(tx.quantity)
+
+                                    ElevatedCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.elevatedCardColors(
+                                            containerColor =
+                                            MaterialTheme.colorScheme.surface
+                                        )
+                                    ) {
+
+                                        Column(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+
+                                            Text(
+                                                text = tx.transactionType.labelFa(),
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+
+                                            Text(
+                                                text = signedQty.toString(),
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+
+                                            Text(
+                                                text = formatPersianDateTime(
+                                                    tx.createdAt,
+                                                    true
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color =
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+
+                                            if (tx.note.isNotBlank()) {
+                                                Text(
+                                                    text = tx.note,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -382,42 +455,65 @@ fun ProductDetailScreen(
                     }
 
                     //مشخصات فنی
-                    item {
-                        Text(
-                            text = "مشخصات فنی",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-
                     if (uiState.attributes.isEmpty()) {
                         item {
                             Text("مشخصاتی برای این کالا ثبت نشده است.")
                         }
                     } else {
-                        items(uiState.attributes) { attr ->
-                            ElevatedCard(
-                                modifier = Modifier.fillMaxWidth()
+                        item {
+                            DetailExpandableCard(
+                                title = "مشخصات",
+                                summary = if (uiState.attributes.isEmpty()) {
+                                    "مشخصاتی ثبت نشده"
+                                } else {
+                                    "${uiState.attributes.size} مشخصه"
+                                },
+                                expanded = attributesExpanded,
+                                onExpandedChange = {
+                                    attributesExpanded = it
+                                }
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = attr.title,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                if (uiState.attributes.isEmpty()) {
+                                    Text("مشخصاتی برای این کالا ثبت نشده است.")
+                                } else {
+                                    uiState.attributes.forEach { attr ->
+                                        ElevatedCard(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.elevatedCardColors(
+                                                containerColor = MaterialTheme.colorScheme.surface
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = attr.title,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    modifier = Modifier.weight(1f)
+                                                )
 
-                                    Text(
-                                        text = buildString {
-                                            append(attr.valueText.orEmpty().ifBlank { "-" })
-                                            if (!attr.unit.isNullOrBlank()) {
-                                                append(" ${attr.unit}")
+                                                Text(
+                                                    text = buildString {
+                                                        append(
+                                                            attr.valueText
+                                                                .orEmpty()
+                                                                .ifBlank { "-" }
+                                                        )
+
+                                                        if (!attr.unit.isNullOrBlank()) {
+                                                            append(" ")
+                                                            append(attr.unit)
+                                                        }
+                                                    },
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
                                             }
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -668,4 +764,24 @@ private fun DetailExpandableCard(
             }
         }
     }
+}
+
+private fun calculateLiveSalePrice(
+    baseDollarPrice: Double?,
+    dailyDollarRateToman: Long?,
+    profitPercent: Double?
+): Long? {
+    if (
+        baseDollarPrice == null ||
+        dailyDollarRateToman == null ||
+        profitPercent == null
+    ) return null
+
+    val basePrice =
+        baseDollarPrice * dailyDollarRateToman
+
+    val profitAmount =
+        basePrice * profitPercent / 100.0
+
+    return (basePrice + profitAmount).toLong()
 }

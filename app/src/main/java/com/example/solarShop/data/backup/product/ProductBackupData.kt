@@ -4,6 +4,7 @@ import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefini
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
@@ -20,5 +21,7 @@ data class ProductBackupData(
     val attributeValues: List<ProductAttributeValueEntity> = emptyList(),
 
     val purchasePrices: List<ProductPurchasePriceEntity> = emptyList(),
-    val inventoryTransactions: List<InventoryTransactionEntity> = emptyList()
+    val salePrices: List<ProductSalePriceEntity> = emptyList(),
+    val inventoryTransactions: List<InventoryTransactionEntity> = emptyList(),
+
 )
