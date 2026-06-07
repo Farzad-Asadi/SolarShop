@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.solarShop.feature.product.viewmodel.ProductByCategoryViewModel
+import com.example.solarShop.utils.currency.toPriceString
 
 @OptIn(
     ExperimentalMaterial3Api::class
@@ -167,7 +169,7 @@ fun ProductByCategoryScreen(
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1f)
+                            .height(260.dp)
                             .border(
                                 width = if (isSelected) 2.dp else 0.dp,
                                 color = if (isSelected) {
@@ -236,29 +238,53 @@ fun ProductByCategoryScreen(
                                     }
                                 }
 
-                                Column {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = item.productFullInfo.product.name,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                maxLines = 1
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = item.salePriceToman?.toPriceString()?.let { "$it تومان" } ?: "بدون قیمت",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.weight(1f)
+                                                )
 
-                                    val brandName = item.productFullInfo.brand?.name
-                                    Text(
-                                        text = item.productFullInfo.product.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        maxLines = 2
-                                    )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.Inventory2,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
 
-                                    if (!brandName.isNullOrBlank()) {
-                                        Text(
-                                            text = brandName,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1
-                                        )
-                                    }
-
-                                    if (item.productFullInfo.product.model.isNotBlank()) {
-                                        Text(
-                                            text = item.productFullInfo.product.model,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1
-                                        )
+                                                    Text(
+                                                        text = formatStock(item.stock),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -318,5 +344,13 @@ fun ProductByCategoryScreen(
                 }
             }
         )
+    }
+}
+
+private fun formatStock(value: Double): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        value.toString()
     }
 }

@@ -65,6 +65,7 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import java.io.File
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
@@ -244,8 +245,8 @@ fun ProductListScreen(
                             )
                         }
                     },
-                    modifier = Modifier
-                        .padding(paddingValues)
+                    modifier = Modifier.fillMaxSize(),
+                    scaffoldPadding = paddingValues
                 )
             } else {
                 LazyVerticalGrid(
@@ -296,7 +297,8 @@ private fun CategoryReorderList(
     categories: List<ProductCategoryEntity>,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
     imageUriForCategory: (ProductCategoryEntity) -> Uri?,
-    modifier: Modifier=Modifier
+    modifier: Modifier = Modifier,
+    scaffoldPadding: PaddingValues
 ) {
     val reorderState =
         rememberReorderableLazyListState(
@@ -313,8 +315,13 @@ private fun CategoryReorderList(
         modifier = modifier
             .fillMaxSize()
             .reorderable(reorderState),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            top = scaffoldPadding.calculateTopPadding() + 16.dp,
+            end = 16.dp,
+            bottom = scaffoldPadding.calculateBottomPadding() + 16.dp
+        )
     ) {
         items(
             items = categories,

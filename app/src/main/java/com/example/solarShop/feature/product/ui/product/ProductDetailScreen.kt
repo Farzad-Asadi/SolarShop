@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -36,15 +37,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults.rememberTooltipPositionProvider
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,6 +70,7 @@ import com.example.solarShop.utils.FullscreenImageViewer
 import com.example.solarShop.utils.currency.toPriceString
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
+import kotlinx.coroutines.launch
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -455,7 +464,11 @@ fun ProductDetailScreen(
                     }
 
                     //مشخصات فنی
-                    if (uiState.attributes.isEmpty()) {
+
+                    val visibleAttributes = uiState.attributes.filter { attr ->
+                        !attr.valueText.isNullOrBlank()
+                    }
+                    if (visibleAttributes.isEmpty()) {
                         item {
                             Text("مشخصاتی برای این کالا ثبت نشده است.")
                         }
@@ -463,20 +476,20 @@ fun ProductDetailScreen(
                         item {
                             DetailExpandableCard(
                                 title = "مشخصات",
-                                summary = if (uiState.attributes.isEmpty()) {
+                                summary = if (visibleAttributes.isEmpty()) {
                                     "مشخصاتی ثبت نشده"
                                 } else {
-                                    "${uiState.attributes.size} مشخصه"
+                                    "${visibleAttributes.size} مشخصه"
                                 },
                                 expanded = attributesExpanded,
                                 onExpandedChange = {
                                     attributesExpanded = it
                                 }
                             ) {
-                                if (uiState.attributes.isEmpty()) {
+                                if (visibleAttributes.isEmpty()) {
                                     Text("مشخصاتی برای این کالا ثبت نشده است.")
                                 } else {
-                                    uiState.attributes.forEach { attr ->
+                                    visibleAttributes.forEach { attr ->
                                         ElevatedCard(
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = CardDefaults.elevatedCardColors(
@@ -498,18 +511,19 @@ fun ProductDetailScreen(
 
                                                 Text(
                                                     text = buildString {
-                                                        append(
-                                                            attr.valueText
-                                                                .orEmpty()
-                                                                .ifBlank { "-" }
-                                                        )
+                                                        append(attr.valueText.orEmpty())
 
                                                         if (!attr.unit.isNullOrBlank()) {
                                                             append(" ")
                                                             append(attr.unit)
                                                         }
                                                     },
-                                                    style = MaterialTheme.typography.bodyMedium
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    modifier = Modifier.padding(start = 8.dp)
+                                                )
+
+                                                AttributeDescriptionIcon(
+                                                    description = attr.description
                                                 )
                                             }
                                         }
@@ -784,4 +798,55 @@ private fun calculateLiveSalePrice(
         basePrice * profitPercent / 100.0
 
     return (basePrice + profitAmount).toLong()
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttributeDescriptionIcon(
+    description: String
+) {
+    if (description.isBlank()) return
+
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+
+    TooltipBox(
+        positionProvider = rememberTooltipPositionProvider(
+            TooltipAnchorPosition.Above
+        ),
+        tooltip = {
+            PlainTooltip {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(description)
+
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                tooltipState.dismiss()
+                            }
+                        }
+                    ) {
+                        Text("فهمیدم")
+                    }
+                }
+            }
+        },
+        state = tooltipState
+    ) {
+        IconButton(
+            onClick = {
+                scope.launch {
+                    tooltipState.show()
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "توضیح مشخصه",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
 }

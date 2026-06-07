@@ -5,5 +5,7 @@ import com.example.solarShop.data.local.relation.product.ProductFullInfo
 
 data class ProductGridItemUi(
     val productFullInfo: ProductFullInfo,
-    val coverUri: Uri? = null
+    val coverUri: Uri? = null,
+    val salePriceToman: Long? = null,
+    val stock: Double = 0.0
 )
