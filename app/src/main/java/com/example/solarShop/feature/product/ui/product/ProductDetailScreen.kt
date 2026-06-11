@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -164,6 +165,14 @@ fun ProductDetailScreen(
                 },
                 actions = {
                     product?.product?.id?.let { productId ->
+                        IconButton(
+                            onClick = viewModel::exportProductPdf
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PictureAsPdf,
+                                contentDescription = "خروجی PDF کالا"
+                            )
+                        }
 
                         IconButton(
                             onClick = { onEditProduct(productId) }

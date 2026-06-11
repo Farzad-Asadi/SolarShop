@@ -1,6 +1,7 @@
 package com.example.solarShop.feature.product.viewmodel.product
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
@@ -17,8 +18,10 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.utils.ProductPdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -40,6 +43,7 @@ class ProductDetailViewModel @Inject constructor(
     @ApplicationContext private val app: Context,
     private val productImageRepository: ProductImageRepository,
     private val dollarRatePrefs: DollarRatePreferencesDataSource,
+    private val productPdfExporter: ProductPdfExporter,
 ) : ViewModel() {
 
     private val productId =
@@ -204,6 +208,37 @@ class ProductDetailViewModel @Inject constructor(
     fun deleteProductImage(imageId: Int) {
         viewModelScope.launch {
             productImageRepository.deleteImage(imageId)
+        }
+    }
+
+    fun exportProductPdf() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val state = uiState.value
+            val productFullInfo = state.product ?: return@launch
+
+            val visibleAttributes = state.attributes.filter {
+                !it.valueText.isNullOrBlank()
+            }
+
+            val file = productPdfExporter.exportProductDetail(
+                product = productFullInfo,
+                attributes = visibleAttributes,
+                images = state.images.map { it.uri }
+            )
+
+            val uri = FileProvider.getUriForFile(
+                app,
+                "${app.packageName}.fileprovider",
+                file
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            app.startActivity(intent)
         }
     }
 }
