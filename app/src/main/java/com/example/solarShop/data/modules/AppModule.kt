@@ -30,7 +30,10 @@ import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.dao.product.ProductImageDao
+import com.example.solarShop.data.local.dao.sync.SyncMetadataDao
 import com.example.solarShop.data.local.database.AppDatabase
+import com.example.solarShop.data.remote.api.SyncApi
+import com.example.solarShop.data.remote.api.SyncApiImpl
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.attribute.AttributeRepositoryImpl
 import com.example.solarShop.data.repository.inventory.InventoryRepository
@@ -41,6 +44,8 @@ import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.product.ProductRepositoryImpl
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepositoryImpl
+import com.example.solarShop.data.repository.sync.SyncRepository
+import com.example.solarShop.data.repository.sync.SyncRepositoryImpl
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
 import com.example.solarShop.data.room.tables.appInfo.OfflineAppInfoRepository
@@ -114,6 +119,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoMap
 import dagger.multibindings.IntoSet
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -249,6 +255,8 @@ object AppModule {
 
 
 
+
+
     // --------- Daos ---------
 
     @Provides fun provideAnswerDao(db: AppDatabase): AnswerDao = db.answerDao()
@@ -288,6 +296,7 @@ object AppModule {
     @Provides fun provideInventoryDao(db: AppDatabase): InventoryDao = db.inventoryDao()
     @Provides fun provideAttributeDao(db: AppDatabase): AttributeDao = db.attributeDao()
     @Provides fun provideProductImageDao(db: AppDatabase): ProductImageDao = db.productImageDao()
+    @Provides fun provideSyncMetadataDao (db: AppDatabase): SyncMetadataDao = db.syncMetadataDao ()
 
 
 
@@ -443,7 +452,31 @@ object AppModule {
     ): ProductImageRepository = ProductImageRepositoryImpl(productImageDao , imageRepository)
 
 
+    @Provides
+    @Singleton
+    fun provideSyncRepository(
+        syncMetadataDao: SyncMetadataDao
+    ): SyncRepository = SyncRepositoryImpl(syncMetadataDao)
 
+
+
+
+
+
+
+
+
+
+
+
+    //remote
+
+
+    @Provides
+    @Singleton
+    fun provideSyncApi(
+        httpClient: HttpClient
+    ): SyncApi = SyncApiImpl(httpClient)
 
 
 

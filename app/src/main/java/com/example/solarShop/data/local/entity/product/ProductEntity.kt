@@ -1,5 +1,6 @@
 package com.example.solarShop.data.local.entity.product
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -20,6 +21,8 @@ import java.util.UUID
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int? = null,
+
+    @ColumnInfo(defaultValue = "")
     val uid: String = UUID.randomUUID().toString(),
 
     val categoryId: Int,
@@ -33,6 +36,15 @@ data class ProductEntity(
     val isArchived: Boolean = false,
     val isDraft: Boolean = false,
 
+    @ColumnInfo(defaultValue = "0")
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(defaultValue = "NULL")
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(defaultValue = "0")
+    val isSynced: Boolean = false
 )

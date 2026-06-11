@@ -1,5 +1,6 @@
 package com.example.solarShop.data.local.entity.product
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -24,11 +25,25 @@ data class ProductImageEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int? = null,
 
+
+    @ColumnInfo(defaultValue = "")
+    val uid: String? = null,
+
     val productId: Int,
 
     val fileName: String,
 
-    val createdAt: Long,
+    @ColumnInfo(defaultValue = "0")
+    val createdAt: Long = System.currentTimeMillis(),
 
-    val sortOrder: Int
+    val sortOrder: Int,
+
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(defaultValue = "NULL")
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(defaultValue = "0")
+    val isSynced: Boolean = false
 )

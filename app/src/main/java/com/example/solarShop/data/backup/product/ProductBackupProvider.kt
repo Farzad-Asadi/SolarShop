@@ -7,6 +7,7 @@ import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.dao.product.ProductImageDao
 import com.google.gson.Gson
+import java.util.UUID
 import javax.inject.Inject
 
 class ProductBackupProvider @Inject constructor(
@@ -42,14 +43,67 @@ class ProductBackupProvider @Inject constructor(
             ProductBackupData::class.java
         )
 
-        productDao.insertCategoriesForRestore(data.categories)
-        productDao.insertBrandsForRestore(data.brands)
+        productDao.insertCategoriesForRestore(
+            data.categories.map { category ->
+                category.copy(
+                    uid = category.uid?.takeIf { it.isNotBlank() }
+                        ?: UUID.randomUUID().toString(),
+                    updatedAt = if (category.updatedAt == 0L) {
+                        System.currentTimeMillis()
+                    } else {
+                        category.updatedAt
+                    },
+                    deletedAt = category.deletedAt,
+                    isSynced = false
+                )
+            }
+        )
+        productDao.insertBrandsForRestore(
+            data.brands.map { brand ->
+                brand.copy(
+                    uid = brand.uid?.takeIf { it.isNotBlank() }
+                        ?: UUID.randomUUID().toString(),
+                    updatedAt = if (brand.updatedAt == 0L) {
+                        System.currentTimeMillis()
+                    } else {
+                        brand.updatedAt
+                    },
+                    deletedAt = brand.deletedAt,
+                    isSynced = false
+                )
+            }
+        )
 
         attributeDao.insertAttributeDefinitionsForRestore(data.attributeDefinitions)
 
-        productDao.insertProductsForRestore(data.products)
+        productDao.insertProductsForRestore(
+            data.products.map { product ->
+                product.copy(
+                    uid = product.uid.ifBlank {
+                        UUID.randomUUID().toString()
+                    },
+                    updatedAt = if (product.updatedAt == 0L) {
+                        System.currentTimeMillis()
+                    } else {
+                        product.updatedAt
+                    },
+                    deletedAt = product.deletedAt,
+                    isSynced = false
+                )
+            }
+        )
 
-        productImageDao.insertImagesForRestore(data.productImages)
+        productImageDao.insertImagesForRestore(
+            data.productImages.map { image ->
+                image.copy(
+                    uid = image.uid?.takeIf { it.isNotBlank() }
+                        ?: UUID.randomUUID().toString(),
+                    updatedAt = if (image.updatedAt == 0L) System.currentTimeMillis() else image.updatedAt,
+                    deletedAt = image.deletedAt,
+                    isSynced = false
+                )
+            }
+        )
         attributeDao.insertAttributeValuesForRestore(data.attributeValues)
 
         pricingDao.insertPurchasePricesForRestore(data.purchasePrices)

@@ -310,6 +310,12 @@ private fun CategoryReorderList(
             }
         )
 
+    fun categoryKey(category: ProductCategoryEntity): String {
+        return category.id?.toString()
+            ?: category.uid
+            ?: "category_${category.name}_${category.sortOrder}"
+    }
+
     LazyColumn(
         state = reorderState.listState,
         modifier = modifier
@@ -325,12 +331,12 @@ private fun CategoryReorderList(
     ) {
         items(
             items = categories,
-            key = { it.id ?: it.uid }
+            key = { categoryKey(it) }
         ) { category ->
 
             ReorderableItem(
                 state = reorderState,
-                key = category.id ?: category.uid
+                key = categoryKey(category)
             ) { isDragging ->
 
                 ElevatedCard(
