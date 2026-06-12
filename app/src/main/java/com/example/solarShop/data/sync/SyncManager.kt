@@ -1,7 +1,9 @@
 package com.example.solarShop.data.sync
 
 import android.util.Log
+import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
@@ -76,7 +78,7 @@ class SyncManager @Inject constructor(
         val categories = productRepository.getUnsyncedCategories()
 
         if (categories.isEmpty()) {
-            Log.d("SYNC_TEST", "Unsliced Categories = 0")
+            Log.d("SYNC_TEST", "Unsynced Categories = 0")
             return true
         }
 
@@ -94,7 +96,7 @@ class SyncManager @Inject constructor(
         }
 
         if (dtoList.isEmpty()) {
-            Log.d("SYNC_TEST", "Unsliced Categories have no valid uid")
+            Log.d("SYNC_TEST", "Unsynced Categories have no valid uid")
             return true
         }
 
@@ -149,12 +151,86 @@ class SyncManager @Inject constructor(
         return categories.size
     }
 
+    suspend fun pullBrands(): Int {
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        Log.d("SYNC_TEST", "Pull Brands Since = $lastSyncAt")
+
+        val brands = syncApi.pullBrands(lastSyncAt)
+
+        Log.d("SYNC_TEST", "Received Brands = ${brands.size}")
+
+        brands.forEach { dto ->
+            productRepository.upsertBrandByUid(
+                ProductBrandEntity(
+                    id = null,
+                    name = dto.name,
+                    description = dto.description,
+                    imageFileName = dto.imageFileName,
+                    isActive = dto.isActive,
+                    uid = dto.uid,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = null,
+                    isSynced = true
+                )
+            )
+        }
+
+        return brands.size
+    }
+
+    suspend fun pushUnsyncedBrands(): Boolean {
+        val brands = productRepository.getUnsyncedBrands()
+
+        if (brands.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced Brands = 0")
+            return true
+        }
+
+        val dtoList = brands.mapNotNull { brand ->
+            val uid = brand.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            BrandSyncDto(
+                uid = uid,
+                name = brand.name,
+                description = brand.description,
+                imageFileName = brand.imageFileName,
+                isActive = brand.isActive,
+                updatedAt = brand.updatedAt
+            )
+        }
+
+        if (dtoList.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced Brands have no valid uid")
+            return true
+        }
+
+        val success = syncApi.pushBrands(dtoList)
+
+        if (success) {
+            productRepository.markBrandsSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d("SYNC_TEST", "Pushed Brands = ${dtoList.size}, success=$success")
+
+        return success
+    }
+
     suspend fun syncCategoriesOnce(): Boolean {
-        registerDevice()
+        val registered = registerDevice()
+        if (!registered) return false
 
         pullCategories()
+        pullBrands()
 
-        pushUnsyncedCategories()
+        val categoriesPushed = pushUnsyncedCategories()
+        if (!categoriesPushed) return false
+
+        val brandsPushed = pushUnsyncedBrands()
+        if (!brandsPushed) return false
 
         val status = syncApi.getStatus()
 

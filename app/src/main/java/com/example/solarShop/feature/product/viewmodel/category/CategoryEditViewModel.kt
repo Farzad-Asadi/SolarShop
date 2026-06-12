@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -92,12 +93,22 @@ class CategoryEditViewModel @Inject constructor(
             return false
         }
 
+        val oldCategory =
+            if (categoryId == -1) null
+            else productRepository.getCategoryById(categoryId)
+
+        val now = System.currentTimeMillis()
+
         productRepository.upsertCategory(
             ProductCategoryEntity(
-                id = if (categoryId == -1) null else categoryId,
+                id = oldCategory?.id,
                 name = state.name.trim(),
                 description = state.description.trim(),
                 imageFileName = state.imageFileName,
+                uid = oldCategory?.uid ?: UUID.randomUUID().toString(),
+                createdAt = oldCategory?.createdAt ?: now,
+                updatedAt = now,
+                isSynced = false
             )
         )
 

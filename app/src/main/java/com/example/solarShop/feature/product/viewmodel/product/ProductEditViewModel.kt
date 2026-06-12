@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -501,9 +502,15 @@ class ProductEditViewModel @Inject constructor(
         if (cleanName.isBlank()) return
 
         viewModelScope.launch {
+            val now = System.currentTimeMillis()
+
             val brandId = productRepository.upsertBrand(
                 ProductBrandEntity(
-                    name = cleanName
+                    name = cleanName,
+                    uid = UUID.randomUUID().toString(),
+                    createdAt = now,
+                    updatedAt = now,
+                    isSynced = false
                 )
             ).toInt()
 

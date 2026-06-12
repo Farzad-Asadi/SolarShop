@@ -271,6 +271,24 @@ interface ProductDao{
 """)
     suspend fun markCategoriesSynced(uids: List<String>)
 
+    @Query("SELECT * FROM product_brands WHERE uid = :uid LIMIT 1")
+    suspend fun getBrandByUid(uid: String): ProductBrandEntity?
+
+    @Query("""
+    SELECT * FROM product_brands
+    WHERE isSynced = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun getUnsyncedBrands(): List<ProductBrandEntity>
+
+    @Query("""
+    UPDATE product_brands
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markBrandsSynced(uids: List<String>)
+
+
 
 
 }

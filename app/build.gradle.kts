@@ -40,7 +40,7 @@ android {
                 // ← موک را این‌جا روشن/خاموش کن
                 buildConfigField("boolean", "USE_MOCK", "false")
                 // ← سرور لوکال Ktor (امولاتور اندروید)
-                buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
+                buildConfigField("String", "BASE_URL", "\"http://10.10.100.110:8080\"")
             }
             release {
                 buildConfigField("boolean", "USE_MOCK", "true")

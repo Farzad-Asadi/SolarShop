@@ -77,4 +77,10 @@ interface ProductRepository {
 
     suspend fun markCategoriesSynced(uids: List<String>)
 
+    suspend fun upsertBrandByUid(brand: ProductBrandEntity): Long
+
+    suspend fun getUnsyncedBrands(): List<ProductBrandEntity>
+
+    suspend fun markBrandsSynced(uids: List<String>)
+
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -61,12 +62,24 @@ class BrandEditViewModel @Inject constructor(
 
         if (state.name.isBlank()) return false
 
+        val oldBrand =
+            if (brandId == -1) null
+            else productRepository.getBrandById(brandId)
+
+        val now = System.currentTimeMillis()
+
         productRepository.upsertBrand(
             ProductBrandEntity(
-                id = if (brandId == -1) null else brandId,
+                id = oldBrand?.id,
                 name = state.name.trim(),
                 description = state.description.trim(),
-                imageFileName = state.imageFileName
+                imageFileName = state.imageFileName,
+                isActive = oldBrand?.isActive ?: true,
+                uid = oldBrand?.uid ?: UUID.randomUUID().toString(),
+                createdAt = oldBrand?.createdAt ?: now,
+                updatedAt = now,
+                deletedAt = oldBrand?.deletedAt,
+                isSynced = false
             )
         )
 

@@ -1,5 +1,6 @@
 package com.example.solarShop.data.network.remote
 
+import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceResponseDto
@@ -47,6 +48,26 @@ class SyncApi(
         since: Long = 0L
     ): List<CategorySyncDto> {
         return client.get("sync/categories") {
+            url {
+                parameters.append("since", since.toString())
+            }
+        }.body()
+    }
+
+    suspend fun pushBrands(
+        brands: List<BrandSyncDto>
+    ): Boolean {
+        val response = client.post("sync/brands") {
+            setBody(brands)
+        }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullBrands(
+        since: Long = 0L
+    ): List<BrandSyncDto> {
+        return client.get("sync/brands") {
             url {
                 parameters.append("since", since.toString())
             }

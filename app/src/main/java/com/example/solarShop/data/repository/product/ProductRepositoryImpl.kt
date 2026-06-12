@@ -168,6 +168,38 @@ class ProductRepositoryImpl @Inject constructor(
         productDao.markCategoriesSynced(uids)
     }
 
+    override suspend fun upsertBrandByUid(
+        brand: ProductBrandEntity
+    ): Long {
+        val uid = brand.uid
+
+        if (uid.isNullOrBlank()) {
+            return productDao.upsertBrand(brand)
+        }
+
+        val existing = productDao.getBrandByUid(uid)
+
+        return if (existing == null) {
+            productDao.upsertBrand(brand)
+        } else {
+            productDao.upsertBrand(
+                brand.copy(
+                    id = existing.id,
+                    createdAt = existing.createdAt
+                )
+            )
+        }
+    }
+
+    override suspend fun getUnsyncedBrands(): List<ProductBrandEntity> {
+        return productDao.getUnsyncedBrands()
+    }
+
+    override suspend fun markBrandsSynced(uids: List<String>) {
+        if (uids.isEmpty()) return
+        productDao.markBrandsSynced(uids)
+    }
+
 
 
 
