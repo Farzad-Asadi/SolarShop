@@ -155,4 +155,14 @@ class CategoryEditViewModel @Inject constructor(
             }
         }
     }
+
+    suspend fun countProductsInThisCategory(): Int {
+        if (categoryId == -1) return 0
+        return productRepository.countProductsInCategory(categoryId)
+    }
+
+    suspend fun deleteThisCategoryWithProducts() {
+        if (categoryId == -1) return
+        productRepository.deleteCategoryWithProducts(categoryId)
+    }
 }

@@ -21,14 +21,25 @@ interface ProductDao{
 
     // ---------- Category ----------
 
-    @Query("SELECT * FROM product_categories WHERE isActive = 1 ORDER BY sortOrder ASC, name ASC")
+    @Query("SELECT * FROM product_categories WHERE isActive = 1 AND deletedAt IS NULL ORDER BY sortOrder ASC, name ASC")
     fun observeActiveCategories(): Flow<List<ProductCategoryEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCategory(category: ProductCategoryEntity): Long
 
-    @Query("UPDATE product_categories SET isActive = 0, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun deactivateCategory(id: Int, updatedAt: Long = System.currentTimeMillis())
+    @Query("""
+    UPDATE product_categories
+    SET 
+        isActive = 0,
+        deletedAt = :updatedAt,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE id = :id
+""")
+    suspend fun deactivateCategory(
+        id: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
     // ---------- Brand ----------
 
@@ -188,6 +199,7 @@ interface ProductDao{
         name = :name,
         model = :model,
         brandId = :brandId,
+        isSynced = 0,
         updatedAt = :updatedAt
     WHERE id = :id
 """)
@@ -207,7 +219,8 @@ interface ProductDao{
         model = :model,
         brandId = :brandId,
         isDraft = 0,
-        updatedAt = :updatedAt
+        updatedAt = :updatedAt,
+        isSynced = 0
     WHERE id = :id
 """)
     suspend fun finalizeDraftProduct(
@@ -259,7 +272,6 @@ interface ProductDao{
     @Query("""
     SELECT * FROM product_categories
     WHERE isSynced = 0
-      AND deletedAt IS NULL
 """)
     suspend fun getUnsyncedCategories(): List<ProductCategoryEntity>
 
@@ -287,6 +299,50 @@ interface ProductDao{
     WHERE uid IN (:uids)
 """)
     suspend fun markBrandsSynced(uids: List<String>)
+
+    @Query("SELECT * FROM products WHERE uid = :uid LIMIT 1")
+    suspend fun getProductByUid(uid: String): ProductEntity?
+
+    @Query("""
+    SELECT * FROM products
+    WHERE isSynced = 0
+      AND deletedAt IS NULL
+      AND isDraft = 0
+""")
+    suspend fun getUnsyncedProducts(): List<ProductEntity>
+
+    @Query("""
+    UPDATE products
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markProductsSynced(uids: List<String>)
+
+
+    @Query("""
+    SELECT COUNT(*) FROM products
+    WHERE categoryId = :categoryId
+      AND isDraft = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun countProductsInCategory(categoryId: Int): Int
+
+    @Query("""
+    UPDATE products
+    SET 
+        isArchived = 1,
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE categoryId = :categoryId
+      AND isDraft = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeleteProductsByCategory(
+        categoryId: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
 
 
 

@@ -21,9 +21,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -36,6 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,6 +116,10 @@ fun CategoryEditScreen(
     )
     val scope = rememberCoroutineScope()
 
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDeleteProductsDialog by remember { mutableStateOf(false) }
+    var productCountInCategory by remember { mutableStateOf(0) }
+
     Scaffold(
         modifier = Modifier.imePadding(),
         topBar = {
@@ -133,9 +140,35 @@ fun CategoryEditScreen(
                             contentDescription = "بازگشت"
                         )
                     }
+                },
+                actions = {
+                    if (viewModel.isEditMode) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    productCountInCategory = viewModel.countProductsInThisCategory()
+
+                                    if (productCountInCategory > 0) {
+                                        showDeleteProductsDialog = true
+                                    } else {
+                                        showDeleteDialog = true
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null
+                            )
+
+                        }
+                    }
                 }
+
             )
-        }
+        },
+
     ) { paddingValues ->
 
         Column(
@@ -392,5 +425,74 @@ fun CategoryEditScreen(
                 }
             }
         }
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = {
+                    Text("حذف دسته‌بندی")
+                },
+                text = {
+                    Text("آیا مطمئنی می‌خواهی این دسته‌بندی حذف شود؟")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+
+                            scope.launch {
+                                viewModel.deleteThisCategoryWithProducts()
+                                onClose()
+                            }
+                        }
+                    ) {
+                        Text("حذف")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeleteDialog = false }
+                    ) {
+                        Text("انصراف")
+                    }
+                }
+            )
+        }
+
+        if (showDeleteProductsDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteProductsDialog = false },
+                title = {
+                    Text("این دسته کالا دارد")
+                },
+                text = {
+                    Text(
+                        "در این دسته $productCountInCategory کالا ثبت شده است. " +
+                                "با حذف این دسته، همه کالاهای داخل آن هم حذف می‌شوند. ادامه می‌دهی؟"
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteProductsDialog = false
+
+                            scope.launch {
+                                viewModel.deleteThisCategoryWithProducts()
+                                onClose()
+                            }
+                        }
+                    ) {
+                        Text("حذف دسته و کالاها")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeleteProductsDialog = false }
+                    ) {
+                        Text("انصراف")
+                    }
+                }
+            )
+        }
+
     }
 }

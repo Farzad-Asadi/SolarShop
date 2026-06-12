@@ -71,16 +71,40 @@ interface ProductRepository {
         categories: List<ProductCategoryEntity>
     )
 
+
+
     suspend fun upsertCategoryByUid(category: ProductCategoryEntity): Long
 
     suspend fun getUnsyncedCategories(): List<ProductCategoryEntity>
 
     suspend fun markCategoriesSynced(uids: List<String>)
 
+
+
+
     suspend fun upsertBrandByUid(brand: ProductBrandEntity): Long
 
     suspend fun getUnsyncedBrands(): List<ProductBrandEntity>
 
     suspend fun markBrandsSynced(uids: List<String>)
+
+
+
+    suspend fun upsertProductByUid(product: ProductEntity): Long
+
+    suspend fun getUnsyncedProducts(): List<ProductEntity>
+
+    suspend fun markProductsSynced(uids: List<String>)
+
+    suspend fun getCategoryByUid(uid: String): ProductCategoryEntity?
+
+    suspend fun getBrandByUid(uid: String): ProductBrandEntity?
+
+
+
+    suspend fun countProductsInCategory(categoryId: Int): Int
+
+    suspend fun deleteCategoryWithProducts(categoryId: Int)
+
 
 }

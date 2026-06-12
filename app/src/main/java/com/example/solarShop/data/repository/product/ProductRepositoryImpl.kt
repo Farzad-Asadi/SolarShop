@@ -201,6 +201,63 @@ class ProductRepositoryImpl @Inject constructor(
     }
 
 
+    override suspend fun upsertProductByUid(
+        product: ProductEntity
+    ): Long {
+        val existing = productDao.getProductByUid(product.uid)
 
+        return if (existing == null) {
+            productDao.upsertProduct(product)
+        } else {
+            productDao.upsertProduct(
+                product.copy(
+                    id = existing.id,
+                    createdAt = existing.createdAt
+                )
+            )
+        }
+    }
+
+    override suspend fun getUnsyncedProducts(): List<ProductEntity> {
+        return productDao.getUnsyncedProducts()
+    }
+
+    override suspend fun markProductsSynced(uids: List<String>) {
+        if (uids.isEmpty()) return
+        productDao.markProductsSynced(uids)
+    }
+    override suspend fun getCategoryByUid(
+        uid: String
+    ): ProductCategoryEntity? {
+        return productDao.getCategoryByUid(uid)
+    }
+
+    override suspend fun getBrandByUid(
+        uid: String
+    ): ProductBrandEntity? {
+        return productDao.getBrandByUid(uid)
+    }
+
+    override suspend fun countProductsInCategory(
+        categoryId: Int
+    ): Int {
+        return productDao.countProductsInCategory(categoryId)
+    }
+
+    override suspend fun deleteCategoryWithProducts(
+        categoryId: Int
+    ) {
+        val now = System.currentTimeMillis()
+
+        productDao.softDeleteProductsByCategory(
+            categoryId = categoryId,
+            deletedAt = now
+        )
+
+        productDao.deactivateCategory(
+            id = categoryId,
+            updatedAt = now
+        )
+    }
 
 }
