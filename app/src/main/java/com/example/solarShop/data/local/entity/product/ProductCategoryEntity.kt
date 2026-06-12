@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "product_categories",
-    indices = [Index("name", unique = true)]
+    indices = [Index("uid", unique = true)]
 )
 data class ProductCategoryEntity(
     @PrimaryKey(autoGenerate = true)

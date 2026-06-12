@@ -1,13 +1,23 @@
 package com.example.solarShop.data.sync
 
+import android.util.Log
+import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
+import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
+import com.example.solarShop.data.network.dto.sync.SyncStatusDto
+import com.example.solarShop.data.network.remote.SyncApi
+import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SyncManager @Inject constructor(
     private val syncRepository: SyncRepository,
-    private val deviceIdProvider: DeviceIdProvider
+    private val deviceIdProvider: DeviceIdProvider,
+    private val syncApi: SyncApi,
+    private val productRepository: ProductRepository
 ) {
 
     suspend fun getLastSyncAt(): Long {
@@ -20,5 +30,136 @@ class SyncManager @Inject constructor(
 
     suspend fun getDeviceId(): String {
         return deviceIdProvider.getOrCreateDeviceId()
+    }
+
+    suspend fun pingServer(): Boolean {
+        return syncApi.ping()
+    }
+
+    suspend fun getSyncStatus(): SyncStatusDto {
+        return syncApi.getStatus()
+    }
+
+    suspend fun registerDevice(): Boolean {
+        val deviceId = deviceIdProvider.getOrCreateDeviceId()
+
+        val response = syncApi.registerDevice(
+            RegisterDeviceRequestDto(
+                deviceId = deviceId,
+                appVersion = 1,
+                platform = "android"
+            )
+        )
+
+        return response.accepted
+    }
+
+    suspend fun pushAllCategories(): Boolean {
+        val categories = productRepository
+            .observeActiveCategories()
+            .first()
+
+        val dtoList = categories.map { category ->
+            CategorySyncDto(
+                uid = category.uid ?: return@map null,
+                name = category.name,
+                imageFileName = category.imageFileName,
+                sortOrder = category.sortOrder,
+                updatedAt = category.updatedAt
+            )
+        }.filterNotNull()
+
+        return syncApi.pushCategories(dtoList)
+    }
+
+    suspend fun pushUnsyncedCategories(): Boolean {
+        val categories = productRepository.getUnsyncedCategories()
+
+        if (categories.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsliced Categories = 0")
+            return true
+        }
+
+        val dtoList = categories.mapNotNull { category ->
+            val uid = category.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            CategorySyncDto(
+                uid = uid,
+                name = category.name,
+                imageFileName = category.imageFileName,
+                sortOrder = category.sortOrder,
+                updatedAt = category.updatedAt
+            )
+        }
+
+        if (dtoList.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsliced Categories have no valid uid")
+            return true
+        }
+
+        val success = syncApi.pushCategories(dtoList)
+
+        if (success) {
+            productRepository.markCategoriesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed Categories = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullCategories(): Int {
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        Log.d(
+            "SYNC_TEST",
+            "Pull Since = $lastSyncAt"
+        )
+
+        val categories = syncApi.pullCategories(lastSyncAt)
+
+        Log.d(
+            "SYNC_TEST",
+            "Received Categories = ${categories.size}"
+        )
+
+        categories.forEach { dto ->
+            productRepository.upsertCategoryByUid(
+                ProductCategoryEntity(
+                    id = null,
+                    name = dto.name,
+                    description = "",
+                    sortOrder = dto.sortOrder,
+                    isActive = true,
+                    imageFileName = dto.imageFileName,
+                    uid = dto.uid,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = null,
+                    isSynced = true
+                )
+            )
+        }
+
+        return categories.size
+    }
+
+    suspend fun syncCategoriesOnce(): Boolean {
+        registerDevice()
+
+        pullCategories()
+
+        pushUnsyncedCategories()
+
+        val status = syncApi.getStatus()
+
+        syncRepository.updateLastSyncAt(status.serverTime)
+
+        return true
     }
 }

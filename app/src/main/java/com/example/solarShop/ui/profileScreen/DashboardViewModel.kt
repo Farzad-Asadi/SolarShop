@@ -27,6 +27,7 @@ import com.example.solarShop.data.room.tables.orderAll.order.OrderRepository
 import com.example.solarShop.data.room.tables.orderAll.orderTimelineItem.TimelineItemRepository
 import com.example.solarShop.data.room.tables.user.UserEntity
 import com.example.solarShop.data.room.tables.user.UserRepository
+import com.example.solarShop.data.sync.SyncManager
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.utils.createTimelineItemEntityForOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,6 +64,7 @@ class DashboardViewModel @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val dollarRatePrefs: DollarRatePreferencesDataSource,
     private val currencyRemoteDataSource: CurrencyRemoteDataSource,
+    private val syncManager: SyncManager,
 
     ) : ViewModel() {
 
@@ -359,6 +361,136 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
+
+    fun testSyncConnection() {
+        viewModelScope.launch {
+            try {
+                val result = syncManager.pingServer()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Ping Result = $result"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Ping Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testSyncStatus() {
+        viewModelScope.launch {
+            try {
+                val status = syncManager.getSyncStatus()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Status = serverTime=${status.serverTime}, serverVersion=${status.serverVersion}, message=${status.message}"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Get Status Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testRegisterDevice() {
+        viewModelScope.launch {
+            try {
+                val accepted = syncManager.registerDevice()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Register Device accepted = $accepted"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Register Device Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testPushCategories() {
+        viewModelScope.launch {
+            try {
+                val result = syncManager.pushAllCategories()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Push Categories Result = $result"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Push Categories Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testPullCategories() {
+        viewModelScope.launch {
+            try {
+                val count = syncManager.pullCategories()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Pull Categories Count = $count"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Pull Categories Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testCategorySync() {
+        viewModelScope.launch {
+            try {
+                val result = syncManager.syncCategoriesOnce()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Category Sync Result = $result"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Category Sync Failed",
+                    e
+                )
+            }
+        }
+    }
+
+    fun testLastSyncAt() {
+        viewModelScope.launch {
+            val lastSyncAt = syncManager.getLastSyncAt()
+
+            Log.d(
+                "SYNC_TEST",
+                "Last Sync At = $lastSyncAt"
+            )
+        }
+    }
+
+
+
+
+
 //endregion funs
 
 

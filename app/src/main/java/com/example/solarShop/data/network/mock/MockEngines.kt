@@ -145,6 +145,33 @@ fun mockHandler(
             }
         }
 
+        method == HttpMethod.Get && path == "/sync/ping" -> {
+            ok("""{"ok":true,"message":"pong"}""")
+        }
+
+        method == HttpMethod.Get && path == "/sync/status" -> {
+            ok(
+                """
+        {
+          "serverTime": ${System.currentTimeMillis()},
+          "serverVersion": 1,
+          "message": "mock sync server is ready"
+        }
+        """.trimIndent()
+            )
+        }
+
+        method == HttpMethod.Post && path == "/sync/register-device" -> {
+            ok(
+                """
+        {
+          "accepted": true,
+          "serverVersion": 1
+        }
+        """.trimIndent()
+            )
+        }
+
         else -> {
             err(HttpStatusCode.NotFound, json.encodeToString(mapOf("message" to "No mock for ${method.value} $path")))
         }

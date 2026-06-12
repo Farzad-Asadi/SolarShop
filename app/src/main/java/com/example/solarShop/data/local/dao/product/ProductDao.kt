@@ -250,4 +250,27 @@ interface ProductDao{
         sortOrder: Int,
         updatedAt: Long = System.currentTimeMillis()
     )
+
+    @Query("SELECT * FROM product_categories WHERE uid = :uid LIMIT 1")
+    suspend fun getCategoryByUid(uid: String): ProductCategoryEntity?
+
+
+
+    @Query("""
+    SELECT * FROM product_categories
+    WHERE isSynced = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun getUnsyncedCategories(): List<ProductCategoryEntity>
+
+
+    @Query("""
+    UPDATE product_categories
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markCategoriesSynced(uids: List<String>)
+
+
+
 }

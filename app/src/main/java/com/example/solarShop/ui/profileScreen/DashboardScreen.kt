@@ -224,10 +224,10 @@ fun DashboardScreen(                               //صفحه پروفایل
 
     var choiceClientId by rememberSaveable { mutableIntStateOf(1) }
 
-    var indicatorsExpanded by rememberSaveable { mutableStateOf(true) }
+    var indicatorsExpanded by rememberSaveable { mutableStateOf(false) }
     var marketExpanded by rememberSaveable { mutableStateOf(true) }
     var actionsExpanded by rememberSaveable { mutableStateOf(true) }
-    var clientsExpanded by rememberSaveable { mutableStateOf(true) }
+    var clientsExpanded by rememberSaveable { mutableStateOf(false) }
     var manualDollarText by rememberSaveable {
         mutableStateOf("")
     }
@@ -383,6 +383,13 @@ fun DashboardScreen(                               //صفحه پروفایل
                                             onClickBackup = onClickBackUpRestore,
                                             onClickUserData = {}
                                         )
+                                    }
+                                    Button(
+                                        onClick = {
+                                            viewModel.testCategorySync()
+                                        }
+                                    ) {
+                                        Text("تست سینک دسته ها")
                                     }
                                 }
 

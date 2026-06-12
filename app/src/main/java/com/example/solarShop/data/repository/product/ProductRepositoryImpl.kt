@@ -135,4 +135,40 @@ class ProductRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun upsertCategoryByUid(
+        category: ProductCategoryEntity
+    ): Long {
+        val uid = category.uid
+
+        if (uid.isNullOrBlank()) {
+            return productDao.upsertCategory(category)
+        }
+
+        val existing = productDao.getCategoryByUid(uid)
+
+        return if (existing == null) {
+            productDao.upsertCategory(category)
+        } else {
+            productDao.upsertCategory(
+                category.copy(
+                    id = existing.id,
+                    createdAt = existing.createdAt
+                )
+            )
+        }
+    }
+
+    override suspend fun getUnsyncedCategories(): List<ProductCategoryEntity> {
+        return productDao.getUnsyncedCategories()
+    }
+
+
+    override suspend fun markCategoriesSynced(uids: List<String>) {
+        if (uids.isEmpty()) return
+        productDao.markCategoriesSynced(uids)
+    }
+
+
+
+
 }

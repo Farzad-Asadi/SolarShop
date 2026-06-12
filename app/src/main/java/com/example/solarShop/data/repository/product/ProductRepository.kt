@@ -71,4 +71,10 @@ interface ProductRepository {
         categories: List<ProductCategoryEntity>
     )
 
+    suspend fun upsertCategoryByUid(category: ProductCategoryEntity): Long
+
+    suspend fun getUnsyncedCategories(): List<ProductCategoryEntity>
+
+    suspend fun markCategoriesSynced(uids: List<String>)
+
 }
