@@ -25,7 +25,7 @@ interface ProductRepository {
     suspend fun upsertUnit(unit: ProductUnitEntity): Long
     suspend fun upsertProduct(product: ProductEntity): Long
 
-    suspend fun archiveProduct(productId: Int)
+    suspend fun softDeleteProduct(productId: Int)
 
     fun observeProductImages(productId: Int): Flow<List<ProductImageEntity>>
     suspend fun upsertProductImage(image: ProductImageEntity): Long

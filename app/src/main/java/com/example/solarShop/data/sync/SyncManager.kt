@@ -142,7 +142,7 @@ class SyncManager @Inject constructor(
                     name = dto.name,
                     description = "",
                     sortOrder = dto.sortOrder,
-                    isActive = true,
+                    isActive = dto.deletedAt == null,
                     imageFileName = dto.imageFileName,
                     uid = dto.uid,
                     updatedAt = dto.updatedAt,

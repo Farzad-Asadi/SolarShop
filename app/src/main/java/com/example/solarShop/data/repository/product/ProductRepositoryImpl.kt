@@ -42,8 +42,9 @@ class ProductRepositoryImpl @Inject constructor(
     override suspend fun upsertProduct(product: ProductEntity) =
         productDao.upsertProduct(product)
 
-    override suspend fun archiveProduct(productId: Int) =
-        productDao.archiveProduct(productId)
+    override suspend fun softDeleteProduct(productId: Int) {
+        productDao.softDeleteProductById(productId)
+    }
 
     override fun observeProductImages(productId: Int) =
         productDao.observeProductImages(productId)
@@ -144,18 +145,18 @@ class ProductRepositoryImpl @Inject constructor(
             return productDao.upsertCategory(category)
         }
 
-        val existing = productDao.getCategoryByUid(uid)
+        val existing = productDao.getCategoryByUid(uid) ?: return productDao.upsertCategory(category)
 
-        return if (existing == null) {
-            productDao.upsertCategory(category)
-        } else {
-            productDao.upsertCategory(
-                category.copy(
-                    id = existing.id,
-                    createdAt = existing.createdAt
-                )
-            )
+        if (!existing.isSynced && existing.updatedAt > category.updatedAt) {
+            return existing.id?.toLong() ?: 0L
         }
+
+        return productDao.upsertCategory(
+            category.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
     }
 
     override suspend fun getUnsyncedCategories(): List<ProductCategoryEntity> {
@@ -177,18 +178,18 @@ class ProductRepositoryImpl @Inject constructor(
             return productDao.upsertBrand(brand)
         }
 
-        val existing = productDao.getBrandByUid(uid)
+        val existing = productDao.getBrandByUid(uid) ?: return productDao.upsertBrand(brand)
 
-        return if (existing == null) {
-            productDao.upsertBrand(brand)
-        } else {
-            productDao.upsertBrand(
-                brand.copy(
-                    id = existing.id,
-                    createdAt = existing.createdAt
-                )
-            )
+        if (!existing.isSynced && existing.updatedAt > brand.updatedAt) {
+            return existing.id?.toLong() ?: 0L
         }
+
+        return productDao.upsertBrand(
+            brand.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
     }
 
     override suspend fun getUnsyncedBrands(): List<ProductBrandEntity> {
@@ -204,18 +205,22 @@ class ProductRepositoryImpl @Inject constructor(
     override suspend fun upsertProductByUid(
         product: ProductEntity
     ): Long {
-        val existing = productDao.getProductByUid(product.uid)
+        val existing = productDao.getProductByUid(product.uid) ?: return productDao.upsertProduct(product)
 
-        return if (existing == null) {
-            productDao.upsertProduct(product)
-        } else {
-            productDao.upsertProduct(
-                product.copy(
-                    id = existing.id,
-                    createdAt = existing.createdAt
-                )
-            )
+        if (existing.deletedAt != null && product.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
         }
+
+        if (!existing.isSynced && existing.updatedAt > product.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return productDao.upsertProduct(
+            product.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
     }
 
     override suspend fun getUnsyncedProducts(): List<ProductEntity> {

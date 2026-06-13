@@ -141,7 +141,7 @@ class ProductByCategoryViewModel @Inject constructor(
     fun deleteSelectedProducts() {
         viewModelScope.launch {
             selectedProductIds.value.forEach { productId ->
-                productRepository.archiveProduct(productId)
+                productRepository.softDeleteProduct(productId)
             }
 
             clearSelection()

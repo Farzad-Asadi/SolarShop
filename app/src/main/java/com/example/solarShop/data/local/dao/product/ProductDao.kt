@@ -43,7 +43,7 @@ interface ProductDao{
 
     // ---------- Brand ----------
 
-    @Query("SELECT * FROM product_brands WHERE isActive = 1 ORDER BY name ASC")
+    @Query("SELECT * FROM product_brands WHERE isActive = 1 AND deletedAt IS NULL ORDER BY name ASC")
     fun observeActiveBrands(): Flow<List<ProductBrandEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -61,14 +61,17 @@ interface ProductDao{
 
     @Query("""
         SELECT * FROM products
-        WHERE isArchived = 0 AND isDraft = 0
+        WHERE isArchived = 0 AND isDraft = 0 AND deletedAt IS NULL
         ORDER BY name ASC
     """)
     fun observeActiveProducts(): Flow<List<ProductEntity>>
 
     @Query("""
         SELECT * FROM products
-        WHERE categoryId = :categoryId AND isArchived = 0 AND isDraft = 0
+        WHERE categoryId = :categoryId 
+    AND isArchived = 0 
+    AND isDraft = 0
+    AND deletedAt IS NULL
         ORDER BY name ASC
     """)
     fun observeProductsByCategory(categoryId: Int): Flow<List<ProductEntity>>
@@ -76,13 +79,26 @@ interface ProductDao{
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProduct(product: ProductEntity): Long
 
-    @Query("UPDATE products SET isArchived = 1, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun archiveProduct(id: Int, updatedAt: Long = System.currentTimeMillis())
+    @Query("""
+    UPDATE products
+    SET 
+        isArchived = 1,
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE id = :id
+      AND isDraft = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeleteProductById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     @Transaction
     @Query("""
     SELECT * FROM products
-    WHERE isArchived = 0 AND isDraft = 0
+    WHERE isArchived = 0 AND isDraft = 0 AND deletedAt IS NULL
     ORDER BY name ASC
 """)
     fun observeActiveProductsFullInfo(): Flow<List<ProductFullInfo>>
@@ -246,7 +262,8 @@ interface ProductDao{
         COUNT(*) AS count
     FROM products
     WHERE isArchived = 0
-      AND isDraft = 0
+    AND isDraft = 0
+    AND deletedAt IS NULL
     GROUP BY categoryId
 """)
     fun observeProductCountByCategory():
@@ -305,7 +322,6 @@ interface ProductDao{
     @Query("""
     SELECT * FROM products
     WHERE isSynced = 0
-      AND deletedAt IS NULL
       AND isDraft = 0
 """)
     suspend fun getUnsyncedProducts(): List<ProductEntity>
