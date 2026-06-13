@@ -9,5 +9,6 @@ data class BrandSyncDto(
     val description: String,
     val imageFileName: String?,
     val isActive: Boolean,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val deletedAt: Long?
 )

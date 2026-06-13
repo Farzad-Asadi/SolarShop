@@ -174,7 +174,7 @@ class SyncManager @Inject constructor(
                     isActive = dto.isActive,
                     uid = dto.uid,
                     updatedAt = dto.updatedAt,
-                    deletedAt = null,
+                    deletedAt = dto.deletedAt,
                     isSynced = true
                 )
             )
@@ -196,12 +196,13 @@ class SyncManager @Inject constructor(
                 ?: return@mapNotNull null
 
             BrandSyncDto(
-                uid = uid,
+                uid = brand.uid,
                 name = brand.name,
                 description = brand.description,
                 imageFileName = brand.imageFileName,
                 isActive = brand.isActive,
-                updatedAt = brand.updatedAt
+                updatedAt = brand.updatedAt,
+                deletedAt = brand.deletedAt
             )
         }
 
@@ -346,6 +347,93 @@ class SyncManager @Inject constructor(
         val status = syncApi.getStatus()
 
         syncRepository.updateLastSyncAt(status.serverTime)
+
+        return true
+    }
+
+    suspend fun pushAllBrands(): Boolean {
+        val brands = productRepository
+            .observeActiveBrands()
+            .first()
+
+        val dtoList = brands.mapNotNull { brand ->
+            val uid = brand.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            BrandSyncDto(
+                uid = uid,
+                name = brand.name,
+                description = brand.description,
+                imageFileName = brand.imageFileName,
+                isActive = brand.isActive,
+                updatedAt = brand.updatedAt,
+                deletedAt = brand.deletedAt
+            )
+        }
+
+        val success = syncApi.pushBrands(dtoList)
+
+        Log.d("SYNC_TEST", "Initial Upload Brands = ${dtoList.size}, success=$success")
+
+        return success
+    }
+
+    suspend fun pushAllProducts(): Boolean {
+        val products = productRepository
+            .observeActiveProducts()
+            .first()
+
+        val dtoList = products.mapNotNull { product ->
+
+            val category = productRepository.getCategoryById(product.categoryId)
+                ?: return@mapNotNull null
+
+            val categoryUid = category.uid
+                ?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            val brandUid = product.brandId
+                ?.let { productRepository.getBrandById(it) }
+                ?.uid
+                ?.takeIf { it.isNotBlank() }
+
+            ProductSyncDto(
+                uid = product.uid,
+                categoryUid = categoryUid,
+                brandUid = brandUid,
+                name = product.name,
+                model = product.model,
+                description = product.description,
+                isArchived = product.isArchived,
+                updatedAt = product.updatedAt,
+                deletedAt = product.deletedAt
+            )
+        }
+
+        val success = syncApi.pushProducts(dtoList)
+
+        Log.d("SYNC_TEST", "Initial Upload Products = ${dtoList.size}, success=$success")
+
+        return success
+    }
+
+    suspend fun initialUploadAll(): Boolean {
+        val registered = registerDevice()
+        if (!registered) return false
+
+        val categoriesOk = pushAllCategories()
+        if (!categoriesOk) return false
+
+        val brandsOk = pushAllBrands()
+        if (!brandsOk) return false
+
+        val productsOk = pushAllProducts()
+        if (!productsOk) return false
+
+        val status = syncApi.getStatus()
+        syncRepository.updateLastSyncAt(status.serverTime)
+
+        Log.d("SYNC_TEST", "Initial Upload Completed")
 
         return true
     }

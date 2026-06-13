@@ -289,7 +289,6 @@ interface ProductDao{
     @Query("""
     SELECT * FROM product_brands
     WHERE isSynced = 0
-      AND deletedAt IS NULL
 """)
     suspend fun getUnsyncedBrands(): List<ProductBrandEntity>
 
@@ -344,7 +343,41 @@ interface ProductDao{
     )
 
 
+    @Query("""
+    SELECT COUNT(*) FROM products
+    WHERE brandId = :brandId
+      AND isDraft = 0
+      AND deletedAt IS NULL
+""")
+    suspend fun countProductsWithBrand(brandId: Int): Int
 
+    @Query("""
+    UPDATE products
+    SET 
+        brandId = NULL,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE brandId = :brandId
+      AND deletedAt IS NULL
+""")
+    suspend fun clearBrandFromProducts(
+        brandId: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+    UPDATE product_brands
+    SET 
+        isActive = 0,
+        deletedAt = :updatedAt,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE id = :id
+""")
+    suspend fun deactivateBrand(
+        id: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
 
 }

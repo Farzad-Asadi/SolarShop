@@ -391,6 +391,13 @@ fun DashboardScreen(                               //صفحه پروفایل
                                     ) {
                                         Text("تست سینک دسته ها")
                                     }
+                                    Button(
+                                        onClick = {
+                                            viewModel.testInitialUploadAll()
+                                        }
+                                    ) {
+                                        Text("اپلود دیتا در سرور")
+                                    }
                                 }
 
                                 //مشتریان

@@ -260,4 +260,26 @@ class ProductRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun countProductsWithBrand(
+        brandId: Int
+    ): Int {
+        return productDao.countProductsWithBrand(brandId)
+    }
+
+    override suspend fun deleteBrandAndClearProducts(
+        brandId: Int
+    ) {
+        val now = System.currentTimeMillis()
+
+        productDao.clearBrandFromProducts(
+            brandId = brandId,
+            updatedAt = now
+        )
+
+        productDao.deactivateBrand(
+            id = brandId,
+            updatedAt = now
+        )
+    }
+
 }

@@ -25,31 +25,26 @@ android {
     }
 
     buildTypes {
-//        debug {
-//            buildConfigField("boolean", "USE_MOCK", "true")   // 👈 دیباگ: موک روشن
-//            buildConfigField("String",  "BASE_URL", "\"https://api.example.com\"")
-//        }
-//        release {
-//            buildConfigField("boolean", "USE_MOCK", "false")  // 👈 ریلیز: واقعی
-//            buildConfigField("String",  "BASE_URL", "\"https://api.example.com\"")
-//            isMinifyEnabled = false
-//            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-//        }
 
-            debug {
-                // ← موک را این‌جا روشن/خاموش کن
-                buildConfigField("boolean", "USE_MOCK", "false")
-                // ← سرور لوکال Ktor (امولاتور اندروید)
-                buildConfigField("String", "BASE_URL", "\"http://10.10.100.110:8080\"")
-            }
-            release {
-                buildConfigField("boolean", "USE_MOCK", "true")
-                buildConfigField("String", "BASE_URL", "\"https://your.prod.host\"")
-                isMinifyEnabled = false
-            }
-        
+        debug {
+            buildConfigField("boolean", "USE_MOCK", "false")
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
+        }
 
+        create("onlineDebug") {
+            initWith(getByName("debug"))
 
+            buildConfigField("boolean", "USE_MOCK", "false")
+            buildConfigField("String", "BASE_URL", "\"http://185.204.197.217:8080\"")
+
+            matchingFallbacks += listOf("debug")
+        }
+
+        release {
+            buildConfigField("boolean", "USE_MOCK", "false")
+            buildConfigField("String", "BASE_URL", "\"http://185.204.197.217:8080\"")
+            isMinifyEnabled = false
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

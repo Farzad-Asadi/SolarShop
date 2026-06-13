@@ -487,6 +487,25 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun testInitialUploadAll() {
+        viewModelScope.launch {
+            try {
+                val result = syncManager.initialUploadAll()
+
+                Log.d(
+                    "SYNC_TEST",
+                    "Initial Upload Result = $result"
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Initial Upload Failed",
+                    e
+                )
+            }
+        }
+    }
+
 
 
 

@@ -106,5 +106,9 @@ interface ProductRepository {
 
     suspend fun deleteCategoryWithProducts(categoryId: Int)
 
+    suspend fun countProductsWithBrand(brandId: Int): Int
+
+    suspend fun deleteBrandAndClearProducts(brandId: Int)
+
 
 }

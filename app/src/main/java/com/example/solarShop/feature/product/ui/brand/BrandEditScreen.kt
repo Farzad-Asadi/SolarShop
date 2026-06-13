@@ -2,23 +2,32 @@ package com.example.solarShop.feature.product.ui.brand
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,6 +42,10 @@ fun BrandEditScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showBrandUsedDialog by remember { mutableStateOf(false) }
+    var productCountWithBrand by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -80,6 +93,87 @@ fun BrandEditScreen(
             ) {
                 Text("ذخیره برند")
             }
+            if (viewModel.isEditMode) {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            productCountWithBrand = viewModel.countProductsWithThisBrand()
+
+                            if (productCountWithBrand > 0) {
+                                showBrandUsedDialog = true
+                            } else {
+                                showDeleteDialog = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text("حذف برند")
+                }
+            }
+        }
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("حذف برند") },
+                text = { Text("آیا مطمئنی می‌خواهی این برند حذف شود؟") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                            scope.launch {
+                                viewModel.deleteThisBrandAndClearProducts()
+                                onClose()
+                            }
+                        }
+                    ) {
+                        Text("حذف")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("انصراف")
+                    }
+                }
+            )
+        }
+
+        if (showBrandUsedDialog) {
+            AlertDialog(
+                onDismissRequest = { showBrandUsedDialog = false },
+                title = { Text("این برند استفاده شده است") },
+                text = {
+                    Text(
+                        "این برند روی $productCountWithBrand کالا استفاده شده است. " +
+                                "با حذف برند، کالاها حذف نمی‌شوند؛ فقط بدون برند می‌شوند. ادامه می‌دهی؟"
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showBrandUsedDialog = false
+                            scope.launch {
+                                viewModel.deleteThisBrandAndClearProducts()
+                                onClose()
+                            }
+                        }
+                    ) {
+                        Text("حذف برند")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBrandUsedDialog = false }) {
+                        Text("انصراف")
+                    }
+                }
+            )
         }
     }
 }

@@ -30,6 +30,9 @@ class BrandEditViewModel @Inject constructor(
         )
     )
 
+    val isEditMode: Boolean
+        get() = brandId != -1
+
     val uiState = _uiState.asStateFlow()
 
     init {
@@ -84,5 +87,15 @@ class BrandEditViewModel @Inject constructor(
         )
 
         return true
+    }
+
+    suspend fun countProductsWithThisBrand(): Int {
+        if (brandId == -1) return 0
+        return productRepository.countProductsWithBrand(brandId)
+    }
+
+    suspend fun deleteThisBrandAndClearProducts() {
+        if (brandId == -1) return
+        productRepository.deleteBrandAndClearProducts(brandId)
     }
 }
