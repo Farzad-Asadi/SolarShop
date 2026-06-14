@@ -2,6 +2,7 @@ package com.example.solarShop.data.network.remote
 
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
@@ -114,6 +115,25 @@ class SyncApi(
 
         return response.status.isSuccess()
     }
+
+    suspend fun pullInventoryTransactions(
+        since: Long
+    ): List<InventoryTransactionSyncDto> {
+        return client.get("sync/inventory-transactions") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushInventoryTransactions(
+        items: List<InventoryTransactionSyncDto>
+    ): Boolean {
+        val response = client.post("sync/inventory-transactions") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
+
 
 
 }

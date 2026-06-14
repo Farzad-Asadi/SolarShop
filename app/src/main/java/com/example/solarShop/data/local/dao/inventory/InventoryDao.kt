@@ -22,6 +22,7 @@ interface InventoryDao {
     @Query("""
         SELECT * FROM inventory_transactions
         WHERE productId = :productId
+        AND deletedAt IS NULL
         ORDER BY createdAt DESC
     """)
 
@@ -47,6 +48,7 @@ interface InventoryDao {
         0)
         FROM inventory_transactions
         WHERE productId = :productId
+        AND deletedAt IS NULL
     """)
     fun observeCurrentStock(
         productId: Int
@@ -70,7 +72,9 @@ interface InventoryDao {
         transactionType = :type,
         quantity = :quantity,
         note = :note,
-        createdAt = :createdAt
+        createdAt = :createdAt,
+        updatedAt = :updatedAt,
+        isSynced = 0
     WHERE id = :id
 """)
     suspend fun updateTransaction(
@@ -78,16 +82,45 @@ interface InventoryDao {
         type: InventoryTransactionType,
         quantity: Double,
         note: String,
-        createdAt: Long
+        createdAt: Long,
+        updatedAt: Long = System.currentTimeMillis()
     )
 
     @Query("""
-    DELETE FROM inventory_transactions
+    UPDATE inventory_transactions
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
     WHERE id = :id
+      AND deletedAt IS NULL
 """)
     suspend fun deleteTransactionById(
-        id: Int
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
     )
+
+    @Query("SELECT * FROM inventory_transactions WHERE uid = :uid LIMIT 1")
+    suspend fun getTransactionByUid(uid: String): InventoryTransactionEntity?
+
+    @Query("""
+    SELECT * FROM inventory_transactions
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedInventoryTransactions(): List<InventoryTransactionEntity>
+
+    @Query("""
+    UPDATE inventory_transactions
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markInventoryTransactionsSynced(uids: List<String>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertInventoryTransaction(
+        transaction: InventoryTransactionEntity
+    ): Long
+
 
 
 

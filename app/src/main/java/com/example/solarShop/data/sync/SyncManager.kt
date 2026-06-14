@@ -1,18 +1,22 @@
 package com.example.solarShop.data.sync
 
 import android.util.Log
+import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
 import com.example.solarShop.data.repository.file.FileSyncRepository
+import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
@@ -27,7 +31,8 @@ class SyncManager @Inject constructor(
     private val syncApi: SyncApi,
     private val productRepository: ProductRepository,
     private val fileSyncRepository: FileSyncRepository,
-    private val productImageRepository: ProductImageRepository
+    private val productImageRepository: ProductImageRepository,
+    private val inventoryRepository: InventoryRepository
 ) {
 
     suspend fun getLastSyncAt(): Long {
@@ -337,40 +342,6 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun syncCategoriesOnce(): Boolean {
-        val registered = registerDevice()
-        if (!registered) return false
-
-
-
-        pullCategories()
-        pullBrands()
-        pullProducts()
-        pullProductImages()
-
-
-        val categoriesPushed = pushUnsyncedCategories()
-        if (!categoriesPushed) return false
-
-        val brandsPushed = pushUnsyncedBrands()
-        if (!brandsPushed) return false
-
-        val productsPushed = pushUnsyncedProducts()
-        if (!productsPushed) return false
-
-        val productImagesPushed = pushUnsyncedProductImages()
-        if (!productImagesPushed) return false
-
-
-
-
-        val status = syncApi.getStatus()
-
-        syncRepository.updateLastSyncAt(status.serverTime)
-
-        return true
-    }
-
     suspend fun pushAllBrands(): Boolean {
         val brands = productRepository
             .observeActiveBrands()
@@ -544,4 +515,163 @@ class SyncManager @Inject constructor(
 
         return success
     }
+
+    suspend fun pullInventoryTransactions(): Int {
+
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        Log.d(
+            "SYNC_TEST",
+            "Pull Inventory Since = $lastSyncAt"
+        )
+
+        val items =
+            syncApi.pullInventoryTransactions(lastSyncAt)
+
+        Log.d(
+            "SYNC_TEST",
+            "Received Inventory = ${items.size}"
+        )
+
+        items.forEach { dto ->
+
+            val product =
+                productRepository.getProductByUid(
+                    dto.productUid
+                )
+
+            if (product == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped Inventory, missing productUid = ${dto.productUid}"
+                )
+                return@forEach
+            }
+
+            inventoryRepository.upsertInventoryTransactionByUid(
+                InventoryTransactionEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEach,
+                    quantity = dto.quantity,
+                    transactionType =
+                    InventoryTransactionType.valueOf(
+                        dto.transactionType
+                    ),
+                    note = dto.note,
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedInventoryTransactions(): Boolean {
+
+        val items =
+            inventoryRepository.getUnsyncedInventoryTransactions()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced Inventory = 0"
+            )
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(
+                        item.productId
+                    )
+                        ?: return@mapNotNull null
+
+                val productUid =
+                    product.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                InventoryTransactionSyncDto(
+                    uid = item.uid,
+                    productUid = productUid,
+                    quantity = item.quantity,
+                    transactionType =
+                    item.transactionType.name,
+                    note = item.note,
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushInventoryTransactions(dtoList)
+
+        if (success) {
+            inventoryRepository.markInventoryTransactionsSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed Inventory = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+
+
+
+
+
+    suspend fun syncCategoriesOnce(): Boolean {
+        val registered = registerDevice()
+        if (!registered) return false
+
+
+
+        pullCategories()
+        pullBrands()
+        pullProducts()
+        pullProductImages()
+        pullInventoryTransactions()
+
+
+        val categoriesPushed = pushUnsyncedCategories()
+        if (!categoriesPushed) return false
+
+        val brandsPushed = pushUnsyncedBrands()
+        if (!brandsPushed) return false
+
+        val productsPushed = pushUnsyncedProducts()
+        if (!productsPushed) return false
+
+        val productImagesPushed = pushUnsyncedProductImages()
+        if (!productImagesPushed) return false
+
+        val inventoryPushed = pushUnsyncedInventoryTransactions()
+        if (!inventoryPushed) return false
+
+
+
+
+        val status = syncApi.getStatus()
+
+        syncRepository.updateLastSyncAt(status.serverTime)
+
+        return true
+    }
+
+
 }

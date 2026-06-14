@@ -89,4 +89,42 @@ class InventoryRepositoryImpl @Inject constructor(
         return inventoryDao.insertInventoryTransaction(transaction)
     }
 
+
+    override suspend fun getUnsyncedInventoryTransactions(): List<InventoryTransactionEntity> {
+        return inventoryDao.getUnsyncedInventoryTransactions()
+    }
+
+    override suspend fun markInventoryTransactionsSynced(
+        uids: List<String>
+    ) {
+        inventoryDao.markInventoryTransactionsSynced(uids)
+    }
+
+    override suspend fun upsertInventoryTransactionByUid(
+        transaction: InventoryTransactionEntity
+    ): Long {
+        val existing = inventoryDao.getTransactionByUid(transaction.uid)
+
+        if (existing == null) {
+            return inventoryDao.upsertInventoryTransaction(transaction)
+        }
+
+        if (existing.deletedAt != null && transaction.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > transaction.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return inventoryDao.upsertInventoryTransaction(
+            transaction.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
+
+
+
 }

@@ -47,4 +47,15 @@ interface InventoryRepository {
     ): Long
 
 
+    suspend fun getUnsyncedInventoryTransactions(): List<InventoryTransactionEntity>
+
+    suspend fun markInventoryTransactionsSynced(uids: List<String>)
+
+    suspend fun upsertInventoryTransactionByUid(
+        transaction: InventoryTransactionEntity
+    ): Long
+
+
+
+
 }
