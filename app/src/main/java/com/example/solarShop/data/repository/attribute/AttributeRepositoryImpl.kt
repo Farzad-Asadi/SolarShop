@@ -54,4 +54,86 @@ class AttributeRepositoryImpl @Inject constructor(
     ): Int {
         return attributeDao.getNextAttributeSortOrder(categoryId)
     }
+
+    override suspend fun upsertAttributeDefinitionByUid(
+        definition: CategoryAttributeDefinitionEntity
+    ): Long {
+        val existing =
+            attributeDao.getAttributeDefinitionByUid(definition.uid)
+                ?: return attributeDao.upsertAttributeDefinition(definition)
+
+        // Delete Wins
+        if (existing.deletedAt != null && definition.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > definition.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return attributeDao.upsertAttributeDefinition(
+            definition.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
+
+    override suspend fun getUnsyncedAttributeDefinitions():
+            List<CategoryAttributeDefinitionEntity> {
+        return attributeDao.getUnsyncedAttributeDefinitions()
+    }
+
+    override suspend fun markAttributeDefinitionsSynced(
+        uids: List<String>
+    ) {
+        if (uids.isEmpty()) return
+        attributeDao.markAttributeDefinitionsSynced(uids)
+    }
+
+    override suspend fun upsertProductAttributeValueByUid(
+        value: ProductAttributeValueEntity
+    ): Long {
+        val existing =
+            attributeDao.getProductAttributeValueByUid(value.uid)
+                ?: return attributeDao.upsertAttributeValue(value)
+
+        // Delete Wins
+        if (existing.deletedAt != null && value.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > value.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return attributeDao.upsertAttributeValue(
+            value.copy(
+                id = existing.id
+            )
+        )
+    }
+
+    override suspend fun getUnsyncedProductAttributeValues():
+            List<ProductAttributeValueEntity> {
+        return attributeDao.getUnsyncedProductAttributeValues()
+    }
+
+    override suspend fun markProductAttributeValuesSynced(
+        uids: List<String>
+    ) {
+        if (uids.isEmpty()) return
+        attributeDao.markProductAttributeValuesSynced(uids)
+    }
+
+
+    override suspend fun getAttributeDefinitionByUid(
+        uid: String
+    ): CategoryAttributeDefinitionEntity? {
+        return attributeDao.getAttributeDefinitionByUid(uid)
+    }
+
+
+
+
 }

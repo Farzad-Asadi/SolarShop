@@ -48,4 +48,37 @@ interface AttributeRepository {
         categoryId: Int
     ): Int
 
+    // ---------- Sync: Attribute Definitions ----------
+    suspend fun upsertAttributeDefinitionByUid(
+        definition: CategoryAttributeDefinitionEntity
+    ): Long
+
+    suspend fun getUnsyncedAttributeDefinitions():
+            List<CategoryAttributeDefinitionEntity>
+
+    suspend fun markAttributeDefinitionsSynced(
+        uids: List<String>
+    )
+
+
+    // ---------- Sync: Product Attribute Values ----------
+    suspend fun upsertProductAttributeValueByUid(
+        value: ProductAttributeValueEntity
+    ): Long
+
+    suspend fun getUnsyncedProductAttributeValues():
+            List<ProductAttributeValueEntity>
+
+    suspend fun markProductAttributeValuesSynced(
+        uids: List<String>
+    )
+
+
+    suspend fun getAttributeDefinitionByUid(uid: String): CategoryAttributeDefinitionEntity?
+
+
+
+
+
+
 }

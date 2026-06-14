@@ -2,6 +2,8 @@ package com.example.solarShop.data.sync
 
 import android.util.Log
 import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
+import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
@@ -10,8 +12,10 @@ import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
+import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
@@ -19,6 +23,7 @@ import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
+import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.file.FileSyncRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
@@ -39,6 +44,7 @@ class SyncManager @Inject constructor(
     private val productImageRepository: ProductImageRepository,
     private val inventoryRepository: InventoryRepository,
     private val pricingRepository: PricingRepository,
+    private val attributeRepository: AttributeRepository,
 ) {
 
     suspend fun getLastSyncAt(): Long {
@@ -851,7 +857,226 @@ class SyncManager @Inject constructor(
         return success
     }
 
+    suspend fun pullCategoryAttributeDefinitions(): Int {
 
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullCategoryAttributeDefinitions(lastSyncAt)
+
+        items.forEach { dto ->
+
+            val category =
+                productRepository.getCategoryByUid(dto.categoryUid)
+
+            if (category == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped AttributeDefinition, missing categoryUid = ${dto.categoryUid}"
+                )
+                return@forEach
+            }
+
+            attributeRepository.upsertAttributeDefinitionByUid(
+                CategoryAttributeDefinitionEntity(
+                    id = null,
+                    uid = dto.uid,
+                    categoryId = category.id ?: return@forEach,
+
+                    title = dto.title,
+                    key = dto.key,
+                    description = dto.description,
+
+                    valueType = dto.valueType,
+                    unit = dto.unit,
+                    isRequired = dto.isRequired,
+                    sortOrder = dto.sortOrder,
+                    enumOptions = dto.enumOptions,
+
+                    isActive = dto.isActive,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedCategoryAttributeDefinitions(): Boolean {
+
+        val items =
+            attributeRepository.getUnsyncedAttributeDefinitions()
+
+        if (items.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced AttributeDefinitions = 0")
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val category =
+                    productRepository.getCategoryById(item.categoryId)
+                        ?: return@mapNotNull null
+
+                val categoryUid =
+                    category.uid?.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                CategoryAttributeDefinitionSyncDto(
+                    uid = item.uid,
+                    categoryUid = categoryUid,
+
+                    title = item.title,
+                    key = item.key,
+                    description = item.description,
+
+                    valueType = item.valueType,
+                    unit = item.unit,
+                    isRequired = item.isRequired,
+                    sortOrder = item.sortOrder,
+                    enumOptions = item.enumOptions,
+
+                    isActive = item.isActive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushCategoryAttributeDefinitions(dtoList)
+
+        if (success) {
+            attributeRepository.markAttributeDefinitionsSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed AttributeDefinitions = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullProductAttributeValues(): Int {
+
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullProductAttributeValues(lastSyncAt)
+
+        items.forEach { dto ->
+
+            val product =
+                productRepository.getProductByUid(dto.productUid)
+
+            val definition =
+                attributeRepository.getAttributeDefinitionByUid(
+                    dto.attributeDefinitionUid
+                )
+
+            if (product == null || definition == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped ProductAttributeValue, productUid=${dto.productUid}, definitionUid=${dto.attributeDefinitionUid}"
+                )
+                return@forEach
+            }
+
+            attributeRepository.upsertProductAttributeValueByUid(
+                ProductAttributeValueEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEach,
+                    attributeDefinitionId = definition.id ?: return@forEach,
+
+                    valueText = dto.valueText,
+
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedProductAttributeValues(): Boolean {
+
+        val items =
+            attributeRepository.getUnsyncedProductAttributeValues()
+
+        if (items.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced ProductAttributeValues = 0")
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(item.productId)
+                        ?: return@mapNotNull null
+
+                val productUid =
+                    product.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                val definition =
+                    attributeRepository.getAttributeDefinitionById(
+                        item.attributeDefinitionId
+                    )
+                        ?: return@mapNotNull null
+
+                val definitionUid =
+                    definition.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                ProductAttributeValueSyncDto(
+                    uid = item.uid,
+                    productUid = productUid,
+                    attributeDefinitionUid = definitionUid,
+
+                    valueText = item.valueText,
+
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushProductAttributeValues(dtoList)
+
+        if (success) {
+            attributeRepository.markProductAttributeValuesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed ProductAttributeValues = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
 
 
 
@@ -871,6 +1096,8 @@ class SyncManager @Inject constructor(
         pullInventoryTransactions()
         pullPurchasePrices()
         pullSalePrices()
+        pullCategoryAttributeDefinitions()
+        pullProductAttributeValues()
 
 
         val categoriesPushed = pushUnsyncedCategories()
@@ -895,6 +1122,18 @@ class SyncManager @Inject constructor(
         val salePricesPushed =
             pushUnsyncedSalePrices()
         if (!salePricesPushed) return false
+
+        val attributeDefinitionsPushed =
+            pushUnsyncedCategoryAttributeDefinitions()
+        if (!attributeDefinitionsPushed) return false
+
+        val productAttributeValuesPushed =
+            pushUnsyncedProductAttributeValues()
+        if (!productAttributeValuesPushed) return false
+
+
+
+
 
 
 

@@ -1096,12 +1096,20 @@ class ProductEditViewModel @Inject constructor(
             )
 
             state.attributeValues.forEach { (attributeDefinitionId, value) ->
-                if (value.isNotBlank()) {
+
+                if (value.isBlank()) {
+                    attributeRepository.deleteAttributeValue(
+                        productId = savedProductId,
+                        attributeDefinitionId = attributeDefinitionId
+                    )
+                } else {
                     attributeRepository.upsertAttributeValue(
                         ProductAttributeValueEntity(
                             productId = savedProductId,
                             attributeDefinitionId = attributeDefinitionId,
-                            valueText = value.trim()
+                            valueText = value.trim(),
+                            updatedAt = System.currentTimeMillis(),
+                            isSynced = false
                         )
                     )
                 }

@@ -37,6 +37,8 @@ data class CategoryAttributeDefinitionEntity(
     val isActive: Boolean = true,
 
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null,
+    val isSynced: Boolean = false
 )
 

@@ -142,4 +142,15 @@ class AttributeEditViewModel @Inject constructor(
             it.copy(enumOptions = value)
         }
     }
+
+
+    suspend fun deleteAttribute() {
+        if (attributeId == -1) return
+
+        attributeRepository.deactivateAttributeDefinition(
+            id = attributeId
+        )
+    }
+
+
 }

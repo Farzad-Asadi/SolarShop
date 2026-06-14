@@ -24,5 +24,7 @@ data class ProductAttributeValueEntity(
     // همه‌چیز فعلاً به صورت String ذخیره می‌شود
     val valueText: String = "",
 
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deletedAt: Long? = null,
+    val isSynced: Boolean = false
 )

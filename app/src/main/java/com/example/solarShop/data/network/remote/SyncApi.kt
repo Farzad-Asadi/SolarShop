@@ -1,8 +1,10 @@
 package com.example.solarShop.data.network.remote
 
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
+import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
@@ -175,5 +177,40 @@ class SyncApi(
         return response.status.isSuccess()
     }
 
+    suspend fun pullCategoryAttributeDefinitions(
+        since: Long
+    ): List<CategoryAttributeDefinitionSyncDto> {
+        return client.get("sync/category-attribute-definitions") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushCategoryAttributeDefinitions(
+        items: List<CategoryAttributeDefinitionSyncDto>
+    ): Boolean {
+        val response = client.post("sync/category-attribute-definitions") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullProductAttributeValues(
+        since: Long
+    ): List<ProductAttributeValueSyncDto> {
+        return client.get("sync/product-attribute-values") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushProductAttributeValues(
+        items: List<ProductAttributeValueSyncDto>
+    ): Boolean {
+        val response = client.post("sync/product-attribute-values") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
 
 }
