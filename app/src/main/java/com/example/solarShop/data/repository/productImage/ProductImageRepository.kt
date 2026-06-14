@@ -46,4 +46,11 @@ interface ProductImageRepository {
     suspend fun saveImageOrder(imageIds: List<Int>)
 
     suspend fun getMaxSortOrder(productId: Int): Int?
+
+
+    suspend fun getUnsyncedProductImages(): List<ProductImageEntity>
+
+    suspend fun markProductImagesSynced(uids: List<String>)
+
+    suspend fun upsertProductImageByUid(image: ProductImageEntity): Long
 }

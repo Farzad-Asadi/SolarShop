@@ -32,10 +32,13 @@ import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.dao.product.ProductImageDao
 import com.example.solarShop.data.local.dao.sync.SyncMetadataDao
 import com.example.solarShop.data.local.database.AppDatabase
+import com.example.solarShop.data.network.remote.FileApi
 import com.example.solarShop.data.remote.api.SyncApi
 import com.example.solarShop.data.remote.api.SyncApiImpl
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.attribute.AttributeRepositoryImpl
+import com.example.solarShop.data.repository.file.FileSyncRepository
+import com.example.solarShop.data.repository.file.FileSyncRepositoryImpl
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepositoryImpl
 import com.example.solarShop.data.repository.pricing.PricingRepository
@@ -459,6 +462,13 @@ object AppModule {
     ): SyncRepository = SyncRepositoryImpl(syncMetadataDao)
 
 
+
+    @Provides
+    @Singleton
+    fun provideFileSyncRepository(
+        fileApi: FileApi,
+        imageRepository: ImageRepository
+    ): FileSyncRepository = FileSyncRepositoryImpl(fileApi,imageRepository)
 
 
 

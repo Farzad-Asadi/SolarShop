@@ -287,4 +287,16 @@ class ProductRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getProductByUid(
+        uid: String
+    ): ProductEntity? {
+        return productDao.getProductByUid(uid)
+    }
+
+    override suspend fun getProductById(
+        productId: Int
+    ): ProductEntity? {
+        return productDao.getProductById(productId)
+    }
+
 }

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 class ProductImageRepositoryImpl @Inject constructor(
@@ -30,14 +31,20 @@ class ProductImageRepositoryImpl @Inject constructor(
         val (file, _) = imageRepository.saveCompressedToInternal(src)
 
         val maxOrder = productImageDao.getMaxSortOrder(productId) ?: -1
-
+        val now = System.currentTimeMillis()
         productImageDao.insert(
-            ProductImageEntity(
-                productId = productId,
-                fileName = file.name,
-                createdAt = System.currentTimeMillis(),
-                sortOrder = maxOrder + 1
-            )
+
+
+        ProductImageEntity(
+            uid = UUID.randomUUID().toString(),
+            productId = productId,
+            fileName = file.name,
+            createdAt = now,
+            sortOrder = maxOrder + 1,
+            updatedAt = now,
+            deletedAt = null,
+            isSynced = false
+        )
         )
     }
 
@@ -49,13 +56,17 @@ class ProductImageRepositoryImpl @Inject constructor(
         val (file, _) = imageRepository.compressCameraTempToInternal(tempFile)
 
         val maxOrder = productImageDao.getMaxSortOrder(productId) ?: -1
-
+        val now = System.currentTimeMillis()
         productImageDao.insert(
             ProductImageEntity(
+                uid = UUID.randomUUID().toString(),
                 productId = productId,
                 fileName = file.name,
-                createdAt = System.currentTimeMillis(),
-                sortOrder = maxOrder + 1
+                createdAt = now,
+                sortOrder = maxOrder + 1,
+                updatedAt = now,
+                deletedAt = null,
+                isSynced = false
             )
         )
     }
@@ -66,9 +77,7 @@ class ProductImageRepositoryImpl @Inject constructor(
 
         val image = productImageDao.getById(imageId) ?: return@withContext
 
-        imageRepository.deleteInternalImage(image.fileName)
-
-        productImageDao.deleteById(imageId)
+        productImageDao.softDeleteById(imageId)
     }
 
     override suspend fun setAsCover(
@@ -119,12 +128,17 @@ class ProductImageRepositoryImpl @Inject constructor(
         fileName: String,
         sortOrder: Int
     ) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
         productImageDao.insert(
             ProductImageEntity(
+                uid = UUID.randomUUID().toString(),
                 productId = productId,
                 fileName = fileName,
-                createdAt = System.currentTimeMillis(),
-                sortOrder = sortOrder
+                createdAt = now,
+                sortOrder = sortOrder,
+                updatedAt = now,
+                deletedAt = null,
+                isSynced = false
             )
         )
     }
@@ -144,6 +158,45 @@ class ProductImageRepositoryImpl @Inject constructor(
         productId: Int
     ): Int? = withContext(Dispatchers.IO) {
         productImageDao.getMaxSortOrder(productId)
+    }
+
+
+    override suspend fun getUnsyncedProductImages(): List<ProductImageEntity> =
+        withContext(Dispatchers.IO) {
+            productImageDao.getUnsyncedProductImages()
+        }
+
+    override suspend fun markProductImagesSynced(
+        uids: List<String>
+    ) = withContext(Dispatchers.IO) {
+        productImageDao.markProductImagesSynced(uids)
+    }
+
+    override suspend fun upsertProductImageByUid(
+        image: ProductImageEntity
+    ): Long = withContext(Dispatchers.IO) {
+        val existing = image.uid
+            ?.takeIf { it.isNotBlank() }
+            ?.let { productImageDao.getByUid(it) }
+
+        if (existing == null) {
+            return@withContext productImageDao.upsertProductImage(image)
+        }
+
+        if (existing.deletedAt != null && image.deletedAt == null) {
+            return@withContext existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > image.updatedAt) {
+            return@withContext existing.id?.toLong() ?: 0L
+        }
+
+        productImageDao.upsertProductImage(
+            image.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
     }
 
 }

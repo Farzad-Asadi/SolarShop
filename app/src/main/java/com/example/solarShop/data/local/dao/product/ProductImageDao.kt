@@ -33,6 +33,7 @@ interface ProductImageDao {
         SELECT *
         FROM product_images
         WHERE productId = :productId
+        AND deletedAt IS NULL
         ORDER BY sortOrder
     """)
     fun observeImagesForProduct(
@@ -43,6 +44,7 @@ interface ProductImageDao {
         SELECT *
         FROM product_images
         WHERE productId = :productId
+        AND deletedAt IS NULL
         ORDER BY sortOrder
     """)
     suspend fun getImagesForProduct(
@@ -53,19 +55,24 @@ interface ProductImageDao {
         SELECT MAX(sortOrder)
         FROM product_images
         WHERE productId = :productId
+        AND deletedAt IS NULL
     """)
     suspend fun getMaxSortOrder(
         productId: Int
     ): Int?
 
     @Query("""
-        UPDATE product_images
-        SET sortOrder = :sortOrder
-        WHERE id = :imageId
-    """)
+    UPDATE product_images
+    SET 
+        sortOrder = :sortOrder,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE id = :imageId
+""")
     suspend fun updateOrder(
         imageId: Int,
-        sortOrder: Int
+        sortOrder: Int,
+        updatedAt: Long = System.currentTimeMillis()
     )
 
     @Query("""
@@ -81,7 +88,8 @@ interface ProductImageDao {
     SELECT *
     FROM product_images
     WHERE productId IN (:productIds)
-    ORDER BY sortOrder ASC
+      AND deletedAt IS NULL
+    ORDER BY sortOrder ASC, createdAt ASC
 """)
     fun observeImagesForProducts(
         productIds: List<Int>
@@ -96,5 +104,45 @@ interface ProductImageDao {
     // ---------- Restore ----------
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertImagesForRestore(items: List<ProductImageEntity>)
+
+
+
+
+
+
+    @Query("SELECT * FROM product_images WHERE uid = :uid LIMIT 1")
+    suspend fun getByUid(uid: String): ProductImageEntity?
+
+    @Query("""
+    SELECT * FROM product_images
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedProductImages(): List<ProductImageEntity>
+
+    @Query("""
+    UPDATE product_images
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markProductImagesSynced(uids: List<String>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertProductImage(image: ProductImageEntity): Long
+
+
+
+    @Query("""
+    UPDATE product_images
+    SET 
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE id = :imageId
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeleteById(
+        imageId: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
 }

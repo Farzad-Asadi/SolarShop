@@ -7,6 +7,7 @@ import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.network.mock.mockPlainEngine
 import com.example.solarShop.data.network.remote.AuthApi
 import com.example.solarShop.data.network.remote.EntitlementApi
+import com.example.solarShop.data.network.remote.FileApi
 import com.example.solarShop.data.network.remote.SyncApi
 import com.example.solarShop.data.network.remote.UserApi
 import dagger.Module
@@ -117,7 +118,6 @@ object NetworkModule {
             }
 
             defaultRequest {
-                header(HttpHeaders.ContentType, ContentType.Application.Json)
                 header(HttpHeaders.Accept, ContentType.Application.Json)
             }
         }
@@ -128,6 +128,12 @@ object NetworkModule {
     fun provideSyncApi(
         @Named("plain") client: HttpClient
     ): SyncApi = SyncApi(client)
+
+    @Provides
+    @Singleton
+    fun provideFileApi(
+        @Named("plain") client: HttpClient
+    ): FileApi = FileApi(client)
 }
 
 

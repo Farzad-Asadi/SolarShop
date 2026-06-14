@@ -26,11 +26,23 @@ android {
 
     buildTypes {
 
+        // حالت ۱: سرور لوکال فقط برای امولاتور
         debug {
             buildConfigField("boolean", "USE_MOCK", "false")
             buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
         }
 
+        // حالت ۲: سرور لوکال برای گوشی فیزیکی و امولاتور روی شبکه
+        create("localDeviceDebug") {
+            initWith(getByName("debug"))
+
+            buildConfigField("boolean", "USE_MOCK", "false")
+            buildConfigField("String", "BASE_URL", "\"http://192.168.43.94:8080\"")
+
+            matchingFallbacks += listOf("debug")
+        }
+
+        // حالت ۳: سرور VPS
         create("onlineDebug") {
             initWith(getByName("debug"))
 

@@ -83,4 +83,30 @@ class ImageRepository @Inject constructor(
         }
         return tmp
     }
+
+
+    fun getInternalImageFile(fileName: String): File {
+        return File(imagesDir(), fileName)
+    }
+
+    fun internalImageExists(fileName: String): Boolean {
+        return getInternalImageFile(fileName).exists()
+    }
+
+    suspend fun saveBytesToInternalImage(
+        fileName: String,
+        bytes: ByteArray
+    ): File = withContext(Dispatchers.IO) {
+        val safeName = fileName
+            .substringAfterLast("/")
+            .substringAfterLast("\\")
+
+        val dest = File(imagesDir(), safeName)
+
+        dest.outputStream().use { output ->
+            output.write(bytes)
+        }
+
+        dest
+    }
 }

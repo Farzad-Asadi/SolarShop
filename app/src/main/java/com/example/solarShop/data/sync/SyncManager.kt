@@ -4,13 +4,17 @@ import android.util.Log
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
+import com.example.solarShop.data.repository.file.FileSyncRepository
 import com.example.solarShop.data.repository.product.ProductRepository
+import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -21,7 +25,9 @@ class SyncManager @Inject constructor(
     private val syncRepository: SyncRepository,
     private val deviceIdProvider: DeviceIdProvider,
     private val syncApi: SyncApi,
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val fileSyncRepository: FileSyncRepository,
+    private val productImageRepository: ProductImageRepository
 ) {
 
     suspend fun getLastSyncAt(): Long {
@@ -104,6 +110,10 @@ class SyncManager @Inject constructor(
             return true
         }
 
+        categories.forEach { category ->
+            fileSyncRepository.uploadIfNeeded(category.imageFileName)
+        }
+
         val success = syncApi.pushCategories(dtoList)
 
         if (success) {
@@ -150,6 +160,7 @@ class SyncManager @Inject constructor(
                     isSynced = true
                 )
             )
+            fileSyncRepository.downloadIfMissing(dto.imageFileName)
         }
 
         return categories.size
@@ -178,6 +189,7 @@ class SyncManager @Inject constructor(
                     isSynced = true
                 )
             )
+            fileSyncRepository.downloadIfMissing(dto.imageFileName)
         }
 
         return brands.size
@@ -209,6 +221,10 @@ class SyncManager @Inject constructor(
         if (dtoList.isEmpty()) {
             Log.d("SYNC_TEST", "Unsynced Brands have no valid uid")
             return true
+        }
+
+        brands.forEach { brand ->
+            fileSyncRepository.uploadIfNeeded(brand.imageFileName)
         }
 
         val success = syncApi.pushBrands(dtoList)
@@ -307,6 +323,7 @@ class SyncManager @Inject constructor(
             return true
         }
 
+
         val success = syncApi.pushProducts(dtoList)
 
         if (success) {
@@ -329,7 +346,7 @@ class SyncManager @Inject constructor(
         pullCategories()
         pullBrands()
         pullProducts()
-
+        pullProductImages()
 
 
         val categoriesPushed = pushUnsyncedCategories()
@@ -340,6 +357,9 @@ class SyncManager @Inject constructor(
 
         val productsPushed = pushUnsyncedProducts()
         if (!productsPushed) return false
+
+        val productImagesPushed = pushUnsyncedProductImages()
+        if (!productImagesPushed) return false
 
 
 
@@ -436,5 +456,92 @@ class SyncManager @Inject constructor(
         Log.d("SYNC_TEST", "Initial Upload Completed")
 
         return true
+    }
+
+    suspend fun pullProductImages(): Int {
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        Log.d("SYNC_TEST", "Pull ProductImages Since = $lastSyncAt")
+
+        val images = syncApi.pullProductImages(lastSyncAt)
+
+        Log.d("SYNC_TEST", "Received ProductImages = ${images.size}")
+
+        images.forEach { dto ->
+
+            val product = productRepository.getProductByUid(dto.productUid)
+
+            if (product == null) {
+                Log.d("SYNC_TEST", "Skipped ProductImage, missing productUid = ${dto.productUid}")
+                return@forEach
+            }
+
+            productImageRepository.upsertProductImageByUid(
+                ProductImageEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEach,
+                    fileName = dto.fileName,
+                    sortOrder = dto.sortOrder,
+                    createdAt = dto.updatedAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+
+            fileSyncRepository.downloadIfMissing(dto.fileName)
+        }
+
+        return images.size
+    }
+
+    suspend fun pushUnsyncedProductImages(): Boolean {
+        val images = productImageRepository.getUnsyncedProductImages()
+
+        if (images.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced ProductImages = 0")
+            return true
+        }
+
+        val dtoList = images.mapNotNull { image ->
+
+            val uid = image.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            val product = productRepository.getProductById(image.productId)
+                ?: return@mapNotNull null
+
+            val productUid = product.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            fileSyncRepository.uploadIfNeeded(image.fileName)
+
+            ProductImageSyncDto(
+                uid = uid,
+                productUid = productUid,
+                fileName = image.fileName,
+                sortOrder = image.sortOrder,
+                updatedAt = image.updatedAt,
+                deletedAt = image.deletedAt
+            )
+        }
+
+        if (dtoList.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced ProductImages have no valid productUid")
+            return true
+        }
+
+        val success = syncApi.pushProductImages(dtoList)
+
+        if (success) {
+            productImageRepository.markProductImagesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d("SYNC_TEST", "Pushed ProductImages = ${dtoList.size}, success=$success")
+
+        return success
     }
 }

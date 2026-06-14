@@ -110,5 +110,9 @@ interface ProductRepository {
 
     suspend fun deleteBrandAndClearProducts(brandId: Int)
 
+    suspend fun getProductByUid(uid: String): ProductEntity?
+
+    suspend fun getProductById(productId: Int): ProductEntity?
+
 
 }
