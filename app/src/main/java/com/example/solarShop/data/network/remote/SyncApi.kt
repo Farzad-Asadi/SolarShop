@@ -4,6 +4,8 @@ import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceResponseDto
@@ -134,6 +136,44 @@ class SyncApi(
         return response.status.isSuccess()
     }
 
+
+    suspend fun pullPurchasePrices(
+        since: Long
+    ): List<ProductPurchasePriceSyncDto> {
+        return client.get("sync/purchase-prices") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushPurchasePrices(
+        items: List<ProductPurchasePriceSyncDto>
+    ): Boolean {
+
+        val response =
+            client.post("sync/purchase-prices") {
+                setBody(items)
+            }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullSalePrices(
+        since: Long
+    ): List<ProductSalePriceSyncDto> {
+        return client.get("sync/sale-prices") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushSalePrices(
+        items: List<ProductSalePriceSyncDto>
+    ): Boolean {
+        val response = client.post("sync/sale-prices") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
 
 
 }

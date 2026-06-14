@@ -87,4 +87,28 @@ interface PricingRepository {
         note: String,
         createdAt: Long
     )
+
+    suspend fun getUnsyncedPurchasePrices(): List<ProductPurchasePriceEntity>
+
+    suspend fun markPurchasePricesSynced(uids: List<String>)
+
+    suspend fun upsertPurchasePriceByUid(
+        item: ProductPurchasePriceEntity
+    ): Long
+
+
+    suspend fun getUnsyncedSalePrices():
+            List<ProductSalePriceEntity>
+
+    suspend fun markSalePricesSynced(
+        uids: List<String>
+    )
+
+    suspend fun upsertSalePriceByUid(
+        item: ProductSalePriceEntity
+    ): Long
+
+
+
+
 }

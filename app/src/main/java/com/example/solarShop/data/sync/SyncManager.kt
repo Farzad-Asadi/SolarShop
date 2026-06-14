@@ -3,6 +3,8 @@ package com.example.solarShop.data.sync
 import android.util.Log
 import com.example.solarShop.InventoryTransactionType
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
@@ -11,12 +13,15 @@ import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
 import com.example.solarShop.data.repository.file.FileSyncRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepository
+import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
@@ -32,7 +37,8 @@ class SyncManager @Inject constructor(
     private val productRepository: ProductRepository,
     private val fileSyncRepository: FileSyncRepository,
     private val productImageRepository: ProductImageRepository,
-    private val inventoryRepository: InventoryRepository
+    private val inventoryRepository: InventoryRepository,
+    private val pricingRepository: PricingRepository,
 ) {
 
     suspend fun getLastSyncAt(): Long {
@@ -630,6 +636,223 @@ class SyncManager @Inject constructor(
         return success
     }
 
+    suspend fun pullPurchasePrices(): Int {
+
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullPurchasePrices(lastSyncAt)
+
+        items.forEach { dto ->
+
+            val product =
+                productRepository.getProductByUid(
+                    dto.productUid
+                )
+
+            if (product == null) {
+                return@forEach
+            }
+
+            pricingRepository.upsertPurchasePriceByUid(
+                ProductPurchasePriceEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEach,
+
+                    buyPriceDollar = dto.buyPriceDollar,
+                    buyPriceToman = dto.buyPriceToman,
+                    dollarRateToman = dto.dollarRateToman,
+
+                    quantity = dto.quantity,
+                    purchasedAt = dto.purchasedAt,
+                    note = dto.note,
+
+                    isActive = dto.isActive,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedPurchasePrices(): Boolean {
+
+        val items =
+            pricingRepository.getUnsyncedPurchasePrices()
+
+        Log.d(
+            "SYNC_TEST",
+            "Unsynced PurchasePrices = ${items.size}"
+        )
+
+        if (items.isEmpty()) {
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(
+                        item.productId
+                    )
+                        ?: return@mapNotNull null
+
+                ProductPurchasePriceSyncDto(
+                    uid = item.uid,
+                    productUid = product.uid,
+
+                    buyPriceDollar = item.buyPriceDollar,
+                    buyPriceToman = item.buyPriceToman,
+                    dollarRateToman = item.dollarRateToman,
+
+                    quantity = item.quantity,
+                    purchasedAt = item.purchasedAt,
+                    note = item.note,
+
+                    isActive = item.isActive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        Log.d(
+            "SYNC_TEST",
+            "PurchasePrice dtoList = ${dtoList.size}"
+        )
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushPurchasePrices(dtoList)
+
+        if (success) {
+            pricingRepository.markPurchasePricesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed PurchasePrices = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullSalePrices(): Int {
+
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullSalePrices(lastSyncAt)
+
+        items.forEach { dto ->
+
+            val product =
+                productRepository.getProductByUid(
+                    dto.productUid
+                )
+
+            if (product == null) {
+                return@forEach
+            }
+
+            pricingRepository.upsertSalePriceByUid(
+                ProductSalePriceEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEach,
+
+                    priceType = dto.priceType,
+                    salePriceToman = dto.salePriceToman,
+                    profitPercent = dto.profitPercent,
+                    baseDollarPrice = dto.baseDollarPrice,
+                    dollarRateToman = dto.dollarRateToman,
+                    basePurchasePriceToman =
+                    dto.basePurchasePriceToman,
+                    note = dto.note,
+
+                    isActive = dto.isActive,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedSalePrices(): Boolean {
+
+        val items =
+            pricingRepository.getUnsyncedSalePrices()
+
+        if (items.isEmpty()) {
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(
+                        item.productId
+                    )
+                        ?: return@mapNotNull null
+
+                ProductSalePriceSyncDto(
+                    uid = item.uid,
+                    productUid = product.uid,
+
+                    priceType = item.priceType,
+                    salePriceToman = item.salePriceToman,
+                    profitPercent = item.profitPercent,
+                    baseDollarPrice = item.baseDollarPrice,
+                    dollarRateToman = item.dollarRateToman,
+                    basePurchasePriceToman =
+                    item.basePurchasePriceToman,
+                    note = item.note,
+
+                    isActive = item.isActive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushSalePrices(dtoList)
+
+        if (success) {
+            pricingRepository.markSalePricesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        return success
+    }
+
+
+
 
 
 
@@ -646,6 +869,8 @@ class SyncManager @Inject constructor(
         pullProducts()
         pullProductImages()
         pullInventoryTransactions()
+        pullPurchasePrices()
+        pullSalePrices()
 
 
         val categoriesPushed = pushUnsyncedCategories()
@@ -663,6 +888,13 @@ class SyncManager @Inject constructor(
         val inventoryPushed = pushUnsyncedInventoryTransactions()
         if (!inventoryPushed) return false
 
+        val purchasePricesPushed =
+            pushUnsyncedPurchasePrices()
+        if (!purchasePricesPushed) return false
+
+        val salePricesPushed =
+            pushUnsyncedSalePrices()
+        if (!salePricesPushed) return false
 
 
 

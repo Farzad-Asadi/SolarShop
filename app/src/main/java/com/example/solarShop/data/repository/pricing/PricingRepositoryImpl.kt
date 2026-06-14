@@ -156,4 +156,78 @@ class PricingRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getUnsyncedPurchasePrices():
+            List<ProductPurchasePriceEntity> {
+        return pricingDao.getUnsyncedPurchasePrices()
+    }
+
+    override suspend fun markPurchasePricesSynced(
+        uids: List<String>
+    ) {
+        pricingDao.markPurchasePricesSynced(uids)
+    }
+
+    override suspend fun upsertPurchasePriceByUid(
+        item: ProductPurchasePriceEntity
+    ): Long {
+        val existing =
+            pricingDao.getPurchasePriceByUid(item.uid)
+
+        if (existing == null) {
+            return pricingDao.upsertPurchasePrice(item)
+        }
+
+        if (existing.deletedAt != null && item.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > item.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return pricingDao.upsertPurchasePrice(
+            item.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
+
+    override suspend fun getUnsyncedSalePrices():
+            List<ProductSalePriceEntity> {
+        return pricingDao.getUnsyncedSalePrices()
+    }
+
+    override suspend fun markSalePricesSynced(
+        uids: List<String>
+    ) {
+        pricingDao.markSalePricesSynced(uids)
+    }
+
+    override suspend fun upsertSalePriceByUid(
+        item: ProductSalePriceEntity
+    ): Long {
+        val existing =
+            pricingDao.getSalePriceByUid(item.uid)
+
+        if (existing == null) {
+            return pricingDao.upsertSalePrice(item)
+        }
+
+        if (existing.deletedAt != null && item.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > item.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return pricingDao.upsertSalePrice(
+            item.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
+
 }

@@ -18,13 +18,26 @@ interface PricingDao{
 
     @Query("""
         SELECT * FROM product_purchase_prices
-        WHERE productId = :productId AND isActive = 1
+        WHERE productId = :productId 
+        AND isActive = 1
+        AND deletedAt IS NULL
         LIMIT 1
     """)
     suspend fun getActivePurchasePrice(productId: Int): ProductPurchasePriceEntity?
 
-    @Query("UPDATE product_purchase_prices SET isActive = 0 WHERE productId = :productId")
-    suspend fun deactivateActivePrices(productId: Int)
+    @Query("""
+    UPDATE product_purchase_prices
+    SET 
+        isActive = 0,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE productId = :productId
+      AND deletedAt IS NULL
+""")
+    suspend fun deactivateActivePrices(
+        productId: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
     @Insert
     suspend fun insertPurchasePrice(price: ProductPurchasePriceEntity): Long
@@ -107,6 +120,7 @@ interface PricingDao{
     @Query("""
         SELECT * FROM product_purchase_prices
         WHERE productId = :productId
+        AND deletedAt IS NULL
         ORDER BY createdAt DESC
     """)
     fun observePurchasePriceHistory(productId: Int): Flow<List<ProductPurchasePriceEntity>>
@@ -136,8 +150,9 @@ interface PricingDao{
     @Query("""
     SELECT * FROM product_purchase_prices
     WHERE productId = :productId
+     AND deletedAt IS NULL
     ORDER BY purchasedAt DESC, createdAt DESC
-""")
+    """)
     fun observePurchasePrices(
         productId: Int
     ): Flow<List<ProductPurchasePriceEntity>>
@@ -148,8 +163,9 @@ interface PricingDao{
     @Query("""
     SELECT * FROM product_sale_prices
     WHERE productId = :productId
+    AND deletedAt IS NULL
     ORDER BY createdAt DESC
-""")
+    """)
     fun observeSalePrices(
         productId: Int
     ): Flow<List<ProductSalePriceEntity>>
@@ -159,6 +175,7 @@ interface PricingDao{
     WHERE productId = :productId
     AND priceType = :priceType
     AND isActive = 1
+    AND deletedAt IS NULL
     ORDER BY createdAt DESC
     LIMIT 1
 """)
@@ -169,9 +186,13 @@ interface PricingDao{
 
     @Query("""
     UPDATE product_sale_prices
-    SET isActive = 0, updatedAt = :updatedAt
+    SET 
+        isActive = 0,
+        updatedAt = :updatedAt,
+        isSynced = 0
     WHERE productId = :productId
-    AND priceType = :priceType
+      AND priceType = :priceType
+      AND deletedAt IS NULL
 """)
     suspend fun deactivateActiveSalePrices(
         productId: Int,
@@ -199,16 +220,32 @@ interface PricingDao{
     }
 
     @Query("""
-    DELETE FROM product_purchase_prices
+    UPDATE product_purchase_prices
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
     WHERE id = :id
+      AND deletedAt IS NULL
 """)
-    suspend fun deletePurchasePriceById(id: Int)
+    suspend fun deletePurchasePriceById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("""
-    DELETE FROM product_sale_prices
+    UPDATE product_sale_prices
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
     WHERE id = :id
+      AND deletedAt IS NULL
 """)
-    suspend fun deleteSalePriceById(id: Int)
+    suspend fun deleteSalePriceById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     @Query("""
     UPDATE product_purchase_prices
@@ -219,7 +256,8 @@ interface PricingDao{
         quantity = :quantity,
         purchasedAt = :purchasedAt,
         note = :note,
-        updatedAt = :updatedAt
+        updatedAt = :updatedAt,
+        isSynced = 0
     WHERE id = :id
 """)
     suspend fun updatePurchasePrice(
@@ -243,7 +281,8 @@ interface PricingDao{
         basePurchasePriceToman = :basePurchasePriceToman,
         note = :note,
         createdAt = :createdAt,
-        updatedAt = :updatedAt
+        updatedAt = :updatedAt,
+        isSynced = 0
     WHERE id = :id
 """)
     suspend fun updateSalePrice(
@@ -257,5 +296,103 @@ interface PricingDao{
         createdAt: Long,
         updatedAt: Long = System.currentTimeMillis()
     )
+
+
+    @Query("""
+    SELECT * FROM product_purchase_prices
+    WHERE uid = :uid
+    LIMIT 1
+""")
+    suspend fun getPurchasePriceByUid(
+        uid: String
+    ): ProductPurchasePriceEntity?
+
+
+    @Query("""
+    SELECT * FROM product_purchase_prices
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedPurchasePrices():
+            List<ProductPurchasePriceEntity>
+
+
+    @Query("""
+    UPDATE product_purchase_prices
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markPurchasePricesSynced(
+        uids: List<String>
+    )
+
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPurchasePrice(
+        item: ProductPurchasePriceEntity
+    ): Long
+
+    @Query("""
+    UPDATE product_purchase_prices
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE id = :id
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeletePurchasePriceById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+    SELECT * FROM product_sale_prices
+    WHERE uid = :uid
+    LIMIT 1
+""")
+    suspend fun getSalePriceByUid(
+        uid: String
+    ): ProductSalePriceEntity?
+
+    @Query("""
+    SELECT * FROM product_sale_prices
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedSalePrices():
+            List<ProductSalePriceEntity>
+
+    @Query("""
+    UPDATE product_sale_prices
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markSalePricesSynced(
+        uids: List<String>
+    )
+
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSalePrice(
+        item: ProductSalePriceEntity
+    ): Long
+
+
+    @Query("""
+    UPDATE product_sale_prices
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE id = :id
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeleteSalePriceById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
+
+
+
 
 }
