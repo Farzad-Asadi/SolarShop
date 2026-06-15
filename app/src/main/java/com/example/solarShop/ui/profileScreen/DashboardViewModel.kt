@@ -149,6 +149,7 @@ class DashboardViewModel @Inject constructor(
             .map { list ->
                 list.firstOrNull()?.rateToman
             }
+            .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
 
     private val manualDollarRateFlow =
@@ -183,10 +184,10 @@ class DashboardViewModel @Inject constructor(
             val manualDollarRateToman = arr[6] as Long?
             val dollarRateUi = arr[7] as DollarRateUiState
 
-            val manualDollarRate = latestDollarRateToman
+
 
             val effectiveDollarRateToman =
-                manualDollarRateToman ?: latestDollarRateToman
+                latestDollarRateToman ?: manualDollarRateToman
 
             ProfileUiState(
                 currentUserEntity = currentUser,
@@ -328,23 +329,18 @@ class DashboardViewModel @Inject constructor(
                     dollarRateUiState.update {
                         it.copy(
                             isFetchingDollarRate = false,
-                            message = "نرخ دلار از API پیدا نشد."
+                            message = "نرخ دلار از سرور دریافت نشد."
                         )
                     }
                     return@launch
                 }
 
-                pricingRepository.insertCurrencyRate(
-                    CurrencyRateEntity(
-                        currencyCode = "USD",
-                        rateToman = rate
-                    )
-                )
+                syncManager.pullCurrencyRates()
 
                 dollarRateUiState.update {
                     it.copy(
                         isFetchingDollarRate = false,
-                        message = "نرخ دلار از API دریافت و ذخیره شد."
+                        message = "نرخ دلار توسط سرور دریافت و ذخیره شد."
                     )
                 }
 
@@ -352,12 +348,11 @@ class DashboardViewModel @Inject constructor(
                 dollarRateUiState.update {
                     it.copy(
                         isFetchingDollarRate = false,
-                        message = "خطا در دریافت نرخ دلار: ${e.message.orEmpty()}"
-
+                        message = "خطا در دریافت نرخ دلار از سرور: ${e.message.orEmpty()}"
                     )
-
                 }
-                Log.e("DashboardViewModel", "Error fetching dollar rate: ${e.message}", e)
+
+                Log.e("DashboardViewModel", "Error fetching dollar rate from server: ${e.message}", e)
             }
         }
     }
@@ -501,6 +496,40 @@ class DashboardViewModel @Inject constructor(
                     "SYNC_TEST",
                     "Initial Upload Failed",
                     e
+                )
+            }
+        }
+    }
+
+    fun saveManualDollarRate() {
+        viewModelScope.launch {
+            val rate =
+                uiState.value.manualDollarRateToman
+
+            if (rate == null || rate <= 0L) {
+                dollarRateUiState.update {
+                    it.copy(
+                        message = "لطفاً نرخ دلار دستی را وارد کن."
+                    )
+                }
+                return@launch
+            }
+
+            pricingRepository.insertCurrencyRate(
+                CurrencyRateEntity(
+                    currencyCode = "USD",
+                    rateToman = rate,
+                    source = "manual",
+                    note = "ثبت دستی از داشبورد",
+                    createdAt = System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis(),
+                    isSynced = false
+                )
+            )
+            dollarRatePrefs.setManualDollarRate(null)
+            dollarRateUiState.update {
+                it.copy(
+                    message = "نرخ دلار دستی ثبت شد."
                 )
             }
         }

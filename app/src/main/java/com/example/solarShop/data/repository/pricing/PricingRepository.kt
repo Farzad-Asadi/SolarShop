@@ -108,7 +108,16 @@ interface PricingRepository {
         item: ProductSalePriceEntity
     ): Long
 
+    suspend fun getUnsyncedCurrencyRates():
+            List<CurrencyRateEntity>
 
+    suspend fun markCurrencyRatesSynced(
+        uids: List<String>
+    )
+
+    suspend fun upsertCurrencyRateByUid(
+        item: CurrencyRateEntity
+    ): Long
 
 
 }

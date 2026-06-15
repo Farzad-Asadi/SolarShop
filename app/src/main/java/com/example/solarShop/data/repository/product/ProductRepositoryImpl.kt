@@ -299,4 +299,57 @@ class ProductRepositoryImpl @Inject constructor(
         return productDao.getProductById(productId)
     }
 
+    override suspend fun upsertUnitByUid(
+        unit: ProductUnitEntity
+    ): Long {
+        val existing =
+            productDao.getUnitByUid(unit.uid)
+                ?: return productDao.upsertUnit(unit)
+
+        // Delete Wins
+        if (existing.deletedAt != null && unit.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > unit.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return productDao.upsertUnit(
+            unit.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
+
+    override suspend fun getUnsyncedUnits(): List<ProductUnitEntity> {
+        return productDao.getUnsyncedUnits()
+    }
+
+    override suspend fun markUnitsSynced(
+        uids: List<String>
+    ) {
+        if (uids.isEmpty()) return
+        productDao.markUnitsSynced(uids)
+    }
+
+    override suspend fun getUnitByUid(
+        uid: String
+    ): ProductUnitEntity? {
+        return productDao.getUnitByUid(uid)
+    }
+
+    override suspend fun getUnitById(
+        unitId: Int
+    ): ProductUnitEntity? {
+        return productDao.getUnitById(unitId)
+    }
+
+    override suspend fun deactivateUnit(
+        id: Int
+    ) {
+        productDao.deactivateUnit(id)
+    }
+
 }

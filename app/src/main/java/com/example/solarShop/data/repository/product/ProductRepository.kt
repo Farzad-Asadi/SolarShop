@@ -115,4 +115,27 @@ interface ProductRepository {
     suspend fun getProductById(productId: Int): ProductEntity?
 
 
+    suspend fun upsertUnitByUid(
+        unit: ProductUnitEntity
+    ): Long
+
+    suspend fun getUnsyncedUnits(): List<ProductUnitEntity>
+
+    suspend fun markUnitsSynced(
+        uids: List<String>
+    )
+
+    suspend fun getUnitByUid(
+        uid: String
+    ): ProductUnitEntity?
+
+    suspend fun getUnitById(
+        unitId: Int
+    ): ProductUnitEntity?
+
+    suspend fun deactivateUnit(
+        id: Int
+    )
+
+
 }

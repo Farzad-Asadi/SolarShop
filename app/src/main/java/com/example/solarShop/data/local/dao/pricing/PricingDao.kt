@@ -57,6 +57,7 @@ interface PricingDao{
     @Query("""
     SELECT * FROM currency_rates
     WHERE currencyCode = :currencyCode
+    AND deletedAt IS NULL
     ORDER BY createdAt DESC
     LIMIT 1
 """)
@@ -67,16 +68,59 @@ interface PricingDao{
     @Query("""
     SELECT * FROM currency_rates
     WHERE currencyCode = :currencyCode
+    AND deletedAt IS NULL
     ORDER BY createdAt DESC
 """)
     fun observeCurrencyRateHistory(
         currencyCode: String = "USD"
     ): Flow<List<CurrencyRateEntity>>
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCurrencyRate(rate: CurrencyRateEntity): Long
 
+    @Query("""
+    SELECT * FROM currency_rates
+    WHERE uid = :uid
+    LIMIT 1
+""")
+    suspend fun getCurrencyRateByUid(
+        uid: String
+    ): CurrencyRateEntity?
 
+    @Query("""
+    SELECT * FROM currency_rates
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedCurrencyRates():
+            List<CurrencyRateEntity>
+
+    @Query("""
+    UPDATE currency_rates
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markCurrencyRatesSynced(
+        uids: List<String>
+    )
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCurrencyRate(
+        item: CurrencyRateEntity
+    ): Long
+
+    @Query("""
+    UPDATE currency_rates
+    SET
+        deletedAt = :deletedAt,
+        updatedAt = :deletedAt,
+        isSynced = 0
+    WHERE id = :id
+      AND deletedAt IS NULL
+""")
+    suspend fun softDeleteCurrencyRateById(
+        id: Int,
+        deletedAt: Long = System.currentTimeMillis()
+    )
 
     // Profit Rule
 

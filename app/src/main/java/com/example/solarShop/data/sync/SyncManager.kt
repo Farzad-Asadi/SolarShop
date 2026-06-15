@@ -5,21 +5,25 @@ import com.example.solarShop.InventoryTransactionType
 import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
+import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductBrandEntity
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
+import com.example.solarShop.data.local.entity.product.ProductUnitEntity
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.CurrencyRateSyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductUnitSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
@@ -1078,6 +1082,149 @@ class SyncManager @Inject constructor(
         return success
     }
 
+    suspend fun pullUnits(): Int {
+        val lastSyncAt = syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullUnits(lastSyncAt)
+
+        items.forEach { dto ->
+            productRepository.upsertUnitByUid(
+                ProductUnitEntity(
+                    id = null,
+                    uid = dto.uid,
+                    name = dto.name,
+                    symbol = dto.symbol,
+                    isActive = dto.isActive,
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedUnits(): Boolean {
+        val items =
+            productRepository.getUnsyncedUnits()
+
+        if (items.isEmpty()) {
+            Log.d("SYNC_TEST", "Unsynced Units = 0")
+            return true
+        }
+
+        val dtoList =
+            items.map { unit ->
+                ProductUnitSyncDto(
+                    uid = unit.uid,
+                    name = unit.name,
+                    symbol = unit.symbol,
+                    isActive = unit.isActive,
+                    createdAt = unit.createdAt,
+                    updatedAt = unit.updatedAt,
+                    deletedAt = unit.deletedAt
+                )
+            }
+
+        val success =
+            syncApi.pushUnits(dtoList)
+
+        if (success) {
+            productRepository.markUnitsSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed Units = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullCurrencyRates(): Int {
+
+        val lastSyncAt =
+            syncRepository.getLastSyncAt()
+
+        val items =
+            syncApi.pullCurrencyRates(lastSyncAt)
+
+        items.forEach { dto ->
+            pricingRepository.upsertCurrencyRateByUid(
+                CurrencyRateEntity(
+                    id = null,
+                    uid = dto.uid,
+                    currencyCode = dto.currencyCode,
+                    rateToman = dto.rateToman,
+                    source = dto.source,
+                    note = dto.note,
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pulled CurrencyRates = ${items.size}"
+        )
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedCurrencyRates(): Boolean {
+
+        val items =
+            pricingRepository.getUnsyncedCurrencyRates()
+
+        Log.d(
+            "SYNC_TEST",
+            "Unsynced CurrencyRates = ${items.size}"
+        )
+
+        if (items.isEmpty()) {
+            return true
+        }
+
+        val dtoList =
+            items.map { item ->
+                CurrencyRateSyncDto(
+                    uid = item.uid,
+                    currencyCode = item.currencyCode,
+                    rateToman = item.rateToman,
+                    source = item.source,
+                    note = item.note,
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        val success =
+            syncApi.pushCurrencyRates(dtoList)
+
+        if (success) {
+            pricingRepository.markCurrencyRatesSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed CurrencyRates = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+
 
 
 
@@ -1094,10 +1241,12 @@ class SyncManager @Inject constructor(
         pullProducts()
         pullProductImages()
         pullInventoryTransactions()
+        pullCurrencyRates()
         pullPurchasePrices()
         pullSalePrices()
         pullCategoryAttributeDefinitions()
         pullProductAttributeValues()
+        pullUnits()
 
 
         val categoriesPushed = pushUnsyncedCategories()
@@ -1115,6 +1264,10 @@ class SyncManager @Inject constructor(
         val inventoryPushed = pushUnsyncedInventoryTransactions()
         if (!inventoryPushed) return false
 
+        val currencyRatesPushed =
+            pushUnsyncedCurrencyRates()
+        if (!currencyRatesPushed) return false
+
         val purchasePricesPushed =
             pushUnsyncedPurchasePrices()
         if (!purchasePricesPushed) return false
@@ -1131,6 +1284,10 @@ class SyncManager @Inject constructor(
             pushUnsyncedProductAttributeValues()
         if (!productAttributeValuesPushed) return false
 
+        val unitsPushed =
+            pushUnsyncedUnits()
+        if (!unitsPushed) return false
+
 
 
 
@@ -1143,6 +1300,8 @@ class SyncManager @Inject constructor(
 
         return true
     }
+
+
 
 
 }

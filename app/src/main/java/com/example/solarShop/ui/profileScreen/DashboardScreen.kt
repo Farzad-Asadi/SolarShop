@@ -348,6 +348,14 @@ fun DashboardScreen(                               //صفحه پروفایل
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                         Button(
+                                            onClick = viewModel::saveManualDollarRate,
+                                            enabled = uiState.manualDollarRateToman != null &&
+                                                    uiState.manualDollarRateToman!! > 0L,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("ثبت نرخ دستی")
+                                        }
+                                        Button(
                                             onClick = viewModel::fetchDollarRateFromApi,
                                             enabled = !uiState.isFetchingDollarRate,
                                             modifier = Modifier.fillMaxWidth()

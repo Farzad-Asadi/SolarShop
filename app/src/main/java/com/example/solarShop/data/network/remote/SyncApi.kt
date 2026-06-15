@@ -3,12 +3,14 @@ package com.example.solarShop.data.network.remote
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.CurrencyRateSyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductUnitSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceResponseDto
 import com.example.solarShop.data.network.dto.sync.SyncStatusDto
@@ -207,6 +209,42 @@ class SyncApi(
         items: List<ProductAttributeValueSyncDto>
     ): Boolean {
         val response = client.post("sync/product-attribute-values") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullUnits(
+        since: Long
+    ): List<ProductUnitSyncDto> {
+        return client.get("sync/units") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushUnits(
+        items: List<ProductUnitSyncDto>
+    ): Boolean {
+        val response = client.post("sync/units") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullCurrencyRates(
+        since: Long
+    ): List<CurrencyRateSyncDto> {
+        return client.get("sync/currency-rates") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushCurrencyRates(
+        items: List<CurrencyRateSyncDto>
+    ): Boolean {
+        val response = client.post("sync/currency-rates") {
             setBody(items)
         }
 

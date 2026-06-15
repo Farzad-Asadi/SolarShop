@@ -51,11 +51,63 @@ interface ProductDao{
 
     // ---------- Unit ----------
 
-    @Query("SELECT * FROM product_units WHERE isActive = 1 ORDER BY name ASC")
+    @Query("""
+    SELECT * FROM product_units
+    WHERE isActive = 1
+    AND deletedAt IS NULL
+    ORDER BY name ASC
+""")
     fun observeActiveUnits(): Flow<List<ProductUnitEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertUnit(unit: ProductUnitEntity): Long
+
+
+    @Query("""
+    SELECT * FROM product_units
+    WHERE uid = :uid
+    LIMIT 1
+""")
+    suspend fun getUnitByUid(
+        uid: String
+    ): ProductUnitEntity?
+
+    @Query("""
+    SELECT * FROM product_units
+    WHERE id = :unitId
+    LIMIT 1
+""")
+    suspend fun getUnitById(
+        unitId: Int
+    ): ProductUnitEntity?
+
+    @Query("""
+    SELECT * FROM product_units
+    WHERE isSynced = 0
+""")
+    suspend fun getUnsyncedUnits(): List<ProductUnitEntity>
+
+    @Query("""
+    UPDATE product_units
+    SET isSynced = 1
+    WHERE uid IN (:uids)
+""")
+    suspend fun markUnitsSynced(
+        uids: List<String>
+    )
+
+    @Query("""
+    UPDATE product_units
+    SET isActive = 0,
+        deletedAt = :updatedAt,
+        updatedAt = :updatedAt,
+        isSynced = 0
+    WHERE id = :id
+""")
+    suspend fun deactivateUnit(
+        id: Int,
+        updatedAt: Long = System.currentTimeMillis()
+    )
 
     // ---------- Product ----------
 

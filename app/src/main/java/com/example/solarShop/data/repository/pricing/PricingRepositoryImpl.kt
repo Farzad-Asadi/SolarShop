@@ -230,4 +230,42 @@ class PricingRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getUnsyncedCurrencyRates():
+            List<CurrencyRateEntity> {
+        return pricingDao.getUnsyncedCurrencyRates()
+    }
+
+    override suspend fun markCurrencyRatesSynced(
+        uids: List<String>
+    ) {
+        if (uids.isEmpty()) return
+        pricingDao.markCurrencyRatesSynced(uids)
+    }
+
+    override suspend fun upsertCurrencyRateByUid(
+        item: CurrencyRateEntity
+    ): Long {
+        val existing =
+            pricingDao.getCurrencyRateByUid(item.uid)
+
+        if (existing == null) {
+            return pricingDao.upsertCurrencyRate(item)
+        }
+
+        // Delete Wins
+        if (existing.deletedAt != null && item.deletedAt == null) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (!existing.isSynced && existing.updatedAt > item.updatedAt) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        return pricingDao.upsertCurrencyRate(
+            item.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+        )
+    }
 }
