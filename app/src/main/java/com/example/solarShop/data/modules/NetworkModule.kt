@@ -4,6 +4,7 @@ package com.example.solarShop.data.modules
 
 import com.example.solarShop.BuildConfig
 import com.example.solarShop.data.dataStore.SessionDataStore
+import com.example.solarShop.data.network.AuthPlugin
 import com.example.solarShop.data.network.mock.mockPlainEngine
 import com.example.solarShop.data.network.remote.AuthApi
 import com.example.solarShop.data.network.remote.EntitlementApi
@@ -75,11 +76,69 @@ object NetworkModule {
     }
 
     // اگر Authed جدا می‌خواهی، فعلاً مثل plain؛ Bearer را داخل APIها می‌گذاریم
-    @Provides @Singleton @Named("authed")
+    @Provides
+    @Singleton
+    @Named("authed")
     fun provideAuthedClient(
-        @Named("networkJson")json: Json,
-        @Named("useMock") useMock: Boolean
-    ): HttpClient = providePlainClient(json, useMock)
+        @Named("networkJson") json: Json,
+        @Named("useMock") useMock: Boolean,
+        session: SessionDataStore
+    ): HttpClient {
+        val engine: HttpClientEngine =
+            if (useMock) mockPlainEngine(json) else OkHttp.create {}
+
+        return HttpClient(engine) {
+            expectSuccess = false
+
+            install(ContentNegotiation) {
+                json(json)
+            }
+
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.BODY
+            }
+
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 15_000
+            }
+
+            install(AuthPlugin) {
+                getAccessToken = {
+                    session.snapshot().accessToken
+                }
+
+                getRefreshToken = {
+                    session.snapshot().refreshToken
+                }
+
+                refreshTokens = { refreshToken ->
+                    try {
+                        val authApi = AuthApi(providePlainClient(json, useMock))
+                        val response = authApi.refresh(refreshToken)
+
+                        session.setTokens(
+                            access = response.access,
+                            refresh = response.refresh
+                        )
+
+                        true
+                    } catch (e: Exception) {
+                        session.clearSession()
+                        false
+                    }
+                }
+            }
+
+            defaultRequest {
+                url(BuildConfig.BASE_URL)
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header(HttpHeaders.Accept, ContentType.Application.Json)
+            }
+        }
+    }
 
     // APIها
     @Provides @Singleton
@@ -126,13 +185,13 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideSyncApi(
-        @Named("plain") client: HttpClient
+        @Named("authed") client: HttpClient
     ): SyncApi = SyncApi(client)
 
     @Provides
     @Singleton
     fun provideFileApi(
-        @Named("plain") client: HttpClient
+        @Named("authed") client: HttpClient
     ): FileApi = FileApi(client)
 }
 

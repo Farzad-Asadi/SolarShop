@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class CurrencyRemoteDataSource @Inject constructor(
-    @Named("plain") private val client: HttpClient
+    @Named("authed") private val client: HttpClient
 ) {
     suspend fun fetchUsdRateToman(): Long? {
         val response: CurrencyFetchResponse =
