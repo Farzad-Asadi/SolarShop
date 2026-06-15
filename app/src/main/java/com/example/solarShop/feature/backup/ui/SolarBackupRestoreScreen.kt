@@ -22,6 +22,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -236,6 +237,67 @@ fun SolarBackupRestoreScreen(
                     }
                 }
             }
+
+
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "سینک دستی با سرور",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = "این بخش برای کارهای مدیریتی است. در استفاده عادی، سینک باید به‌صورت خودکار انجام شود.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.fullUploadAllToServer()
+                        },
+                        enabled = !uiState.isSyncingWithServer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (uiState.isSyncingWithServer) {
+                                "در حال آپلود کامل..."
+                            } else {
+                                "آپلود کامل اطلاعات به سرور"
+                            }
+                        )
+                    }
+
+                    uiState.syncMessage?.let { message ->
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.pullAllFromServer()
+                        },
+                        enabled = !uiState.isSyncingWithServer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (uiState.isSyncingWithServer) {
+                                "در حال ارتباط با سرور..."
+                            } else {
+                                "دریافت اطلاعات از سرور"
+                            }
+                        )
+                    }
+                }
+            }
+
         }
 
     }

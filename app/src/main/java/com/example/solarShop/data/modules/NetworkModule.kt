@@ -5,6 +5,8 @@ package com.example.solarShop.data.modules
 import com.example.solarShop.BuildConfig
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.network.AuthPlugin
+import com.example.solarShop.data.network.RefreshResult
+import com.example.solarShop.data.network.ServerConnectionState
 import com.example.solarShop.data.network.mock.mockPlainEngine
 import com.example.solarShop.data.network.remote.AuthApi
 import com.example.solarShop.data.network.remote.EntitlementApi
@@ -16,6 +18,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -28,7 +31,10 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.utils.io.CancellationException
+import io.ktor.utils.io.errors.IOException
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import javax.inject.Named
@@ -82,7 +88,8 @@ object NetworkModule {
     fun provideAuthedClient(
         @Named("networkJson") json: Json,
         @Named("useMock") useMock: Boolean,
-        session: SessionDataStore
+        session: SessionDataStore,
+        serverState: ServerConnectionState
     ): HttpClient {
         val engine: HttpClientEngine =
             if (useMock) mockPlainEngine(json) else OkHttp.create {}
@@ -117,18 +124,50 @@ object NetworkModule {
                 refreshTokens = { refreshToken ->
                     try {
                         val authApi = AuthApi(providePlainClient(json, useMock))
-                        val response = authApi.refresh(refreshToken)
+                        val response = authApi.refreshRaw(refreshToken)
 
-                        session.setTokens(
-                            access = response.access,
-                            refresh = response.refresh
-                        )
+                        when (response.status) {
+                            HttpStatusCode.OK -> {
+                                val tokens = response.body<com.example.solarShop.data.network.dto.TokenResponse>()
 
-                        true
+                                session.setTokens(
+                                    access = tokens.access,
+                                    refresh = tokens.refresh
+                                )
+
+                                RefreshResult.Success
+                            }
+
+                            HttpStatusCode.Unauthorized,
+                            HttpStatusCode.Forbidden -> {
+                                session.clearSession()
+                                RefreshResult.InvalidRefreshToken
+                            }
+
+                            else -> {
+                                RefreshResult.NetworkError
+                            }
+                        }
+
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: IOException) {
+                        RefreshResult.NetworkError
                     } catch (e: Exception) {
-                        session.clearSession()
-                        false
+                        RefreshResult.NetworkError
                     }
+                }
+
+                onConnected = {
+                    serverState.connected()
+                }
+
+                onServerUnreachable = {
+                    serverState.unreachable()
+                }
+
+                onAuthExpired = {
+                    serverState.authExpired()
                 }
             }
 

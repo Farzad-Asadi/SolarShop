@@ -392,20 +392,7 @@ fun DashboardScreen(                               //صفحه پروفایل
                                             onClickUserData = {}
                                         )
                                     }
-                                    Button(
-                                        onClick = {
-                                            viewModel.testCategorySync()
-                                        }
-                                    ) {
-                                        Text("تست سینک دسته ها")
-                                    }
-                                    Button(
-                                        onClick = {
-                                            viewModel.testInitialUploadAll()
-                                        }
-                                    ) {
-                                        Text("اپلود دیتا در سرور")
-                                    }
+
                                 }
 
                                 //مشتریان

@@ -199,4 +199,7 @@ class ProductImageRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getAllImagesForBackup(): List<ProductImageEntity> =
+        productImageDao.getAllImagesForBackup()
+
 }

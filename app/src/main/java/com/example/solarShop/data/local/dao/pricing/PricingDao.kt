@@ -178,6 +178,9 @@ interface PricingDao{
     @Query("SELECT * FROM product_sale_prices")
     suspend fun getAllSalePricesForBackup(): List<ProductSalePriceEntity>
 
+    @Query("SELECT * FROM currency_rates")
+    suspend fun getAllCurrencyRatesForBackup(): List<CurrencyRateEntity>
+
 
     // ---------- Restore ----------
     @Insert(onConflict = OnConflictStrategy.REPLACE)

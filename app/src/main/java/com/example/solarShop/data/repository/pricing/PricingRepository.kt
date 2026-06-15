@@ -119,5 +119,10 @@ interface PricingRepository {
         item: CurrencyRateEntity
     ): Long
 
+    suspend fun getAllPurchasePricesForBackup(): List<ProductPurchasePriceEntity>
+
+    suspend fun getAllSalePricesForBackup(): List<ProductSalePriceEntity>
+
+    suspend fun getAllCurrencyRatesForBackup(): List<CurrencyRateEntity>
 
 }

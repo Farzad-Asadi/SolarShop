@@ -5,13 +5,26 @@ import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.plugins.plugin
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.utils.io.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class AuthConfig {
     var getAccessToken: suspend () -> String? = { null }
     var getRefreshToken: suspend () -> String? = { null }
-    var refreshTokens: suspend (refreshToken: String) -> Boolean = { false }
+
+    var refreshTokens: suspend (refreshToken: String) -> RefreshResult =
+        { RefreshResult.NetworkError }
+
+    var onConnected: suspend () -> Unit = {}
+    var onServerUnreachable: suspend () -> Unit = {}
+    var onAuthExpired: suspend () -> Unit = {}
+}
+
+sealed interface RefreshResult {
+    data object Success : RefreshResult
+    data object InvalidRefreshToken : RefreshResult
+    data object NetworkError : RefreshResult
 }
 
 val AuthPlugin = createClientPlugin("AuthPlugin", ::AuthConfig) {
@@ -29,36 +42,68 @@ val AuthPlugin = createClientPlugin("AuthPlugin", ::AuthConfig) {
     }
 
     client.plugin(HttpSend).intercept { request ->
-        val firstCall = execute(request)
+        val firstCall = try {
+            execute(request)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            cfg.onServerUnreachable()
+            throw e
+        }
 
-        if (
-            firstCall.response.status != HttpStatusCode.Unauthorized ||
-            request.headers["No-Auth"] == "true"
-        ) {
+        if (firstCall.response.status != HttpStatusCode.Unauthorized) {
+            cfg.onConnected()
             return@intercept firstCall
         }
 
-        val refreshed = refreshMutex.withLock {
+        if (firstCall.response.status != HttpStatusCode.Unauthorized) {
+            cfg.onConnected()
+            return@intercept firstCall
+        }
+
+        if (request.headers["No-Auth"] == "true") {
+            return@intercept firstCall
+        }
+
+        val refreshResult = refreshMutex.withLock {
             val refreshToken = cfg.getRefreshToken()
+
             if (refreshToken.isNullOrBlank()) {
-                false
+                RefreshResult.InvalidRefreshToken
             } else {
                 cfg.refreshTokens(refreshToken)
             }
         }
 
-        if (!refreshed) {
-            return@intercept firstCall
-        }
+        when (refreshResult) {
+            RefreshResult.Success -> {
+                val newToken = cfg.getAccessToken()
 
-        val newAccessToken = cfg.getAccessToken()
-        if (!newAccessToken.isNullOrBlank()) {
-            request.headers.remove(HttpHeaders.Authorization)
-            request.headers.append(HttpHeaders.Authorization, "Bearer $newAccessToken")
-        }
+                if (!newToken.isNullOrBlank()) {
+                    request.headers.remove(HttpHeaders.Authorization)
+                    request.headers.append(HttpHeaders.Authorization, "Bearer $newToken")
+                }
 
-        execute(request)
+                val secondCall = execute(request)
+
+                if (secondCall.response.status == HttpStatusCode.Unauthorized) {
+                    cfg.onAuthExpired()
+                } else {
+                    cfg.onConnected()
+                }
+
+                secondCall
+            }
+
+            RefreshResult.InvalidRefreshToken -> {
+                cfg.onAuthExpired()
+                firstCall
+            }
+
+            RefreshResult.NetworkError -> {
+                cfg.onServerUnreachable()
+                firstCall
+            }
+        }
     }
 }
-
-

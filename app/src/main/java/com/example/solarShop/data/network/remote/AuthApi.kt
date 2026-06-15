@@ -11,6 +11,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
@@ -35,4 +36,11 @@ class AuthApi(private val client: HttpClient) {
             setBody(RefreshRequest(refresh))
             header("No-Auth", "true")
         }.body()
+
+    suspend fun refreshRaw(refresh: String): HttpResponse =
+        client.post(ApiRoutes.REFRESH) {
+            contentType(ContentType.Application.Json)
+            setBody(RefreshRequest(refresh))
+            header("No-Auth", "true")
+        }
 }

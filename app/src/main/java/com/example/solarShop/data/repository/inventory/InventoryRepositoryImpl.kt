@@ -125,6 +125,8 @@ class InventoryRepositoryImpl @Inject constructor(
         )
     }
 
-
+    override suspend fun getAllInventoryTransactionsForBackup(): List<InventoryTransactionEntity> {
+        return inventoryDao.getAllInventoryTransactionsForBackup()
+    }
 
 }

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.entitlement.EntitlementCenter
+import com.example.solarShop.data.network.ServerConnectionState
+import com.example.solarShop.data.network.ServerState
 import com.example.solarShop.data.room.tables.appInfo.AppInfoEntity
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
 import com.example.solarShop.data.room.tables.user.UserEntity
@@ -34,6 +36,7 @@ class SolarShopNavViewModel @Inject constructor(
     private val appInfoRepo: AppInfoRepository,
     private val session: SessionDataStore,
     private val entitlement: EntitlementCenter,
+    private val serverConnectionState: ServerConnectionState,
 ) : ViewModel() {
 
 
@@ -64,16 +67,20 @@ class SolarShopNavViewModel @Inject constructor(
 
     // --- 5) UiState نهایی ---
     val uiState: StateFlow<SolarShopNavUiState> =
-        combine(currentUserFlow, appInfoFlow) { currentUser, appInfo ->
+        combine(
+            currentUserFlow,
+            appInfoFlow,
+            serverConnectionState.state
+        ) { currentUser, appInfo, serverState ->
             SolarShopNavUiState(
                 currentUserEntity = currentUser,
                 appInfoEntity = appInfo,
+                serverState = serverState,
                 isDataLoaded = true
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            // initialValue فوری از SharedPreferences تا صفحه سفید نشود
             initialValue = SolarShopNavUiState()
         )
 
@@ -91,7 +98,8 @@ class SolarShopNavViewModel @Inject constructor(
 data class SolarShopNavUiState(
     val currentUserEntity: UserEntity? = null,
     val appInfoEntity: AppInfoEntity? = null,
-    val isDataLoaded: Boolean = false
+    val isDataLoaded: Boolean = false,
+    val serverState: ServerState = ServerState.Connected
 )
 
 /* ---------------- Helpers ---------------- */

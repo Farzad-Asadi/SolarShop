@@ -268,4 +268,13 @@ class PricingRepositoryImpl @Inject constructor(
             )
         )
     }
+
+    override suspend fun getAllPurchasePricesForBackup(): List<ProductPurchasePriceEntity> =
+        pricingDao.getAllPurchasePricesForBackup()
+
+    override suspend fun getAllSalePricesForBackup(): List<ProductSalePriceEntity> =
+        pricingDao.getAllSalePricesForBackup()
+
+    override suspend fun getAllCurrencyRatesForBackup(): List<CurrencyRateEntity> =
+        pricingDao.getAllCurrencyRatesForBackup()
 }

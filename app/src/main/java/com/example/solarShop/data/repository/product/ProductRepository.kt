@@ -137,5 +137,10 @@ interface ProductRepository {
         id: Int
     )
 
+    suspend fun getAllCategoriesForBackup(): List<ProductCategoryEntity>
+    suspend fun getAllBrandsForBackup(): List<ProductBrandEntity>
+    suspend fun getAllProductsForBackup(): List<ProductEntity>
+    suspend fun getAllUnitsForBackup(): List<ProductUnitEntity>
+
 
 }

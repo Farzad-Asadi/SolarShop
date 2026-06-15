@@ -352,4 +352,16 @@ class ProductRepositoryImpl @Inject constructor(
         productDao.deactivateUnit(id)
     }
 
+    override suspend fun getAllCategoriesForBackup(): List<ProductCategoryEntity> =
+        productDao.getAllCategoriesForBackup()
+
+    override suspend fun getAllBrandsForBackup(): List<ProductBrandEntity> =
+        productDao.getAllBrandsForBackup()
+
+    override suspend fun getAllProductsForBackup(): List<ProductEntity> =
+        productDao.getAllProductsForBackup()
+
+    override suspend fun getAllUnitsForBackup(): List<ProductUnitEntity> =
+        productDao.getAllUnitsForBackup()
+
 }

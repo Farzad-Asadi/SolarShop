@@ -56,6 +56,6 @@ interface InventoryRepository {
     ): Long
 
 
-
+    suspend fun getAllInventoryTransactionsForBackup(): List<InventoryTransactionEntity>
 
 }

@@ -53,4 +53,6 @@ interface ProductImageRepository {
     suspend fun markProductImagesSynced(uids: List<String>)
 
     suspend fun upsertProductImageByUid(image: ProductImageEntity): Long
+
+    suspend fun getAllImagesForBackup(): List<ProductImageEntity>
 }

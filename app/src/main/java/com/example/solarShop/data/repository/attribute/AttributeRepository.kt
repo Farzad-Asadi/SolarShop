@@ -77,7 +77,9 @@ interface AttributeRepository {
     suspend fun getAttributeDefinitionByUid(uid: String): CategoryAttributeDefinitionEntity?
 
 
+    suspend fun getAllAttributeDefinitionsForBackup(): List<CategoryAttributeDefinitionEntity>
 
+    suspend fun getAllAttributeValuesForBackup(): List<ProductAttributeValueEntity>
 
 
 

@@ -247,6 +247,9 @@ interface ProductDao{
     @Query("SELECT * FROM products")
     suspend fun getAllProductsForBackup(): List<ProductEntity>
 
+    @Query("SELECT * FROM product_units")
+    suspend fun getAllUnitsForBackup(): List<ProductUnitEntity>
+
     // ---------- Restore ----------
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategoriesForRestore(items: List<ProductCategoryEntity>)

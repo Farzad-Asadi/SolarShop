@@ -3,6 +3,7 @@ package com.example.solarShop.feature.backup.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.data.backup.core.SolarBackupManager
+import com.example.solarShop.data.sync.SyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SolarBackupRestoreViewModel @Inject constructor(
-    private val backupManager: SolarBackupManager
+    private val backupManager: SolarBackupManager,
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     private val _uiState =
@@ -23,15 +25,6 @@ class SolarBackupRestoreViewModel @Inject constructor(
 
     val uiState = _uiState.asStateFlow()
 
-    fun setSelectedBackupFileName(
-        fileName: String?
-    ) {
-        _uiState.update {
-            it.copy(
-                selectedBackupFileName = fileName
-            )
-        }
-    }
 
     fun createBackup(
         onSuccess: (File) -> Unit
@@ -138,6 +131,80 @@ class SolarBackupRestoreViewModel @Inject constructor(
                         selectedBackupFileName = fileName,
                         previewInfo = null,
                         restoreMessage = "خواندن فایل ناموفق: ${error.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun fullUploadAllToServer() {
+        viewModelScope.launch {
+
+            _uiState.update {
+                it.copy(
+                    isSyncingWithServer = true,
+                    syncMessage = null
+                )
+            }
+
+            runCatching {
+                syncManager.fullUploadAllToServer()
+            }.onSuccess { success ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+                        syncMessage = if (success) {
+                            "آپلود کامل اطلاعات به سرور انجام شد."
+                        } else {
+                            "آپلود کامل انجام نشد. اتصال، توکن یا پاسخ سرور را بررسی کن."
+                        }
+                    )
+                }
+
+            }.onFailure { error ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+                        syncMessage = "آپلود کامل ناموفق بود: ${error.message ?: "خطای نامشخص"}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun pullAllFromServer() {
+        viewModelScope.launch {
+
+            _uiState.update {
+                it.copy(
+                    isSyncingWithServer = true,
+                    syncMessage = null
+                )
+            }
+
+            runCatching {
+                syncManager.syncCategoriesOnce()
+            }.onSuccess { success ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+                        syncMessage = if (success) {
+                            "دریافت اطلاعات از سرور انجام شد."
+                        } else {
+                            "دریافت اطلاعات انجام نشد. اتصال یا پاسخ سرور را بررسی کن."
+                        }
+                    )
+                }
+
+            }.onFailure { error ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+                        syncMessage = "دریافت اطلاعات ناموفق بود: ${error.message ?: "خطای نامشخص"}"
                     )
                 }
             }

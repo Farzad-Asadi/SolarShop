@@ -133,7 +133,13 @@ class AttributeRepositoryImpl @Inject constructor(
         return attributeDao.getAttributeDefinitionByUid(uid)
     }
 
+    override suspend fun getAllAttributeDefinitionsForBackup(): List<CategoryAttributeDefinitionEntity> {
+        return attributeDao.getAllAttributeDefinitionsForBackup()
+    }
 
+    override suspend fun getAllAttributeValuesForBackup(): List<ProductAttributeValueEntity> {
+        return attributeDao.getAllAttributeValuesForBackup()
+    }
 
 
 }

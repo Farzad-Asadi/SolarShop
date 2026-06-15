@@ -1302,6 +1302,348 @@ class SyncManager @Inject constructor(
     }
 
 
+    suspend fun fullUploadAllToServer(): Boolean {
+        val registered = registerDevice()
+        if (!registered) return false
 
+        // 1) والدها اول
+        val categories = productRepository.getAllCategoriesForBackup()
+        val categoryDtos = categories.mapNotNull { category ->
+            val uid = category.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            fileSyncRepository.uploadIfNeeded(category.imageFileName)
+
+            CategorySyncDto(
+                uid = uid,
+                name = category.name,
+                imageFileName = category.imageFileName,
+                sortOrder = category.sortOrder,
+                deletedAt = category.deletedAt,
+                updatedAt = category.updatedAt
+            )
+        }
+
+        if (!syncApi.pushCategories(categoryDtos)) return false
+        productRepository.markCategoriesSynced(categoryDtos.map { it.uid })
+
+        val brands = productRepository.getAllBrandsForBackup()
+        val brandDtos = brands.mapNotNull { brand ->
+            val uid = brand.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            fileSyncRepository.uploadIfNeeded(brand.imageFileName)
+
+            BrandSyncDto(
+                uid = uid,
+                name = brand.name,
+                description = brand.description,
+                imageFileName = brand.imageFileName,
+                isActive = brand.isActive,
+                updatedAt = brand.updatedAt,
+                deletedAt = brand.deletedAt
+            )
+        }
+
+        if (!syncApi.pushBrands(brandDtos)) return false
+        productRepository.markBrandsSynced(brandDtos.map { it.uid })
+
+        val units = productRepository.getAllUnitsForBackup()
+        val unitDtos = units.map { unit ->
+            ProductUnitSyncDto(
+                uid = unit.uid,
+                name = unit.name,
+                symbol = unit.symbol,
+                isActive = unit.isActive,
+                createdAt = unit.createdAt,
+                updatedAt = unit.updatedAt,
+                deletedAt = unit.deletedAt
+            )
+        }
+
+        if (!syncApi.pushUnits(unitDtos)) return false
+        productRepository.markUnitsSynced(unitDtos.map { it.uid })
+
+        // 2) محصولات بعد از category/brand
+        val products = productRepository.getAllProductsForBackup()
+        val productDtos = products.mapNotNull { product ->
+            val category = productRepository.getCategoryById(product.categoryId)
+                ?: return@mapNotNull null
+
+            val categoryUid = category.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            val brandUid = product.brandId
+                ?.let { productRepository.getBrandById(it) }
+                ?.uid
+                ?.takeIf { it.isNotBlank() }
+
+            ProductSyncDto(
+                uid = product.uid,
+                categoryUid = categoryUid,
+                brandUid = brandUid,
+                name = product.name,
+                model = product.model,
+                description = product.description,
+                isArchived = product.isArchived,
+                updatedAt = product.updatedAt,
+                deletedAt = product.deletedAt
+            )
+        }
+
+        if (!syncApi.pushProducts(productDtos)) return false
+        productRepository.markProductsSynced(productDtos.map { it.uid })
+
+
+        // 3) Attribute Definitions بعد از Category
+        val attributeDefinitions =
+            attributeRepository.getAllAttributeDefinitionsForBackup()
+
+        val attributeDefinitionDtos =
+            attributeDefinitions.mapNotNull { item ->
+
+                val category =
+                    productRepository.getCategoryById(item.categoryId)
+                        ?: return@mapNotNull null
+
+                val categoryUid =
+                    category.uid?.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                CategoryAttributeDefinitionSyncDto(
+                    uid = item.uid,
+                    categoryUid = categoryUid,
+
+                    title = item.title,
+                    key = item.key,
+                    description = item.description,
+
+                    valueType = item.valueType,
+                    unit = item.unit,
+                    isRequired = item.isRequired,
+                    sortOrder = item.sortOrder,
+                    enumOptions = item.enumOptions,
+
+                    isActive = item.isActive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (!syncApi.pushCategoryAttributeDefinitions(attributeDefinitionDtos)) return false
+
+        attributeRepository.markAttributeDefinitionsSynced(
+            attributeDefinitionDtos.map { it.uid }
+        )
+
+
+// 4) Product Attribute Values بعد از Product و AttributeDefinition
+        val attributeValues =
+            attributeRepository.getAllAttributeValuesForBackup()
+
+        val attributeValueDtos =
+            attributeValues.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(item.productId)
+                        ?: return@mapNotNull null
+
+                val productUid =
+                    product.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                val definition =
+                    attributeRepository.getAttributeDefinitionById(
+                        item.attributeDefinitionId
+                    ) ?: return@mapNotNull null
+
+                val definitionUid =
+                    definition.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                ProductAttributeValueSyncDto(
+                    uid = item.uid,
+                    productUid = productUid,
+                    attributeDefinitionUid = definitionUid,
+
+                    valueText = item.valueText,
+
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (!syncApi.pushProductAttributeValues(attributeValueDtos)) return false
+
+        attributeRepository.markProductAttributeValuesSynced(
+            attributeValueDtos.map { it.uid }
+        )
+
+// 5) Purchase Prices
+        val purchasePrices = pricingRepository.getAllPurchasePricesForBackup()
+
+        val purchasePriceDtos = purchasePrices.mapNotNull { item ->
+            val product = productRepository.getProductById(item.productId)
+                ?: return@mapNotNull null
+
+            val productUid = product.uid.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            ProductPurchasePriceSyncDto(
+                uid = item.uid,
+                productUid = productUid,
+                buyPriceDollar = item.buyPriceDollar,
+                buyPriceToman = item.buyPriceToman,
+                dollarRateToman = item.dollarRateToman,
+                quantity = item.quantity,
+                purchasedAt = item.purchasedAt,
+                note = item.note,
+                isActive = item.isActive,
+                createdAt = item.createdAt,
+                updatedAt = item.updatedAt,
+                deletedAt = item.deletedAt
+            )
+        }
+
+        if (purchasePriceDtos.isNotEmpty()) {
+            if (!syncApi.pushPurchasePrices(purchasePriceDtos)) return false
+            pricingRepository.markPurchasePricesSynced(
+                purchasePriceDtos.map { it.uid }
+            )
+        }
+
+
+// 6) Sale Prices
+        val salePrices = pricingRepository.getAllSalePricesForBackup()
+
+        val salePriceDtos = salePrices.mapNotNull { item ->
+            val product = productRepository.getProductById(item.productId)
+                ?: return@mapNotNull null
+
+            val productUid = product.uid.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            ProductSalePriceSyncDto(
+                uid = item.uid,
+                productUid = productUid,
+                priceType = item.priceType,
+                salePriceToman = item.salePriceToman,
+                profitPercent = item.profitPercent,
+                baseDollarPrice = item.baseDollarPrice,
+                dollarRateToman = item.dollarRateToman,
+                basePurchasePriceToman = item.basePurchasePriceToman,
+                note = item.note,
+                isActive = item.isActive,
+                createdAt = item.createdAt,
+                updatedAt = item.updatedAt,
+                deletedAt = item.deletedAt
+            )
+        }
+
+        if (salePriceDtos.isNotEmpty()) {
+            if (!syncApi.pushSalePrices(salePriceDtos)) return false
+            pricingRepository.markSalePricesSynced(
+                salePriceDtos.map { it.uid }
+            )
+        }
+
+
+// 7) Currency Rates
+        val currencyRates = pricingRepository.getAllCurrencyRatesForBackup()
+
+        val currencyRateDtos = currencyRates.map { item ->
+            CurrencyRateSyncDto(
+                uid = item.uid,
+                currencyCode = item.currencyCode,
+                rateToman = item.rateToman,
+                source = item.source,
+                note = item.note,
+                createdAt = item.createdAt,
+                updatedAt = item.updatedAt,
+                deletedAt = item.deletedAt
+            )
+        }
+
+        if (currencyRateDtos.isNotEmpty()) {
+            if (!syncApi.pushCurrencyRates(currencyRateDtos)) return false
+            pricingRepository.markCurrencyRatesSynced(
+                currencyRateDtos.map { it.uid }
+            )
+        }
+
+        // 8) Inventory Transactions بعد از Product
+        val inventoryTransactions =
+            inventoryRepository.getAllInventoryTransactionsForBackup()
+
+        val inventoryTransactionDtos =
+            inventoryTransactions.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(item.productId)
+                        ?: return@mapNotNull null
+
+                val productUid =
+                    product.uid.takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                InventoryTransactionSyncDto(
+                    uid = item.uid,
+                    productUid = productUid,
+                    quantity = item.quantity,
+                    transactionType = item.transactionType.name,
+                    note = item.note,
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (inventoryTransactionDtos.isNotEmpty()) {
+            if (!syncApi.pushInventoryTransactions(inventoryTransactionDtos)) return false
+
+            inventoryRepository.markInventoryTransactionsSynced(
+                inventoryTransactionDtos.map { it.uid }
+            )
+        }
+
+        // 3) عکس‌های محصول بعد از Product
+        val images = productImageRepository.getAllImagesForBackup()
+        val imageDtos = images.mapNotNull { image ->
+            val uid = image.uid?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            val product = productRepository.getProductById(image.productId)
+                ?: return@mapNotNull null
+
+            val productUid = product.uid.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+
+            fileSyncRepository.uploadIfNeeded(image.fileName)
+
+            ProductImageSyncDto(
+                uid = uid,
+                productUid = productUid,
+                fileName = image.fileName,
+                sortOrder = image.sortOrder,
+                updatedAt = image.updatedAt,
+                deletedAt = image.deletedAt
+            )
+        }
+
+        if (!syncApi.pushProductImages(imageDtos)) return false
+        productImageRepository.markProductImagesSynced(imageDtos.map { it.uid })
+
+        val status = syncApi.getStatus()
+        syncRepository.updateLastSyncAt(status.serverTime)
+
+        Log.d(
+            "SYNC_TEST",
+            "Full Upload Completed: categories=${categoryDtos.size}, brands=${brandDtos.size}, units=${unitDtos.size}, products=${productDtos.size}, attributes=${attributeDefinitionDtos.size}, attributeValues=${attributeValueDtos.size}, purchasePrices=${purchasePriceDtos.size}, salePrices=${salePriceDtos.size}, currencyRates=${currencyRateDtos.size}, inventory=${inventoryTransactionDtos.size}, images=${imageDtos.size}"
+        )
+
+        return true
+    }
 
 }
