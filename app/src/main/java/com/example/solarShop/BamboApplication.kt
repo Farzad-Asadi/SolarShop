@@ -2,13 +2,10 @@ package com.example.solarShop
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.util.Log
 import com.example.solarShop.data.backupRestore.RestoreManager
 import com.example.solarShop.data.backupRestore.v2.RestoreContext
 import com.example.solarShop.data.backupRestore.v2.RestoreManagerV2
-import com.example.solarShop.data.seeder.SolarProductSeeder
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -18,34 +15,9 @@ class BamboApplication : Application() {
     @Inject lateinit var restoreCtx: RestoreContext
     @Inject lateinit var restoreManager: RestoreManager
     @Inject lateinit var sharedPrefs: SharedPreferences
-    @Inject lateinit var solarProductSeeder: SolarProductSeeder
 
 
-
-
-
-    override fun onCreate() {
-        super.onCreate()
-        seedSolarDataIfFirstRun()
-    }
-
-    private fun seedSolarDataIfFirstRun() {
-        val isSeedDone = sharedPrefs.getBoolean(SOLAR_SEED_DONE, false)
-        if (isSeedDone) return
-
-        runBlocking {
-            try {
-                solarProductSeeder.seedIfNeeded()
-                Log.d("SolarShopApp", "Solar seed OK")
-                sharedPrefs.edit().putBoolean(SOLAR_SEED_DONE, true).apply()
-            } catch (t: Throwable) {
-                Log.e("SolarShopApp", "Solar seed FAILED", t)
-            }
-        }
-    }
-
-
-//    private fun overlayFromAssetsIfFirstRunV2() {
+    //    private fun overlayFromAssetsIfFirstRunV2() {
 //        val isFirstRun = sharedPrefs.getBoolean("is_first_run", true)
 //        if (!isFirstRun) return
 //

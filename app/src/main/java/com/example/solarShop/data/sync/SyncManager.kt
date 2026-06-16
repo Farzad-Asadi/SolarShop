@@ -35,8 +35,22 @@ import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
+
+
+data class SyncProgress(
+    val step: Int,
+    val totalSteps: Int,
+    val title: String,
+    val count: Int = 0,
+    val percent: Float = 0f,
+    val log: String = "",
+    val imageIndex: Int = 0,
+    val imageTotal: Int = 0
+)
 
 @Singleton
 class SyncManager @Inject constructor(
@@ -50,6 +64,12 @@ class SyncManager @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val attributeRepository: AttributeRepository,
 ) {
+
+
+    private val syncMutex = Mutex()
+    private var lastAutoSyncStartedAt: Long = 0L
+
+
 
     suspend fun getLastSyncAt(): Long {
         return syncRepository.getLastSyncAt()
@@ -481,6 +501,82 @@ class SyncManager @Inject constructor(
         }
 
         return images.size
+    }
+
+    suspend fun pullProductImagesWithProgress(
+        step: Int,
+        totalSteps: Int,
+        onProgress: suspend (SyncProgress) -> Unit
+    ): Int {
+        val lastSyncAt = syncRepository.getLastSyncAt()
+        val images = syncApi.pullProductImages(lastSyncAt)
+
+        onProgress(
+            SyncProgress(
+                step = step,
+                totalSteps = totalSteps,
+                title = "دریافت تصاویر کالاها",
+                count = images.size,
+                percent = (step - 1) / totalSteps.toFloat(),
+                log = "تعداد تصاویر پیدا شده: ${images.size}",
+                imageIndex = 0,
+                imageTotal = images.size
+            )
+        )
+
+        var downloaded = 0
+
+        images.forEachIndexed { index, dto ->
+            val product = productRepository.getProductByUid(dto.productUid)
+
+            if (product == null) {
+                onProgress(
+                    SyncProgress(
+                        step = step,
+                        totalSteps = totalSteps,
+                        title = "دریافت تصاویر کالاها",
+                        count = images.size,
+                        percent = ((step - 1) + ((index + 1f) / images.size.coerceAtLeast(1))) / totalSteps,
+                        log = "تصویر رد شد؛ کالا پیدا نشد",
+                        imageIndex = index + 1,
+                        imageTotal = images.size
+                    )
+                )
+                return@forEachIndexed
+            }
+
+            productImageRepository.upsertProductImageByUid(
+                ProductImageEntity(
+                    id = null,
+                    uid = dto.uid,
+                    productId = product.id ?: return@forEachIndexed,
+                    fileName = dto.fileName,
+                    sortOrder = dto.sortOrder,
+                    createdAt = dto.updatedAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+
+            val ok = fileSyncRepository.downloadIfMissing(dto.fileName)
+            if (ok) downloaded++
+
+            onProgress(
+                SyncProgress(
+                    step = step,
+                    totalSteps = totalSteps,
+                    title = "دریافت تصاویر کالاها",
+                    count = images.size,
+                    percent = ((step - 1) + ((index + 1f) / images.size.coerceAtLeast(1))) / totalSteps,
+                    log = "تصویر ${index + 1} از ${images.size} دریافت شد",
+                    imageIndex = index + 1,
+                    imageTotal = images.size
+                )
+            )
+        }
+
+        return downloaded
     }
 
     suspend fun pushUnsyncedProductImages(): Boolean {
@@ -1644,6 +1740,98 @@ class SyncManager @Inject constructor(
         )
 
         return true
+    }
+
+    suspend fun pullAllFromServerWithProgress(
+        onProgress: suspend (SyncProgress) -> Unit
+    ): Boolean {
+        val registered = registerDevice()
+        if (!registered) return false
+
+        val total = 11
+        var step = 0
+
+        suspend fun runStep(
+            title: String,
+            block: suspend () -> Int
+        ) {
+            step++
+            onProgress(SyncProgress(step, total, title, 0))
+            val count = block()
+            onProgress(
+                SyncProgress(
+                    step = step,
+                    totalSteps = total,
+                    title = title,
+                    count = count,
+                    percent = step / total.toFloat(),
+                    log = "$title کامل شد؛ تعداد: $count"
+                )
+            )
+        }
+
+        runStep("دریافت دسته‌بندی‌ها") { pullCategories() }
+        runStep("دریافت برندها") { pullBrands() }
+        runStep("دریافت واحدها") { pullUnits() }
+        runStep("دریافت کالاها") { pullProducts() }
+        step++
+        val downloadedImages = pullProductImagesWithProgress(
+            step = step,
+            totalSteps = total,
+            onProgress = onProgress
+        )
+
+        onProgress(
+            SyncProgress(
+                step = step,
+                totalSteps = total,
+                title = "دریافت تصاویر کالاها",
+                count = downloadedImages,
+                percent = step / total.toFloat(),
+                log = "تصاویر کامل شد؛ تعداد دانلود شده: $downloadedImages",
+                imageIndex = downloadedImages,
+                imageTotal = downloadedImages
+            )
+        )
+        runStep("دریافت ویژگی‌های دسته‌بندی") { pullCategoryAttributeDefinitions() }
+        runStep("دریافت مقدار ویژگی‌های کالا") { pullProductAttributeValues() }
+        runStep("دریافت قیمت‌های خرید") { pullPurchasePrices() }
+        runStep("دریافت قیمت‌های فروش") { pullSalePrices() }
+        runStep("دریافت موجودی") { pullInventoryTransactions() }
+        runStep("دریافت نرخ ارز") { pullCurrencyRates() }
+
+        val status = syncApi.getStatus()
+        syncRepository.updateLastSyncAt(status.serverTime)
+
+        return true
+    }
+
+    suspend fun autoSyncInBackground(
+        reason: String
+    ): Boolean {
+        val now = System.currentTimeMillis()
+
+        if (now - lastAutoSyncStartedAt < 30_000L) {
+            Log.d("SYNC_AUTO", "Skipped auto sync, too soon. reason=$reason")
+            return true
+        }
+
+        return syncMutex.withLock {
+            lastAutoSyncStartedAt = System.currentTimeMillis()
+
+            try {
+                Log.d("SYNC_AUTO", "Auto sync started. reason=$reason")
+
+                val result = syncCategoriesOnce()
+
+                Log.d("SYNC_AUTO", "Auto sync finished. result=$result, reason=$reason")
+
+                result
+            } catch (t: Throwable) {
+                Log.e("SYNC_AUTO", "Auto sync failed. reason=$reason", t)
+                false
+            }
+        }
     }
 
 }

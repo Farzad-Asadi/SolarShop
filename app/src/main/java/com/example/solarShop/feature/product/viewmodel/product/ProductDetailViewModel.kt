@@ -61,12 +61,7 @@ class ProductDetailViewModel @Inject constructor(
             )
         }
 
-    private val salePriceResultFlow =
-        flow {
-            emit(
-                pricingRepository.calculateSalePrice(productId)
-            )
-        }
+
 
     private val salePricesFlow =
         pricingRepository.observeSalePrices(productId)
@@ -109,7 +104,6 @@ class ProductDetailViewModel @Inject constructor(
             productFlow,
             attributesFlow,
             activePurchasePriceFlow,
-            salePriceResultFlow,
             currentStockFlow,
             transactionsFlow,
             imagesFlow,
@@ -122,20 +116,25 @@ class ProductDetailViewModel @Inject constructor(
             val attributes = arr[1] as List<ProductAttributeDisplayInfo>
             val activePurchasePrice =
                 arr[2] as? com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
-            val salePriceResult =
-                arr[3] as? com.example.solarShop.domain.product.ProductSalePriceResult
-            val currentStock = arr[4] as Double
-            val transactions = arr[5] as List<InventoryTransactionEntity>
-            val images = arr[6] as List<ProductImageEntity>
-            val salePrices = arr[7] as List<ProductSalePriceEntity>
-            val currencyRates = arr[8] as List<CurrencyRateEntity>
-            val manualDollarRate = arr[9] as Long?
+
+            val currentStock = arr[3] as Double
+            val transactions = arr[4] as List<InventoryTransactionEntity>
+            val images = arr[5] as List<ProductImageEntity>
+            val salePrices = arr[6] as List<ProductSalePriceEntity>
+            val currencyRates = arr[7] as List<CurrencyRateEntity>
+            val manualDollarRate = arr[8] as Long?
 
             val apiDollarRate =
                 currencyRates.firstOrNull()?.rateToman
 
             val dailyDollarRate =
                 manualDollarRate ?: apiDollarRate
+
+            val salePriceResult =
+                pricingRepository.calculateSalePrice(
+                    productId = productId,
+                    todayDollarRateToman = dailyDollarRate
+                )
 
             ProductDetailUiState(
                 isLoading = false,

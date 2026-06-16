@@ -9,6 +9,8 @@ import com.example.solarShop.data.backupRestore.SeedDumper
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.room.tables.appInfo.AppInfoRepository
 import com.example.solarShop.data.room.tables.user.UserRepository
+import com.example.solarShop.data.sync.SyncManager
+import com.example.solarShop.data.sync.SyncProgress
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.repo.EntitlementRepository
 import com.example.solarShop.repo.LanguageRepository
@@ -39,6 +41,7 @@ class SignInScreenViewModel @Inject constructor(
     private val session: SessionDataStore,
     private val langRepo: LanguageRepository,
     @ApplicationContext private val app: Context,
+    private val syncManager: SyncManager,
 ) : ViewModel() {
 
 
@@ -125,6 +128,29 @@ class SignInScreenViewModel @Inject constructor(
 
             session.setCurrentUserId(id)
             session.setPrivacyAccepted(true)
+            _state.update {
+                it.copy(
+                    initialPullProgress = SyncProgress(
+                        step = 0,
+                        totalSteps = 11,
+                        title = "آماده‌سازی دریافت اطلاعات",
+                        count = 0
+                    )
+                )
+            }
+
+            val pullOk = syncManager.pullAllFromServerWithProgress { progress ->
+                _state.update {
+                    it.copy(
+                        initialPullProgress = progress,
+                        initialPullFinished = progress.step == progress.totalSteps
+                    )
+                }
+            }
+
+            if (!pullOk) {
+                _events.send(SignInUiEvent.Message("ارتباط با سرور برقرار نشد، اطلاعات محلی نمایش داده می‌شود"))
+            }
 
             // ⬇️ ۲) فرستادن event با userId
 
@@ -220,7 +246,9 @@ data class SignInUiState(
     val code: String = "",
     val codeError: String? = null,
     val isLoading: Boolean = false,
-    val secondsToResend: Int = 0
+    val secondsToResend: Int = 0,
+    val initialPullProgress: SyncProgress? = null,
+    val initialPullFinished: Boolean = false
 )
 
 sealed interface SignInUiEvent {

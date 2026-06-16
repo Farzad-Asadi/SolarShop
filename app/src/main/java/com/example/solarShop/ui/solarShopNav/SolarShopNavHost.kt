@@ -37,7 +37,7 @@ import com.example.solarShop.ui.orderScreen.orderCosts.CostScreen
 import com.example.solarShop.ui.orderScreen.orderInvoice.OrderInvoiceScreen
 import com.example.solarShop.ui.orderScreen.orderPicture.OrderPictureScreen
 import com.example.solarShop.ui.orderScreen.orderPriceEstimate.PriceEstimateScreen
-import com.example.solarShop.ui.profileScreen.DashboardScreen
+import com.example.solarShop.ui.dashboardScreen.DashboardScreen
 import com.example.solarShop.ui.questionInfoScreen.QuestionInfoScreen
 import com.example.solarShop.ui.questionTreeScreen.QuestionTreeScreen
 import com.example.solarShop.ui.signInScreen.SignInScreen

@@ -8,8 +8,10 @@ import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefini
 import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.product.ProductRepository
+import com.example.solarShop.data.sync.SyncManager
 import com.example.solarShop.repo.ImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -23,7 +25,8 @@ class CategoryEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val productRepository: ProductRepository,
     private val attributeRepository: AttributeRepository,
-    private val imageRepository: ImageRepository
+    private val imageRepository: ImageRepository,
+    private val syncManager: SyncManager,
 ) : ViewModel() {
 
     private val categoryId =
@@ -111,6 +114,12 @@ class CategoryEditViewModel @Inject constructor(
                 isSynced = false
             )
         )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            syncManager.autoSyncInBackground(
+                reason = if (isEditMode) "category_updated" else "category_created"
+            )
+        }
 
         return true
     }

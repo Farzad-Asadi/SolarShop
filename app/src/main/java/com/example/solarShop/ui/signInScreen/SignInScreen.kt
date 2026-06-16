@@ -39,6 +39,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -79,6 +80,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.solarShop.AppLanguage
@@ -271,6 +274,18 @@ fun SignInScreen(
                     }
 
                 }
+            }
+            state.initialPullProgress?.let { progress ->
+                InitialPullDialog(
+                    step = progress.step,
+                    totalSteps = progress.totalSteps,
+                    title = progress.title,
+                    count = progress.count,
+                    percent = progress.percent,
+                    log = progress.log,
+                    imageIndex = progress.imageIndex,
+                    imageTotal = progress.imageTotal
+                )
             }
 
             //db 2.3
@@ -655,6 +670,83 @@ fun PrivacyPolicyDialog(
         }
     )
 }
+
+
+@Composable
+fun InitialPullDialog(
+    step: Int,
+    totalSteps: Int,
+    title: String,
+    count: Int,
+    percent: Float,
+    log: String,
+    imageIndex: Int,
+    imageTotal: Int
+) {
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.82f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(28.dp),
+                shape = RoundedCornerShape(24.dp),
+                tonalElevation = 6.dp,
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("خوش آمدید", style = MaterialTheme.typography.titleLarge)
+
+                    Text("در حال دریافت اطلاعات فروشگاه از سرور...")
+
+                    LinearProgressIndicator(
+                        progress = { percent.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("${(percent.coerceIn(0f, 1f) * 100).toInt()}٪")
+
+                    Text("مرحله $step از $totalSteps")
+
+                    Text(title, fontWeight = FontWeight.SemiBold)
+
+                    if (imageTotal > 0) {
+                        Text("تصاویر: $imageIndex از $imageTotal")
+                    }
+
+                    if (count > 0) {
+                        Text("تعداد: $count")
+                    }
+
+                    if (log.isNotBlank()) {
+                        Text(
+                            text = log,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
 
 // ✅ متن کامل سیاست (همانی که بالا دادم) را اینجا قرار بده
 private const val PRIVACY_POLICY_FA = """

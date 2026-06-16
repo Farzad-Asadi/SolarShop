@@ -41,7 +41,10 @@ class PricingRepositoryImpl @Inject constructor(
         productId: Int
     ) = pricingDao.observePurchasePriceHistory(productId)
 
-    override suspend fun calculateSalePrice(productId: Int): ProductSalePriceResult? {
+    override suspend fun calculateSalePrice(
+        productId: Int,
+        todayDollarRateToman: Long?
+    ): ProductSalePriceResult? {
         val productFullInfo = productDao.getProductFullInfo(productId)
             ?: return null
 
@@ -52,13 +55,16 @@ class PricingRepositoryImpl @Inject constructor(
 
         val latestDollarRate = pricingDao.getLatestCurrencyRate("USD")
 
+        val effectiveTodayRate =
+            todayDollarRateToman ?: latestDollarRate?.rateToman
+
         val profitRule = pricingDao.getProfitRuleForCategory(product.categoryId)
 
         return ProductPriceCalculator.calculate(
             buyPriceDollar = purchasePrice.buyPriceDollar,
             buyPriceToman = purchasePrice.buyPriceToman,
-            dollarRateToman = purchasePrice.dollarRateToman
-                ?: latestDollarRate?.rateToman,
+            purchaseDollarRateToman = purchasePrice.dollarRateToman,
+            todayDollarRateToman = effectiveTodayRate,
             profitPercent = profitRule?.profitPercent ?: 0.0,
             fixedProfitToman = profitRule?.fixedProfitToman ?: 0L
         )

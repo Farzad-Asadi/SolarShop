@@ -1,4 +1,4 @@
-package com.example.solarShop.ui.profileScreen
+package com.example.solarShop.ui.dashboardScreen
 
 import android.net.Uri
 import android.os.Build
@@ -202,6 +202,10 @@ fun DashboardScreen(                               //صفحه پروفایل
     //region stats
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.onDashboardEntered()
+    }
     val entState by viewModel.entitlement.collectAsStateWithLifecycle(initialValue = EntitlementState.Inactive)
     val prefs by viewModel.displayPrefsState.collectAsStateWithLifecycle()
 

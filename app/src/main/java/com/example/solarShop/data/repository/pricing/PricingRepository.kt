@@ -30,7 +30,8 @@ interface PricingRepository {
     ): Flow<List<ProductPurchasePriceEntity>>
 
     suspend fun calculateSalePrice(
-        productId: Int
+        productId: Int,
+        todayDollarRateToman: Long? = null
     ): ProductSalePriceResult?
 
     suspend fun setNewPurchasePrice(

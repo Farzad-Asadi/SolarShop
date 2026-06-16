@@ -1,4 +1,4 @@
-package com.example.solarShop.ui.profileScreen
+package com.example.solarShop.ui.dashboardScreen
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -535,7 +535,13 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-
+    fun onDashboardEntered() {
+        viewModelScope.launch(Dispatchers.IO) {
+            syncManager.autoSyncInBackground(
+                reason = "dashboard_entered"
+            )
+        }
+    }
 
 
 

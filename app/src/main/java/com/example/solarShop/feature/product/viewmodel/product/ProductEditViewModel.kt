@@ -18,9 +18,12 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.data.sync.SyncManager
+import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.feature.product.model.ProductEditImageItem
 import com.example.solarShop.repo.ImageRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,7 +48,8 @@ class ProductEditViewModel @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val inventoryRepository: InventoryRepository,
     private val productImageRepository: ProductImageRepository,
-    private val imageRepository: ImageRepository
+    private val imageRepository: ImageRepository,
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     private val productId: Int =
@@ -396,6 +400,11 @@ class ProductEditViewModel @Inject constructor(
                     productId = currentProductId,
                     src = src
                 )
+                viewModelScope.launch(Dispatchers.IO) {
+                    syncManager.autoSyncInBackground(
+                        reason = "product_image_added_gallery"
+                    )
+                }
             } else {
                 val (file, _) = imageRepository.saveCompressedToInternal(src)
 
@@ -416,6 +425,11 @@ class ProductEditViewModel @Inject constructor(
                     productId = currentProductId,
                     tempFile = tempFile
                 )
+                viewModelScope.launch(Dispatchers.IO) {
+                    syncManager.autoSyncInBackground(
+                        reason = "product_image_added_camera"
+                    )
+                }
             } else {
                 val (file, _) = imageRepository.compressCameraTempToInternal(tempFile)
 
@@ -451,6 +465,11 @@ class ProductEditViewModel @Inject constructor(
                 item.id?.let {
                     productImageRepository.deleteImage(it)
                 }
+                viewModelScope.launch(Dispatchers.IO) {
+                    syncManager.autoSyncInBackground(
+                        reason = "product_image_deleted"
+                    )
+                }
             }
         }
     }
@@ -479,7 +498,15 @@ class ProductEditViewModel @Inject constructor(
                 productImageRepository.saveImageOrder(orderedSavedImageIds)
             }
 
-            save(onSuccess = onSuccess)
+            save {
+                viewModelScope.launch(Dispatchers.IO) {
+                    syncManager.autoSyncInBackground(
+                        reason = "product_image_order_saved"
+                    )
+                }
+
+                onSuccess()
+            }
         }
     }
 
@@ -713,35 +740,42 @@ class ProductEditViewModel @Inject constructor(
 
 
     //Sale
-    private fun calculateSalePriceToman(baseDollarPrice: String, dollarRateToman: Long?, profitPercent: String): Long? {
+    private fun recalculateSalePrices(
+        state: ProductEditUiState
+    ): ProductEditUiState {
 
-        val baseDollar = baseDollarPrice.toDoubleOrNull()
-        val rate = dollarRateToman
-        val profit = profitPercent.toDoubleOrNull()
+        val baseDollarPrice =
+            state.saleBaseDollarPrice.toDoubleOrNull()
 
-        if (baseDollar == null || rate == null || profit == null) {
-            return null
-        }
+        val consumerSalePrice =
+            state.consumerProfitPercent.toDoubleOrNull()
+                ?.let { profitPercent ->
+                    ProductPriceCalculator.calculate(
+                        buyPriceDollar = baseDollarPrice,
+                        buyPriceToman = state.buyPriceToman,
+                        purchaseDollarRateToman = null,
+                        todayDollarRateToman = state.saleDollarRateToman,
+                        profitPercent = profitPercent,
+                        fixedProfitToman = 0L
+                    )?.finalSalePriceToman
+                }
 
-        val basePrice = baseDollar * rate
+        val colleagueSalePrice =
+            state.colleagueProfitPercent.toDoubleOrNull()
+                ?.let { profitPercent ->
+                    ProductPriceCalculator.calculate(
+                        buyPriceDollar = baseDollarPrice,
+                        buyPriceToman = state.buyPriceToman,
+                        purchaseDollarRateToman = null,
+                        todayDollarRateToman = state.saleDollarRateToman,
+                        profitPercent = profitPercent,
+                        fixedProfitToman = 0L
+                    )?.finalSalePriceToman
+                }
 
-        val profitAmount =
-            basePrice * profit / 100.0
-
-        return (basePrice + profitAmount).toLong()
-    }
-    private fun recalculateSalePrices(state: ProductEditUiState): ProductEditUiState {
         return state.copy(
-            consumerSalePriceToman = calculateSalePriceToman(
-                baseDollarPrice = state.saleBaseDollarPrice,
-                dollarRateToman = state.saleDollarRateToman,
-                profitPercent = state.consumerProfitPercent
-            ),
-            colleagueSalePriceToman = calculateSalePriceToman(
-                baseDollarPrice = state.saleBaseDollarPrice,
-                dollarRateToman = state.saleDollarRateToman,
-                profitPercent = state.colleagueProfitPercent
-            )
+            consumerSalePriceToman = consumerSalePrice,
+            colleagueSalePriceToman = colleagueSalePrice
         )
     }
     fun onSaleBaseDollarPriceChange(value: String) {
@@ -1120,6 +1154,16 @@ class ProductEditViewModel @Inject constructor(
                     isSaving = false,
                     productId = savedProductId,
                     pendingImageFiles = emptyList()
+                )
+            }
+
+            viewModelScope.launch(Dispatchers.IO) {
+                syncManager.autoSyncInBackground(
+                    reason = if (startedAsNewProduct) {
+                        "product_created"
+                    } else {
+                        "product_updated"
+                    }
                 )
             }
 
