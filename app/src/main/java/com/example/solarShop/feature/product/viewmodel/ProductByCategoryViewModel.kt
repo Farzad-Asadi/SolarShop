@@ -10,6 +10,7 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.feature.product.viewmodel.product.ProductGridItemUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -148,24 +149,6 @@ class ProductByCategoryViewModel @Inject constructor(
         }
     }
 
-    private fun observeConsumerSalePriceByProductId(
-        productIds: List<Int>
-    ): Flow<Map<Int, Long?>> {
-        if (productIds.isEmpty()) return flowOf(emptyMap())
-
-        return combine(
-            productIds.map { productId ->
-                pricingRepository.observeSalePrices(productId).map { prices ->
-                    productId to prices
-                        .firstOrNull { it.priceType == "consumer" && it.isActive }
-                        ?.salePriceToman
-                }
-            }
-        ) { pairs ->
-            pairs.toMap()
-        }
-    }
-
     private fun observeStockByProductId(
         productIds: List<Int>
     ): Flow<Map<Int, Double>> {
@@ -191,13 +174,19 @@ class ProductByCategoryViewModel @Inject constructor(
             productIds.map { productId ->
                 combine(
                     pricingRepository.observeSalePrices(productId),
+                    pricingRepository.observePurchasePrices(productId),
                     pricingRepository.observeCurrencyRateHistory("USD"),
                     dollarRatePrefs.manualDollarRateFlow
-                ) { salePrices, currencyRates, manualDollarRate ->
+                ) { salePrices, purchasePrices, currencyRates, manualDollarRate ->
 
                     val latestConsumerSale =
                         salePrices.firstOrNull {
                             it.priceType == "consumer" && it.isActive
+                        }
+
+                    val activePurchasePrice =
+                        purchasePrices.firstOrNull {
+                            it.isActive
                         }
 
                     val apiDollarRate =
@@ -207,11 +196,17 @@ class ProductByCategoryViewModel @Inject constructor(
                         manualDollarRate ?: apiDollarRate
 
                     val livePrice =
-                        calculateLiveSalePrice(
-                            baseDollarPrice = latestConsumerSale?.baseDollarPrice,
-                            dailyDollarRateToman = dailyDollarRate,
-                            profitPercent = latestConsumerSale?.profitPercent
-                        ) ?: latestConsumerSale?.salePriceToman
+                        ProductPriceCalculator.calculate(
+                            buyPriceDollar = latestConsumerSale?.baseDollarPrice
+                                ?: activePurchasePrice?.buyPriceDollar,
+                            buyPriceToman = activePurchasePrice?.buyPriceToman
+                                ?: latestConsumerSale?.basePurchasePriceToman,
+                            purchaseDollarRateToman = activePurchasePrice?.dollarRateToman
+                                ?: latestConsumerSale?.dollarRateToman,
+                            todayDollarRateToman = dailyDollarRate,
+                            profitPercent = latestConsumerSale?.profitPercent ?: 0.0,
+                            fixedProfitToman = 0L
+                        )?.finalSalePriceToman ?: latestConsumerSale?.salePriceToman
 
                     productId to livePrice
                 }
@@ -221,23 +216,4 @@ class ProductByCategoryViewModel @Inject constructor(
         }
     }
 
-    private fun calculateLiveSalePrice(
-        baseDollarPrice: Double?,
-        dailyDollarRateToman: Long?,
-        profitPercent: Double?
-    ): Long? {
-        if (
-            baseDollarPrice == null ||
-            dailyDollarRateToman == null ||
-            profitPercent == null
-        ) return null
-
-        val basePrice =
-            baseDollarPrice * dailyDollarRateToman
-
-        val profitAmount =
-            basePrice * profitPercent / 100.0
-
-        return (basePrice + profitAmount).toLong()
-    }
 }

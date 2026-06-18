@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.CurrencyUnit
+import com.example.solarShop.InventoryTransactionType
 import com.example.solarShop.LengthUnit
 import com.example.solarShop.OrderTimeline
 import com.example.solarShop.data.dataStore.DisplayPreferences
@@ -12,9 +13,15 @@ import com.example.solarShop.data.dataStore.DollarRatePreferencesDataSource
 import com.example.solarShop.data.dataStore.SessionDataStore
 import com.example.solarShop.data.entitlement.EntitlementCenter
 import com.example.solarShop.data.entitlement.EntitlementState
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
+import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
+import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
+import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.remote.currency.CurrencyRemoteDataSource
+import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
+import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.client.ClientRepository
 import com.example.solarShop.data.room.tables.client.ClientWithOrders
@@ -28,6 +35,7 @@ import com.example.solarShop.data.room.tables.orderAll.orderTimelineItem.Timelin
 import com.example.solarShop.data.room.tables.user.UserEntity
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.sync.SyncManager
+import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.utils.createTimelineItemEntityForOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,7 +55,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import javax.inject.Inject
+import kotlin.math.roundToLong
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -64,6 +74,8 @@ class DashboardViewModel @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val dollarRatePrefs: DollarRatePreferencesDataSource,
     private val currencyRemoteDataSource: CurrencyRemoteDataSource,
+    private val productRepository: ProductRepository,
+    private val inventoryRepository: InventoryRepository,
     private val syncManager: SyncManager,
 
     ) : ViewModel() {
@@ -160,6 +172,124 @@ class DashboardViewModel @Inject constructor(
             DollarRateUiState()
         )
 
+    @Suppress("UNCHECKED_CAST")
+    private val dashboardIndicatorsFlow: Flow<DashboardIndicators> =
+        combine(
+            productRepository.observeActiveProducts(),
+            inventoryRepository.observeAllTransactions(),
+            pricingRepository.observeAllPurchasePrices(),
+            pricingRepository.observeAllSalePrices(),
+            latestDollarRateFlow,
+            manualDollarRateFlow,
+        ) { arr: Array<Any?> ->
+
+            val products = arr[0] as List<ProductEntity>
+            val transactions = arr[1] as List<InventoryTransactionEntity>
+            val purchasePrices = arr[2] as List<ProductPurchasePriceEntity>
+            val salePrices = arr[3] as List<ProductSalePriceEntity>
+            val latestDollarRateToman = arr[4] as Long?
+            val manualDollarRateToman = arr[5] as Long?
+
+            val todayRate =
+                manualDollarRateToman ?: latestDollarRateToman
+
+            val monthStart = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            var totalValueToman = 0L
+            var totalValueDollar = 0.0
+            var monthSales = 0L
+            var monthProfit = 0L
+
+            products.forEach { product ->
+
+                val productId = product.id
+
+                val stock = transactions
+                    .filter { it.productId == productId }
+                    .sumOf { tx ->
+                        when (tx.transactionType) {
+                            InventoryTransactionType.PURCHASE,
+                            InventoryTransactionType.SALE_RETURN -> tx.quantity
+
+                            InventoryTransactionType.SALE,
+                            InventoryTransactionType.PURCHASE_RETURN -> -tx.quantity
+
+                            InventoryTransactionType.ADJUSTMENT -> tx.quantity
+                        }
+                    }
+
+                val activePurchase = purchasePrices
+                    .filter { it.productId == productId && it.isActive }
+                    .maxByOrNull { it.createdAt }
+
+                val activeConsumerSale = salePrices
+                    .filter {
+                        it.productId == productId &&
+                                it.priceType == "consumer" &&
+                                it.isActive
+                    }
+                    .maxByOrNull { it.createdAt }
+
+                val priceResult = ProductPriceCalculator.calculate(
+                    buyPriceDollar = activeConsumerSale?.baseDollarPrice
+                        ?: activePurchase?.buyPriceDollar,
+                    buyPriceToman = activePurchase?.buyPriceToman
+                        ?: activeConsumerSale?.basePurchasePriceToman,
+                    purchaseDollarRateToman = activePurchase?.dollarRateToman
+                        ?: activeConsumerSale?.dollarRateToman,
+                    todayDollarRateToman = todayRate,
+                    profitPercent = activeConsumerSale?.profitPercent ?: 0.0,
+                    fixedProfitToman = 0L
+                )
+
+                val unitBuyPriceToman =
+                    priceResult?.baseBuyPriceToman
+                        ?: activePurchase?.buyPriceToman
+                        ?: 0L
+
+                val unitSalePriceToman =
+                    priceResult?.finalSalePriceToman
+                        ?: activeConsumerSale?.salePriceToman
+                        ?: 0L
+
+                val unitBuyPriceDollar =
+                    priceResult?.baseBuyPriceDollar
+                        ?: activePurchase?.buyPriceDollar
+                        ?: 0.0
+
+                totalValueToman += (stock * unitBuyPriceToman).roundToLong()
+                totalValueDollar += stock * unitBuyPriceDollar
+
+                val monthSaleQuantity = transactions
+                    .filter {
+                        it.productId == productId &&
+                                it.transactionType == InventoryTransactionType.SALE &&
+                                it.createdAt >= monthStart
+                    }
+                    .sumOf { it.quantity }
+
+                monthSales += (monthSaleQuantity * unitSalePriceToman).roundToLong()
+
+                monthProfit += (
+                        monthSaleQuantity *
+                                (unitSalePriceToman - unitBuyPriceToman)
+                        ).roundToLong()
+            }
+
+            DashboardIndicators(
+                totalInventoryValueToman = totalValueToman,
+                totalInventoryValueDollar = totalValueDollar,
+                currentMonthSalesToman = monthSales,
+                currentMonthProfitToman = monthProfit
+            )
+        }.flowOn(Dispatchers.IO)
+
     // UiState نهایی
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<ProfileUiState> =
@@ -172,6 +302,7 @@ class DashboardViewModel @Inject constructor(
             latestDollarRateFlow,
             manualDollarRateFlow,
             dollarRateUiState,
+            dashboardIndicatorsFlow,
         ) { arr: Array<Any?> ->
 
 
@@ -183,11 +314,11 @@ class DashboardViewModel @Inject constructor(
             val latestDollarRateToman = arr[5] as Long?
             val manualDollarRateToman = arr[6] as Long?
             val dollarRateUi = arr[7] as DollarRateUiState
-
+            val indicators = arr[8] as DashboardIndicators
 
 
             val effectiveDollarRateToman =
-                latestDollarRateToman ?: manualDollarRateToman
+                manualDollarRateToman ?: latestDollarRateToman
 
             ProfileUiState(
                 currentUserEntity = currentUser,
@@ -202,6 +333,10 @@ class DashboardViewModel @Inject constructor(
                 effectiveDollarRateToman = effectiveDollarRateToman,
                 isFetchingDollarRate = dollarRateUi.isFetchingDollarRate,
                 dollarRateMessage = dollarRateUi.message,
+                totalInventoryValueToman = indicators.totalInventoryValueToman,
+                totalInventoryValueDollar = indicators.totalInventoryValueDollar,
+                currentMonthSalesToman = indicators.currentMonthSalesToman,
+                currentMonthProfitToman = indicators.currentMonthProfitToman,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -357,150 +492,6 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun testSyncConnection() {
-        viewModelScope.launch {
-            try {
-                val result = syncManager.pingServer()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Ping Result = $result"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Ping Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testSyncStatus() {
-        viewModelScope.launch {
-            try {
-                val status = syncManager.getSyncStatus()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Status = serverTime=${status.serverTime}, serverVersion=${status.serverVersion}, message=${status.message}"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Get Status Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testRegisterDevice() {
-        viewModelScope.launch {
-            try {
-                val accepted = syncManager.registerDevice()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Register Device accepted = $accepted"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Register Device Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testPushCategories() {
-        viewModelScope.launch {
-            try {
-                val result = syncManager.pushAllCategories()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Push Categories Result = $result"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Push Categories Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testPullCategories() {
-        viewModelScope.launch {
-            try {
-                val count = syncManager.pullCategories()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Pull Categories Count = $count"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Pull Categories Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testCategorySync() {
-        viewModelScope.launch {
-            try {
-                val result = syncManager.syncCategoriesOnce()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Category Sync Result = $result"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Category Sync Failed",
-                    e
-                )
-            }
-        }
-    }
-
-    fun testLastSyncAt() {
-        viewModelScope.launch {
-            val lastSyncAt = syncManager.getLastSyncAt()
-
-            Log.d(
-                "SYNC_TEST",
-                "Last Sync At = $lastSyncAt"
-            )
-        }
-    }
-
-    fun testInitialUploadAll() {
-        viewModelScope.launch {
-            try {
-                val result = syncManager.initialUploadAll()
-
-                Log.d(
-                    "SYNC_TEST",
-                    "Initial Upload Result = $result"
-                )
-            } catch (e: Exception) {
-                Log.e(
-                    "SYNC_TEST",
-                    "Initial Upload Failed",
-                    e
-                )
-            }
-        }
-    }
-
     fun saveManualDollarRate() {
         viewModelScope.launch {
             val rate =
@@ -565,12 +556,24 @@ class DashboardViewModel @Inject constructor(
         val isFetchingDollarRate: Boolean = false,
         val dollarRateMessage: String? = null,
 
+        val totalInventoryValueToman: Long = 0L,
+        val totalInventoryValueDollar: Double = 0.0,
+        val currentMonthSalesToman: Long = 0L,
+        val currentMonthProfitToman: Long = 0L,
+
         val isDataLoaded: Boolean = false
     )
 
     data class DollarRateUiState(
         val isFetchingDollarRate: Boolean = false,
         val message: String? = null
+    )
+
+    data class DashboardIndicators(
+        val totalInventoryValueToman: Long = 0L,
+        val totalInventoryValueDollar: Double = 0.0,
+        val currentMonthSalesToman: Long = 0L,
+        val currentMonthProfitToman: Long = 0L,
     )
 //endregion dataClasses
 

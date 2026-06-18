@@ -18,6 +18,9 @@ data class ProductDetailUiState(
 
     val salePriceResult: ProductSalePriceResult? = null,
 
+    val consumerSalePriceResult: ProductSalePriceResult? = null,
+    val colleagueSalePriceResult: ProductSalePriceResult? = null,
+
     val salePrices: List<ProductSalePriceEntity> = emptyList(),
 
     val dailyDollarRateToman: Long? = null,

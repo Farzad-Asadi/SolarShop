@@ -267,19 +267,20 @@ fun ProductDetailScreen(
                                 it.priceType == "colleague"
                             }
 
+                        val purchaseDollarRate =
+                            uiState.activePurchasePrice?.dollarRateToman
+
+                        val effectiveDollarRate =
+                            listOfNotNull(
+                                purchaseDollarRate,
+                                uiState.dailyDollarRateToman
+                            ).maxOrNull()
+
                         val liveConsumerPrice =
-                            calculateLiveSalePrice(
-                                baseDollarPrice = latestConsumerSale?.baseDollarPrice,
-                                dailyDollarRateToman = uiState.dailyDollarRateToman,
-                                profitPercent = latestConsumerSale?.profitPercent
-                            )
+                            uiState.consumerSalePriceResult?.finalSalePriceToman
 
                         val liveColleaguePrice =
-                            calculateLiveSalePrice(
-                                baseDollarPrice = latestColleagueSale?.baseDollarPrice,
-                                dailyDollarRateToman = uiState.dailyDollarRateToman,
-                                profitPercent = latestColleagueSale?.profitPercent
-                            )
+                            uiState.colleagueSalePriceResult?.finalSalePriceToman
 
                         val priceSummary =
                             liveConsumerPrice?.let {
@@ -789,25 +790,6 @@ private fun DetailExpandableCard(
     }
 }
 
-private fun calculateLiveSalePrice(
-    baseDollarPrice: Double?,
-    dailyDollarRateToman: Long?,
-    profitPercent: Double?
-): Long? {
-    if (
-        baseDollarPrice == null ||
-        dailyDollarRateToman == null ||
-        profitPercent == null
-    ) return null
-
-    val basePrice =
-        baseDollarPrice * dailyDollarRateToman
-
-    val profitAmount =
-        basePrice * profitPercent / 100.0
-
-    return (basePrice + profitAmount).toLong()
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

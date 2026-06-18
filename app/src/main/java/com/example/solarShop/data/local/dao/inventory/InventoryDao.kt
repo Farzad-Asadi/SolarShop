@@ -122,7 +122,11 @@ interface InventoryDao {
     ): Long
 
 
-
+    @Query("""
+    SELECT * FROM inventory_transactions
+    WHERE deletedAt IS NULL
+""")
+    fun observeAllTransactions(): Flow<List<InventoryTransactionEntity>>
 
 
 

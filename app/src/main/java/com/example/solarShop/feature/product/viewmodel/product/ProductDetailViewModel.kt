@@ -18,6 +18,7 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.utils.ProductPdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -130,6 +131,38 @@ class ProductDetailViewModel @Inject constructor(
             val dailyDollarRate =
                 manualDollarRate ?: apiDollarRate
 
+            val latestConsumerSale =
+                salePrices.firstOrNull {
+                    it.priceType == "consumer"
+                }
+
+            val latestColleagueSale =
+                salePrices.firstOrNull {
+                    it.priceType == "colleague"
+                }
+
+            val consumerSalePriceResult =
+                ProductPriceCalculator.calculate(
+                    buyPriceDollar = latestConsumerSale?.baseDollarPrice
+                        ?: activePurchasePrice?.buyPriceDollar,
+                    buyPriceToman = activePurchasePrice?.buyPriceToman,
+                    purchaseDollarRateToman = activePurchasePrice?.dollarRateToman,
+                    todayDollarRateToman = dailyDollarRate,
+                    profitPercent = latestConsumerSale?.profitPercent ?: 0.0,
+                    fixedProfitToman = 0L
+                )
+
+            val colleagueSalePriceResult =
+                ProductPriceCalculator.calculate(
+                    buyPriceDollar = latestColleagueSale?.baseDollarPrice
+                        ?: activePurchasePrice?.buyPriceDollar,
+                    buyPriceToman = activePurchasePrice?.buyPriceToman,
+                    purchaseDollarRateToman = activePurchasePrice?.dollarRateToman,
+                    todayDollarRateToman = dailyDollarRate,
+                    profitPercent = latestColleagueSale?.profitPercent ?: 0.0,
+                    fixedProfitToman = 0L
+                )
+
             val salePriceResult =
                 pricingRepository.calculateSalePrice(
                     productId = productId,
@@ -142,6 +175,8 @@ class ProductDetailViewModel @Inject constructor(
                 attributes = attributes,
                 activePurchasePrice = activePurchasePrice,
                 salePriceResult = salePriceResult,
+                consumerSalePriceResult = consumerSalePriceResult,
+                colleagueSalePriceResult = colleagueSalePriceResult,
                 salePrices = salePrices,
                 dailyDollarRateToman = dailyDollarRate,
                 currentStock = currentStock,

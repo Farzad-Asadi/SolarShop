@@ -126,4 +126,8 @@ interface PricingRepository {
 
     suspend fun getAllCurrencyRatesForBackup(): List<CurrencyRateEntity>
 
+    fun observeAllPurchasePrices(): Flow<List<ProductPurchasePriceEntity>>
+
+    fun observeAllSalePrices(): Flow<List<ProductSalePriceEntity>>
+
 }

@@ -439,7 +439,17 @@ interface PricingDao{
     )
 
 
+    @Query("""
+    SELECT * FROM product_purchase_prices
+    WHERE deletedAt IS NULL
+""")
+    fun observeAllPurchasePrices(): Flow<List<ProductPurchasePriceEntity>>
 
+    @Query("""
+    SELECT * FROM product_sale_prices
+    WHERE deletedAt IS NULL
+""")
+    fun observeAllSalePrices(): Flow<List<ProductSalePriceEntity>>
 
 
 }

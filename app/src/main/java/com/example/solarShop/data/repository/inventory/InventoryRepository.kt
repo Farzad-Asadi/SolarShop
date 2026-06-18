@@ -58,4 +58,6 @@ interface InventoryRepository {
 
     suspend fun getAllInventoryTransactionsForBackup(): List<InventoryTransactionEntity>
 
+    fun observeAllTransactions(): Flow<List<InventoryTransactionEntity>>
+
 }

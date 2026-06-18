@@ -129,4 +129,7 @@ class InventoryRepositoryImpl @Inject constructor(
         return inventoryDao.getAllInventoryTransactionsForBackup()
     }
 
+    override fun observeAllTransactions() =
+        inventoryDao.observeAllTransactions()
+
 }

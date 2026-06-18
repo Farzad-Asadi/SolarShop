@@ -323,7 +323,23 @@ fun DashboardScreen(                               //صفحه پروفایل
                                         expanded = indicatorsExpanded,
                                         onExpandedChange = { indicatorsExpanded = it }
                                     ) {
-                                        Text("اینجا بعداً ارزش انبار، درآمد، سود و شاخص‌های لحظه‌ای قرار می‌گیرد.")
+                                        Text(
+                                            text = "ارزش تومانی کل کالاها: ${uiState.totalInventoryValueToman.toPriceString()} تومان"
+                                        )
+
+                                        Text(
+                                            text = "ارزش دلاری کل کالاها: ${
+                                                String.format("%.2f", uiState.totalInventoryValueDollar)
+                                            } دلار"
+                                        )
+
+                                        Text(
+                                            text = "میزان فروش ماه جاری: ${uiState.currentMonthSalesToman.toPriceString()} تومان"
+                                        )
+
+                                        Text(
+                                            text = "سود ماه جاری: ${uiState.currentMonthProfitToman.toPriceString()} تومان"
+                                        )
                                     }
                                 }
 
