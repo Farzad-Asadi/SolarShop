@@ -174,20 +174,12 @@ class ProductByCategoryViewModel @Inject constructor(
             productIds.map { productId ->
                 combine(
                     pricingRepository.observeSalePrices(productId),
-                    pricingRepository.observePurchasePrices(productId),
                     pricingRepository.observeCurrencyRateHistory("USD"),
                     dollarRatePrefs.manualDollarRateFlow
-                ) { salePrices, purchasePrices, currencyRates, manualDollarRate ->
-
-                    val latestConsumerSale =
-                        salePrices.firstOrNull {
-                            it.priceType == "consumer" && it.isActive
-                        }
+                ) { salePrices, currencyRates, manualDollarRate ->
 
                     val activePurchasePrice =
-                        purchasePrices.firstOrNull {
-                            it.isActive
-                        }
+                        pricingRepository.getActivePurchasePrice(productId)
 
                     val apiDollarRate =
                         currencyRates.firstOrNull()?.rateToman
@@ -195,18 +187,21 @@ class ProductByCategoryViewModel @Inject constructor(
                     val dailyDollarRate =
                         manualDollarRate ?: apiDollarRate
 
+                    val latestConsumerSale =
+                        salePrices.firstOrNull {
+                            it.priceType == "consumer"
+                        }
+
                     val livePrice =
                         ProductPriceCalculator.calculate(
                             buyPriceDollar = latestConsumerSale?.baseDollarPrice
                                 ?: activePurchasePrice?.buyPriceDollar,
-                            buyPriceToman = activePurchasePrice?.buyPriceToman
-                                ?: latestConsumerSale?.basePurchasePriceToman,
-                            purchaseDollarRateToman = activePurchasePrice?.dollarRateToman
-                                ?: latestConsumerSale?.dollarRateToman,
+                            buyPriceToman = activePurchasePrice?.buyPriceToman,
+                            purchaseDollarRateToman = activePurchasePrice?.dollarRateToman,
                             todayDollarRateToman = dailyDollarRate,
                             profitPercent = latestConsumerSale?.profitPercent ?: 0.0,
                             fixedProfitToman = 0L
-                        )?.finalSalePriceToman ?: latestConsumerSale?.salePriceToman
+                        )?.finalSalePriceToman
 
                     productId to livePrice
                 }

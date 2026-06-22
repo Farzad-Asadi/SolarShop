@@ -17,12 +17,13 @@ interface PricingDao{
     // Purchase Price
 
     @Query("""
-        SELECT * FROM product_purchase_prices
-        WHERE productId = :productId 
-        AND isActive = 1
-        AND deletedAt IS NULL
-        LIMIT 1
-    """)
+    SELECT * FROM product_purchase_prices
+    WHERE productId = :productId 
+    AND isActive = 1
+    AND deletedAt IS NULL
+    ORDER BY purchasedAt DESC, createdAt DESC
+    LIMIT 1
+""")
     suspend fun getActivePurchasePrice(productId: Int): ProductPurchasePriceEntity?
 
     @Query("""
