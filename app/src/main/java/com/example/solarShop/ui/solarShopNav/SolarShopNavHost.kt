@@ -30,14 +30,15 @@ import com.example.solarShop.feature.product.ui.inventory.InventoryTransactionEd
 import com.example.solarShop.feature.product.ui.pricing.PurchasePriceEditScreen
 import com.example.solarShop.feature.product.ui.product.ProductDetailScreen
 import com.example.solarShop.feature.product.ui.product.ProductEditScreen
+import com.example.solarShop.feature.sendReport.ui.SendReportScreen
 import com.example.solarShop.ui.contractScreen.ContractScreen
+import com.example.solarShop.ui.dashboardScreen.DashboardScreen
 import com.example.solarShop.ui.orderScreen.OrderScreen
 import com.example.solarShop.ui.orderScreen.orderCatalog.CatalogScreen
 import com.example.solarShop.ui.orderScreen.orderCosts.CostScreen
 import com.example.solarShop.ui.orderScreen.orderInvoice.OrderInvoiceScreen
 import com.example.solarShop.ui.orderScreen.orderPicture.OrderPictureScreen
 import com.example.solarShop.ui.orderScreen.orderPriceEstimate.PriceEstimateScreen
-import com.example.solarShop.ui.dashboardScreen.DashboardScreen
 import com.example.solarShop.ui.questionInfoScreen.QuestionInfoScreen
 import com.example.solarShop.ui.questionTreeScreen.QuestionTreeScreen
 import com.example.solarShop.ui.signInScreen.SignInScreen
@@ -94,68 +95,7 @@ fun SolarShopNavHost(
             startDestination = SolarRoute.Splash.name,
             modifier = Modifier.fillMaxSize()
         ) {
-            composable(SolarRoute.Splash.name) {
-                SplashGate(
-                    onResolved = { target ->
-                        nav.navigate(target)
-                        { popUpTo(SolarRoute.Splash.name) { inclusive = true } }
-                    }
-                )
-            }
-            composable(SolarRoute.SignIn.name) {
-                SignInScreen(
-                    onNavigateHome = {
-                        nav.navigate(SolarRoute.Profile.name ) {
-                            popUpTo(
-                                SolarRoute.SignIn.name
-                            ) { inclusive = true }
-                        }
-                    })
 
-            }
-            composable(
-                route = SolarRoute.Profile.name + "?userId={userId}",
-                arguments = listOf(
-                    navArgument("userId") { type = NavType.IntType; defaultValue = -1 }
-                )
-            ) {
-
-                DashboardScreen(
-                    onClickAddOrder = { orderId ->
-                        nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
-                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
-                        }
-                    },
-                    onClickOrder = { orderId ->
-                        nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
-                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
-                        }
-                    },
-                    onShowEditeContract = {
-                        nav.navigate(SolarRoute.Contract.name + "?entrySource=profile")
-                        {
-                            popUpTo(SolarRoute.Profile.name) {
-                                inclusive = false
-                            }
-                        }    // هنگام برگشت به صفحه Profile، آن را از نو لود کن
-                    },
-                    onSignedOut = {
-                        nav.navigate(SolarRoute.SignIn.name) {
-                            popUpTo(SolarRoute.Profile.name) { inclusive = true }
-                        }
-                    },
-                    onClickBackUpRestore = {
-                        nav.navigate(SolarRoute.BackUpRestore.name) {
-                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
-                        }
-                    },
-                    onClickProductList = {
-                        nav.navigate(SolarRoute.ProductList.name) {
-                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
-                        }
-                    }
-                )
-            }
             composable(
                 route = SolarRoute.Order.name + "?orderId={orderId}",
                 arguments = listOf(
@@ -382,6 +322,78 @@ fun SolarShopNavHost(
 
 
 
+
+
+            composable(SolarRoute.Splash.name) {
+                SplashGate(
+                    onResolved = { target ->
+                        nav.navigate(target)
+                        { popUpTo(SolarRoute.Splash.name) { inclusive = true } }
+                    }
+                )
+            }
+            composable(SolarRoute.SignIn.name) {
+                SignInScreen(
+                    onNavigateHome = {
+                        nav.navigate(SolarRoute.Profile.name ) {
+                            popUpTo(
+                                SolarRoute.SignIn.name
+                            ) { inclusive = true }
+                        }
+                    })
+
+            }
+            composable(
+                route = SolarRoute.Profile.name + "?userId={userId}",
+                arguments = listOf(
+                    navArgument("userId") { type = NavType.IntType; defaultValue = -1 }
+                )
+            ) {
+
+                DashboardScreen(
+                    onClickAddOrder = { orderId ->
+                        nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
+                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
+                        }
+                    },
+                    onClickOrder = { orderId ->
+                        nav.navigate(SolarRoute.Order.name + "?orderId=$orderId") {
+                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
+                        }
+                    },
+                    onShowEditeContract = {
+                        nav.navigate(SolarRoute.Contract.name + "?entrySource=profile")
+                        {
+                            popUpTo(SolarRoute.Profile.name) {
+                                inclusive = false
+                            }
+                        }    // هنگام برگشت به صفحه Profile، آن را از نو لود کن
+                    },
+                    onSignedOut = {
+                        nav.navigate(SolarRoute.SignIn.name) {
+                            popUpTo(SolarRoute.Profile.name) { inclusive = true }
+                        }
+                    },
+                    onClickBackUpRestore = {
+                        nav.navigate(SolarRoute.BackUpRestore.name) {
+                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
+                        }
+                    },
+                    onClickProductList = {
+                        nav.navigate(SolarRoute.ProductList.name) {
+                            popUpTo(SolarRoute.Profile.name) { inclusive = false }
+                        }
+                    },
+                    onClickSendReport = {
+                        nav.navigate(SolarRoute.SendReport.name) {
+                            popUpTo(SolarRoute.Profile.name) {
+                                inclusive = false
+                            }
+                        }
+                    }
+                )
+            }
+
             composable(SolarRoute.ProductList.name) {
                 ProductListScreen(
                     onAddCategoryClick = {
@@ -569,6 +581,14 @@ fun SolarShopNavHost(
                 )
             }
 
+            composable(SolarRoute.SendReport.name) {
+                SendReportScreen(
+                    onBack = {
+                        nav.navigateUp()
+                    }
+                )
+            }
+
         }
 
         SnackbarHost(
@@ -602,6 +622,7 @@ enum class SolarRoute {
     InventoryTransactionEdit,
     BrandList,
     BrandEdit,
+    SendReport,
 
 
 

@@ -195,6 +195,7 @@ fun DashboardScreen(                               //صفحه پروفایل
     onShowEditeContract: () -> Unit,
     onClickBackUpRestore: () -> Unit,
     onClickProductList: () -> Unit,
+    onClickSendReport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -407,7 +408,7 @@ fun DashboardScreen(                               //صفحه پروفایل
                                     ) {
                                         QuickAccessRow(
                                             onClickProductList = onClickProductList,
-                                            onClickEditContract = onShowEditeContract,
+                                            onClickSendReport = onClickSendReport,
                                             onClickBackup = onClickBackUpRestore,
                                             onClickUserData = {}
                                         )
@@ -1995,7 +1996,7 @@ private fun EditePremiumTopBar(
 fun QuickAccessRow(
     modifier: Modifier = Modifier,
     onClickProductList: () -> Unit,
-    onClickEditContract: () -> Unit,
+    onClickSendReport: () -> Unit,
     onClickBackup: () -> Unit,
     onClickUserData: () -> Unit,
 ) {
@@ -2031,8 +2032,8 @@ fun QuickAccessRow(
             item {
                 QuickTile(
                     icon = Icons.Outlined.Description,
-                    label = stringResource(R.string.profile_quick_access_edit_contract),
-                    onClick = onClickEditContract
+                    label = "ارسال گزارش",
+                    onClick = onClickSendReport
                 )
             }
 //            item {
