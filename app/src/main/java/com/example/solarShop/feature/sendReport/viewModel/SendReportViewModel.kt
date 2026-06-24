@@ -15,14 +15,16 @@ import com.example.solarShop.utils.pdf.ProductPriceReportRow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 
-data class SendReportUiState(
-    val isLoading: Boolean = false
-)
+
 
 @HiltViewModel
 class SendReportViewModel @Inject constructor(
@@ -34,11 +36,107 @@ class SendReportViewModel @Inject constructor(
     private val productPriceListPdfExporter: ProductPriceListPdfExporter
 ) : ViewModel() {
 
+    private val _uiState =
+        MutableStateFlow(SendReportUiState())
+
+    val uiState: StateFlow<SendReportUiState> =
+        _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            productRepository.observeActiveCategories().collect { categories ->
+
+                val currentSelectedIds =
+                    _uiState.value.categories
+                        .filter { it.isSelected }
+                        .map { it.id }
+                        .toSet()
+
+                val isFirstLoad =
+                    _uiState.value.categories.isEmpty()
+
+                _uiState.update { oldState ->
+                    oldState.copy(
+                        categories = categories.mapNotNull { category ->
+                            val id = category.id ?: return@mapNotNull null
+
+                            SendReportCategoryUi(
+                                id = id,
+                                name = category.name,
+                                isSelected = if (isFirstLoad) {
+                                    true
+                                } else {
+                                    id in currentSelectedIds
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    fun setIncludeConsumerPrice(value: Boolean) {
+        _uiState.update {
+            it.copy(includeConsumerPrice = value)
+        }
+    }
+
+    fun setIncludeColleaguePrice(value: Boolean) {
+        _uiState.update {
+            it.copy(includeColleaguePrice = value)
+        }
+    }
+
+    fun toggleCategory(categoryId: Int) {
+        _uiState.update { state ->
+            state.copy(
+                categories = state.categories.map { category ->
+                    if (category.id == categoryId) {
+                        category.copy(isSelected = !category.isSelected)
+                    } else {
+                        category
+                    }
+                }
+            )
+        }
+    }
+
+    fun setAllCategoriesSelected(selected: Boolean) {
+        _uiState.update { state ->
+            state.copy(
+                categories = state.categories.map {
+                    it.copy(isSelected = selected)
+                }
+            )
+        }
+    }
+
     fun exportProductsWithPricesPdf() {
         viewModelScope.launch(Dispatchers.IO) {
+            val options =
+                _uiState.value
+
+            val selectedCategoryIds =
+                options.categories
+                    .filter { it.isSelected }
+                    .map { it.id }
+                    .toSet()
+
+            if (selectedCategoryIds.isEmpty()) {
+                return@launch
+            }
+
+            _uiState.update {
+                it.copy(isLoading = true)
+            }
 
             val products =
-                productRepository.observeActiveProductsFullInfo().first()
+                productRepository.observeActiveProductsFullInfo()
+                    .first()
+                    .filter {
+                        it.product.categoryId in selectedCategoryIds
+                    }
 
             val productIds =
                 products.mapNotNull { it.product.id }
@@ -145,9 +243,17 @@ class SendReportViewModel @Inject constructor(
                 }
 
             val file =
-                productPriceListPdfExporter.exportProductsWithPrices(rows)
+                productPriceListPdfExporter.exportProductsWithPrices(
+                    rows = rows,
+                    includeConsumerPrice = options.includeConsumerPrice,
+                    includeColleaguePrice = options.includeColleaguePrice
+                )
 
             openPdf(file)
+
+            _uiState.update {
+                it.copy(isLoading = false)
+            }
         }
     }
 
@@ -167,3 +273,17 @@ class SendReportViewModel @Inject constructor(
         app.startActivity(intent)
     }
 }
+
+
+data class SendReportCategoryUi(
+    val id: Int,
+    val name: String,
+    val isSelected: Boolean = true
+)
+
+data class SendReportUiState(
+    val isLoading: Boolean = false,
+    val includeConsumerPrice: Boolean = true,
+    val includeColleaguePrice: Boolean = true,
+    val categories: List<SendReportCategoryUi> = emptyList()
+)

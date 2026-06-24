@@ -16,6 +16,9 @@ import com.example.solarShop.utils.formatPersianDateTime
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -76,7 +79,9 @@ class ProductPriceListPdfExporter @Inject constructor(
 
 
     fun exportProductsWithPrices(
-        rows: List<ProductPriceReportRow>
+        rows: List<ProductPriceReportRow>,
+        includeConsumerPrice: Boolean,
+        includeColleaguePrice: Boolean
     ): File {
         val persianDateForFileName =
             formatPersianDateTime(
@@ -209,7 +214,13 @@ class ProductPriceListPdfExporter @Inject constructor(
         fun formatPrice(value: Long?): String {
             if (value == null || value <= 0L) return "-"
 
-            return "%,d تومان".format(value)
+            val formatter =
+                DecimalFormat(
+                    "#,###",
+                    DecimalFormatSymbols(Locale.US)
+                )
+
+            return "${formatter.format(value)} تومان"
         }
 
         fun newPage(pageIndex: Int): Pair<PdfDocument.Page, android.graphics.Canvas> {
@@ -265,37 +276,108 @@ class ProductPriceListPdfExporter @Inject constructor(
             ) + 14
         }
 
-        val colImage = 52
-        val colName = 128
-        val colModel = 82
-        val colBrand = 78
-        val colConsumer = 104
-        val colColleague = contentW - colImage - colName - colModel - colBrand - colConsumer
-
-        val colWidths = listOf(
-            colImage,
-            colName,
-            colModel,
-            colBrand,
-            colConsumer,
-            colColleague
+        data class PdfColumn(
+            val title: String,
+            val width: Int,
+            val value: (ProductPriceReportRow) -> String,
+            val isImage: Boolean = false,
+            val textSize: Float = 7.2f
         )
+
+        val priceColumnCount =
+            listOf(
+                includeConsumerPrice,
+                includeColleaguePrice
+            ).count { it }
+
+        val colImage = 40
+        val colModel = 58
+        val colBrand = 60
+
+        val colPrice =
+            when (priceColumnCount) {
+                2 -> 108
+                1 -> 130
+                else -> 0
+            }
+
+        val fixedColumnsWidth =
+            colImage +
+                    colModel +
+                    colBrand +
+                    if (includeConsumerPrice) colPrice else 0 +
+                            if (includeColleaguePrice) colPrice else 0
+
+        val colName =
+            (contentW - fixedColumnsWidth).coerceAtMost(120)
+
+        val columns =
+            buildList {
+                add(
+                    PdfColumn(
+                        title = "عکس",
+                        width = colImage,
+                        value = { "" },
+                        isImage = true
+                    )
+                )
+
+                add(
+                    PdfColumn(
+                        title = "نام",
+                        width = colName,
+                        value = { it.name },
+                        textSize = 7.0f
+                    )
+                )
+
+                add(
+                    PdfColumn(
+                        title = "مدل",
+                        width = colModel,
+                        value = { it.model },
+                        textSize = 6.8f
+                    )
+                )
+
+                add(
+                    PdfColumn(
+                        title = "برند",
+                        width = colBrand,
+                        value = { it.brand },
+                        textSize = 6.8f
+                    )
+                )
+
+                if (includeConsumerPrice) {
+                    add(
+                        PdfColumn(
+                            title = "مشتری",
+                            width = colPrice,
+                            value = { formatPrice(it.consumerPriceToman) },
+                            textSize = 6.8f
+                        )
+                    )
+                }
+
+                if (includeColleaguePrice) {
+                    add(
+                        PdfColumn(
+                            title = "همکار",
+                            width = colPrice,
+                            value = { formatPrice(it.colleaguePriceToman) },
+                            textSize = 6.8f
+                        )
+                    )
+                }
+            }
 
         fun drawTableHeader() {
             val rowH = 28
             var right = pageW - margin
 
-            val headers = listOf(
-                "عکس",
-                "نام",
-                "مدل",
-                "برند",
-                "مصرف‌کننده",
-                "همکار"
-            )
-
-            headers.forEachIndexed { index, title ->
-                val w = colWidths[index]
+            columns.forEach { column ->
+                val w = column.width
                 val left = right - w
 
                 canvas.drawRect(
@@ -316,11 +398,11 @@ class ProductPriceListPdfExporter @Inject constructor(
 
                 drawRtlText(
                     canvas = canvas,
-                    text = title,
+                    text = column.title,
                     x = left + 4,
                     y = y + 8,
                     width = w - 8,
-                    textSize = 8.5f,
+                    textSize = 7.2f,
                     bold = true
                 )
 
@@ -336,17 +418,8 @@ class ProductPriceListPdfExporter @Inject constructor(
 
             var right = pageW - margin
 
-            val values = listOf(
-                "",
-                row.name,
-                row.model,
-                row.brand,
-                formatPrice(row.consumerPriceToman),
-                formatPrice(row.colleaguePriceToman)
-            )
-
-            values.forEachIndexed { index, value ->
-                val w = colWidths[index]
+            columns.forEach { column ->
+                val w = column.width
                 val left = right - w
 
                 canvas.drawRect(
@@ -357,28 +430,28 @@ class ProductPriceListPdfExporter @Inject constructor(
                     linePaint
                 )
 
-                if (index == 0) {
+                if (column.isImage) {
                     val bitmap = decodeBitmap(row.coverUri)
                     if (bitmap != null) {
                         drawBitmapFitCenter(
                             canvas = canvas,
                             bitmap = bitmap,
                             box = android.graphics.Rect(
-                                left + 6,
-                                y + 6,
-                                right - 6,
-                                y + rowH - 6
+                                left + 5,
+                                y + 5,
+                                right - 5,
+                                y + rowH - 5
                             )
                         )
                     }
                 } else {
                     drawRtlText(
                         canvas = canvas,
-                        text = value,
-                        x = left + 4,
+                        text = column.value(row),
+                        x = left + 3,
                         y = y + 8,
-                        width = w - 8,
-                        textSize = 8f
+                        width = w - 6,
+                        textSize = column.textSize
                     )
                 }
 
