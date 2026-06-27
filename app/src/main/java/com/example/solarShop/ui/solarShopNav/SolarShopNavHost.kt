@@ -144,7 +144,7 @@ fun SolarShopNavHost(
                         }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                     },
                     onClickInvoice = { orderId ->
-                        nav.navigate(SolarRoute.OrderInvoice.name + "?entrySource=order&orderId=$orderId")
+                        nav.navigate(SolarRoute.OrderInvoice.name + "?orderId=$orderId")
                         {
                             popUpTo(SolarRoute.Order.name) {
                                 inclusive = false

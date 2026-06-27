@@ -37,6 +37,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -159,6 +161,7 @@ fun OrderInvoiceScreen(
                             onPreviewInvoicePdfClicked = vm::onPreviewInvoicePdfClicked,
                             onOpenInvoice = vm::onOpenInvoice,
                             onCreateNewFromTemplate = vm::onCreateNewFromTemplate,
+                            onCreateNewDocument = vm::onCreateNewDocument,
                             onDeleteInvoice = vm::onDeleteInvoice,
                             onSaveAndPreview= { headerInput, items ->
                                 vm.saveHeaderItemsAndPreview(headerInput, items)
@@ -184,6 +187,7 @@ fun OrderInvoiceScreen(
                             onConvertFromProforma = { templateId, _ ->
                                 vm.onConvertProformaToInvoice(templateId) // ✅
                             },
+                            onCreateNewDocument = vm::onCreateNewDocument,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -201,6 +205,7 @@ fun PreInvoiceContent(
     onPreviewInvoicePdfClicked: (invoiceId: Int) -> Unit,
     onOpenInvoice: (invoiceId: Int) -> Unit,
     onCreateNewFromTemplate: (templateId: Int) -> Unit,
+    onCreateNewDocument: () -> Unit,
     onDeleteInvoice: (id: Int) -> Unit,
     onSaveAndPreview: (InvoiceHeaderInput, List<InvoiceItemInput>) -> Unit,
     onConvertFromProforma: (templateId: Int, proformaId: Int) -> Unit,
@@ -223,6 +228,7 @@ fun PreInvoiceContent(
                 InvoiceEditorSection(
                     invoice = ui.editorInvoice,
                     prefs = prefs,
+                    invoiceProducts = ui.invoiceProducts,
                     onSaveAndPreview = { headerInput, items ->
                         onSaveAndPreview(headerInput, items)
                     }
@@ -254,15 +260,12 @@ fun PreInvoiceContent(
                     InvoiceTemplatesCard(
                         templates = ui.templates,
                         type = ui.type,
-                        onCreateFromTemplate = onCreateNewFromTemplate,
-                        proformaIdForConvert = ui.proformaInvoices.firstOrNull()?.id, // ✅
+                        onCreateNewDocument = onCreateNewDocument,
+                        proformaIdForConvert = ui.proformaInvoices.firstOrNull()?.id,
                         onConvertFromProforma = { templateId, proformaId ->
                             onConvertFromProforma(templateId, proformaId)
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                        // اگر لازم داشتی مثل قبل قدش رو کنترل کنی، می‌تونی heightIn هم اضافه کنی:
-                        // .heightIn(max = 320.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 } else {
                     // اگر سند داریم، فقط لیست سندها را نشان بده
@@ -288,6 +291,7 @@ fun InvoiceContent(
     onPreviewInvoicePdfClicked: (invoiceId: Int) -> Unit,
     onOpenInvoice: (invoiceId: Int) -> Unit,
     onCreateNewFromTemplate: (templateId: Int) -> Unit,
+    onCreateNewDocument: () -> Unit,
     onDeleteInvoice: (id: Int) -> Unit,
     onSaveAndPreview: (InvoiceHeaderInput, List<InvoiceItemInput>) -> Unit,
     onConvertFromProforma: (templateId: Int, proformaId: Int) -> Unit,
@@ -306,6 +310,7 @@ fun InvoiceContent(
         onConvertFromProforma = { templateId, proformaId ->
             onConvertFromProforma(templateId, proformaId)
         },
+        onCreateNewDocument = onCreateNewDocument,
         modifier = modifier
     )
 }
@@ -316,6 +321,7 @@ fun InvoiceContent(
 private fun InvoiceEditorSection(
     invoice: InvoiceWithItems?,
     prefs: DisplayPreferences,
+    invoiceProducts: List<InvoiceProductPickerUi>,
     onSaveAndPreview: (InvoiceHeaderInput, List<InvoiceItemInput>) -> Unit
 ) {
     // اگر هنوز لود نشده
@@ -447,6 +453,28 @@ private fun InvoiceEditorSection(
 
     var showDatePicker by remember { mutableStateOf(false) }
 
+    var showProductPicker by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    fun InvoiceItemDraft.isBlankDraft(): Boolean {
+        return id == null &&
+                description.isBlank() &&
+                unit.isBlank() &&
+                quantity.isBlank() &&
+                unitPrice.isBlank() &&
+                discount == 0L
+    }
+
+    fun appendItemDraft(newDraft: InvoiceItemDraft) {
+        itemDrafts =
+            if (itemDrafts.size == 1 && itemDrafts.first().isBlankDraft()) {
+                listOf(newDraft)
+            } else {
+                itemDrafts + newDraft
+            }
+    }
+
     if (showDatePicker) {
         PersianDateUiAdapter.Picker(
             currentEpochMs = headerDateMillis,
@@ -454,6 +482,29 @@ private fun InvoiceEditorSection(
                 headerDateMillis = picked
             },
             onDismiss = { showDatePicker = false }
+        )
+    }
+
+    if (showProductPicker) {
+        InvoiceProductPickerBottomSheet(
+            products = invoiceProducts,
+            prefs = prefs,
+            onDismiss = {
+                showProductPicker = false
+            },
+            onAddProduct = { product, price ->
+                appendItemDraft(
+                    InvoiceItemDraft(
+                        description = product.title,
+                        unit = product.unit,
+                        quantity = "1",
+                        unitPrice = price.toString(),
+                        discount = 0L
+                    )
+                )
+
+                showProductPicker = false
+            }
         )
     }
 
@@ -758,6 +809,36 @@ private fun InvoiceEditorSection(
         // 🟦 دسته ۴: محصولات / خدمات
         EditorSectionCard(title = "محصولات / خدمات") {
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        showProductPicker = true
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("افزودن کالا")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        appendItemDraft(
+                            InvoiceItemDraft(
+                                quantity = "1",
+                                unit = "عدد"
+                            )
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("ردیف دستی")
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             itemDrafts.forEachIndexed { index, item ->
 
                 Card(
@@ -1027,7 +1108,139 @@ private fun InvoiceEditorSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InvoiceProductPickerBottomSheet(
+    products: List<InvoiceProductPickerUi>,
+    prefs: DisplayPreferences,
+    onDismiss: () -> Unit,
+    onAddProduct: (InvoiceProductPickerUi, Long) -> Unit
+) {
+    var searchText by rememberSaveable {
+        mutableStateOf("")
+    }
 
+    val filteredProducts =
+        remember(searchText, products) {
+            val query = searchText.trim()
+
+            if (query.isBlank()) {
+                products
+            } else {
+                products.filter { product ->
+                    product.title.contains(query, ignoreCase = true)
+                }
+            }
+        }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "افزودن کالا از فروشگاه",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                label = { Text("جستجوی کالا") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            if (filteredProducts.isEmpty()) {
+                Text(
+                    text = "کالایی پیدا نشد.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            filteredProducts.take(80).forEach { product ->
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Text(
+                            text = product.title,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Text(
+                            text = "واحد: ${product.unit}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                enabled = product.consumerPriceToman != null,
+                                onClick = {
+                                    product.consumerPriceToman?.let { price ->
+                                        onAddProduct(product, price)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "مشتری\n${
+                                        product.consumerPriceToman?.toCurrencyText(prefs) ?: "-"
+                                    }",
+                                    maxLines = 2
+                                )
+                            }
+
+                            OutlinedButton(
+                                enabled = product.colleaguePriceToman != null,
+                                onClick = {
+                                    product.colleaguePriceToman?.let { price ->
+                                        onAddProduct(product, price)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "همکار\n${
+                                        product.colleaguePriceToman?.toCurrencyText(prefs) ?: "-"
+                                    }",
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
 
 @Composable
 fun InvoiceTopBar(
@@ -1230,7 +1443,7 @@ fun LastInvoiceCard(
 fun InvoiceTemplatesCard(
     templates: List<InvoiceTemplateEntity>,
     type: InvoiceType,
-    onCreateFromTemplate: (templateId: Int) -> Unit,
+    onCreateNewDocument: () -> Unit,
     proformaIdForConvert: Int?,
     onConvertFromProforma: (templateId: Int, proformaId: Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -1260,50 +1473,48 @@ fun InvoiceTemplatesCard(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (templates.isEmpty()) {
-                    Text(
-                        text = "هیچ تمپلیتی برای این نوع سند تعریف نشده.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
+                Spacer(Modifier.height(12.dp))
 
-                    Spacer(Modifier.height(12.dp))
+                val firstTemplateId =
+                    templates.firstOrNull()?.id ?: 0
 
+                val canConvert =
+                    type == InvoiceType.INVOICE && proformaIdForConvert != null
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onCreateNewDocument,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("ساخت سند جدید")
+                    }
 
-                    templates.forEach { tpl ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = 0.dp
-                            )
+                    if (canConvert) {
+                        Button(
+                            onClick = {
+                                onConvertFromProforma(
+                                    firstTemplateId,
+                                    proformaIdForConvert!!
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
-
-                            val canConvert = (type == InvoiceType.INVOICE) && (proformaIdForConvert != null)
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Button(onClick = { onCreateFromTemplate(tpl.id) }) {
-                                    Text("ساخت سند جدید")
-                                }
-
-                                if (canConvert) {
-                                    Button(onClick = { onConvertFromProforma(tpl.id, proformaIdForConvert!!) }) {
-                                        Text("ساخت از پیش‌فاکتور")
-                                    }
-                                }
-                            }
+                            Text("ساخت از پیش‌فاکتور")
                         }
                     }
+                }
+
+                if (templates.isEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = "تمپلیت پیش‌فرض به‌صورت خودکار ساخته می‌شود.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }

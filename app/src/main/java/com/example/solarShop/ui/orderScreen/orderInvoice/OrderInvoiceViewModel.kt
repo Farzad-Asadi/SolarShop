@@ -3,6 +3,7 @@ package com.example.solarShop.ui.orderScreen.orderInvoice
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -14,7 +15,10 @@ import com.example.solarShop.InvoiceStatus
 import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.dataStore.DisplayPreferencesDataSource
+import com.example.solarShop.data.dataStore.DollarRatePreferencesDataSource
 import com.example.solarShop.data.dataStore.SessionDataStore.Keys.currentUserId
+import com.example.solarShop.data.repository.pricing.PricingRepository
+import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.client.ClientRepository
 import com.example.solarShop.data.room.tables.orderAll.order.OrderEntity
@@ -27,6 +31,7 @@ import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceTempl
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceWithItems
 import com.example.solarShop.data.room.tables.user.UserEntity
 import com.example.solarShop.data.room.tables.user.UserRepository
+import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.utils.PdfInvoiceExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,6 +62,9 @@ class OrderInvoiceViewModel @Inject constructor(
     private val pdfExporter: PdfInvoiceExporter,
     private val dataStore: DataStore<Preferences>,
     private val userRepo: UserRepository,
+    private val productRepository: ProductRepository,
+    private val pricingRepository: PricingRepository,
+    private val dollarRatePrefs: DollarRatePreferencesDataSource,
     @ApplicationContext private val app: Context,
     private val savedStateHandle: SavedStateHandle,
     private val displayPrefs: DisplayPreferencesDataSource,
@@ -115,14 +123,17 @@ class OrderInvoiceViewModel @Inject constructor(
             else orderRepo.observeOrderById(id)
         }
 
-    // تمپلیت‌ها برای این نوع سند
     @OptIn(ExperimentalCoroutinesApi::class)
     private val templatesFlow: Flow<List<InvoiceTemplateEntity>> =
         typeFlow.flatMapLatest { type ->
             flow {
-                val list = templateDao.getTemplatesByType(type)
+                ensureDefaultTemplate(type)
+
+                val list =
+                    templateDao.getTemplatesByType(type)
+
                 emit(list)
-            }
+            }.flowOn(Dispatchers.IO)
         }
 
     // فاکتورهای این سفارش با این نوع
@@ -156,6 +167,81 @@ class OrderInvoiceViewModel @Inject constructor(
             }
         }
 
+    private val invoiceProductsFlow: Flow<List<InvoiceProductPickerUi>> =
+        combine(
+            productRepository.observeActiveProductsFullInfo(),
+            pricingRepository.observeCurrencyRateHistory("USD"),
+            dollarRatePrefs.manualDollarRateFlow
+        ) { products, currencyRates, manualDollarRate ->
+
+            val apiDollarRate =
+                currencyRates.firstOrNull()?.rateToman
+
+            val dailyDollarRate =
+                manualDollarRate ?: apiDollarRate
+
+            products.mapNotNull { productFullInfo ->
+
+                val productId =
+                    productFullInfo.product.id ?: return@mapNotNull null
+
+                val activePurchasePrice =
+                    pricingRepository.getActivePurchasePrice(productId)
+
+                val consumerSale =
+                    pricingRepository.getActiveSalePrice(
+                        productId = productId,
+                        priceType = "consumer"
+                    )
+
+                val colleagueSale =
+                    pricingRepository.getActiveSalePrice(
+                        productId = productId,
+                        priceType = "colleague"
+                    )
+
+                val consumerPrice =
+                    ProductPriceCalculator.calculate(
+                        buyPriceDollar = consumerSale?.baseDollarPrice
+                            ?: activePurchasePrice?.buyPriceDollar,
+                        buyPriceToman = activePurchasePrice?.buyPriceToman,
+                        purchaseDollarRateToman = activePurchasePrice?.dollarRateToman,
+                        todayDollarRateToman = dailyDollarRate,
+                        profitPercent = consumerSale?.profitPercent ?: 0.0,
+                        fixedProfitToman = 0L
+                    )?.finalSalePriceToman
+
+                val colleaguePrice =
+                    ProductPriceCalculator.calculate(
+                        buyPriceDollar = colleagueSale?.baseDollarPrice
+                            ?: activePurchasePrice?.buyPriceDollar,
+                        buyPriceToman = activePurchasePrice?.buyPriceToman,
+                        purchaseDollarRateToman = activePurchasePrice?.dollarRateToman,
+                        todayDollarRateToman = dailyDollarRate,
+                        profitPercent = colleagueSale?.profitPercent ?: 0.0,
+                        fixedProfitToman = 0L
+                    )?.finalSalePriceToman
+
+                val titleParts =
+                    listOfNotNull(
+                        productFullInfo.product.name,
+                        productFullInfo.product.model
+                            .takeIf { it.isNotBlank() }
+                            ?.let { "مدل $it" },
+                        productFullInfo.brand?.name
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { "برند $it" }
+                    )
+
+                InvoiceProductPickerUi(
+                    productId = productId,
+                    title = titleParts.joinToString(" - "),
+                    unit = productFullInfo.unit?.name ?: "عدد",
+                    consumerPriceToman = consumerPrice,
+                    colleaguePriceToman = colleaguePrice
+                )
+            }
+        }.flowOn(Dispatchers.IO)
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<OrderInvoiceUiState> =
@@ -168,6 +254,7 @@ class OrderInvoiceViewModel @Inject constructor(
             editorInvoiceFlow,
             currentUserFlow,
             proformaInvoicesFlow,
+            invoiceProductsFlow,
         ) { arr ->
             val order = arr[0] as OrderEntity?
             val type = arr[1] as InvoiceType
@@ -177,6 +264,7 @@ class OrderInvoiceViewModel @Inject constructor(
             val editorInvoice = arr[5] as InvoiceWithItems?
             val currentUser = arr[6] as UserEntity?
             val proformas = arr[7] as List<InvoiceDocumentEntity>
+            val invoiceProducts = arr[8] as List<InvoiceProductPickerUi>
 
             OrderInvoiceUiState(
                 isLoading = false,
@@ -190,6 +278,7 @@ class OrderInvoiceViewModel @Inject constructor(
                 editorInvoice = editorInvoice,
                 currentUser = currentUser,
                 proformaInvoices = proformas,
+                invoiceProducts = invoiceProducts,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -207,77 +296,7 @@ class OrderInvoiceViewModel @Inject constructor(
 
 
     fun onCreateNewFromTemplate(templateId: Int) {
-        viewModelScope.launch {
-            val orderId = orderIdFlow.value ?: return@launch
-            val type = typeFlow.value
-
-            // 👇 اگر قبلاً برای این سفارش و این نوع، سند داریم: همان را باز کن
-            val existing = invoiceDao.getInvoicesForOrder(orderId, type)
-            if (existing.isNotEmpty()) {
-                val first = existing.first()
-                editorState.value = InvoiceEditorUiState(
-                    isVisible = true,
-                    selectedInvoiceId = first.id
-                )
-                return@launch
-            }
-
-            // 👇 از این‌جا به بعد فقط وقتی اجرا می‌شود که هنوز سندی وجود ندارد
-
-            val order = orderRepo.getOrderById(orderId) ?: return@launch
-            val template = templateDao.getTemplateById(templateId) ?: return@launch
-
-            val now = System.currentTimeMillis()
-            val number = generateInvoiceNumber(type, now, orderId)
-
-            val seller = uiState.value.currentUser
-            val buyer: ClientEntity? = order.clientId.let { clientId ->
-                clientRepo.getClientById(clientId)    // یا clientDao.getById(...)
-            }
-
-
-            val doc = InvoiceDocumentEntity(
-                id = 0,
-                orderId = orderId,
-                templateId = template.id,
-                type = type,
-                number = number,
-                createdAt = now,
-                updatedAt = now,
-                status = InvoiceStatus.DRAFT,
-
-                sellerLabel = "فروشنده",
-                sellerName = seller?.name ?:"",
-                sellerPhone = seller?.mobilePhone ?:"",
-                sellerAddress = seller?.address ?:"",
-                sellerNationalId = seller?.nationalCode ?:"",
-                sellerEconomicCode = seller?.workshop ?:"",
-
-                buyerLabel = "مشتری",
-                buyerName = buyer?.name ?:"",
-                buyerPhone = buyer?.mobilePhone ?:"",
-                buyerAddress = buyer?.address ?:"",
-                buyerNationalId = buyer?.nationalCode ?:"",
-
-
-
-                subtotalBeforeDiscount = 0L,
-                totalDiscount = 0L,
-                totalBeforeTax = 0L,
-                totalTax = 0L,
-                totalFinal = 0L,
-
-                notes = null,
-                pdfAttachmentId = null
-            )
-
-            val newId = invoiceDao.insertInvoice(doc).toInt()
-
-            editorState.value = InvoiceEditorUiState(
-                isVisible = true,
-                selectedInvoiceId = newId
-            )
-        }
+        onCreateNewDocument()
     }
 
     fun onOpenInvoice(invoiceId: Int) {
@@ -514,11 +533,15 @@ class OrderInvoiceViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             val newNumber = generateInvoiceNumber(InvoiceType.INVOICE, now, orderId)
 
+            val safeTemplate =
+                templateDao.getTemplateById(templateId)
+                    ?: ensureDefaultTemplate(InvoiceType.INVOICE)
+
             // ✅ ساخت سند جدید Invoice با کپی فیلدهای پرشده
             val newDoc = source.invoice.copy(
                 id = 0,
                 type = InvoiceType.INVOICE,
-                templateId = templateId,
+                templateId = safeTemplate.id,
                 number = newNumber,
                 status = InvoiceStatus.DRAFT,
                 updatedAt = now,
@@ -538,7 +561,175 @@ class OrderInvoiceViewModel @Inject constructor(
         }
     }
 
+    private fun buildDefaultTemplate(type: InvoiceType): InvoiceTemplateEntity {
+        return when (type) {
+            InvoiceType.PROFORMA -> {
+                InvoiceTemplateEntity(
+                    id = 0,
+                    name = "پیش‌فاکتور فروش پنل‌کده",
+                    type = InvoiceType.PROFORMA,
+                    title = "پیش‌فاکتور فروش",
+                    hasTax = false,
+                    defaultTaxPercent = null,
+                    showAmountInWords = false,
+                    isDefaultForType = true
+                )
+            }
 
+            InvoiceType.INVOICE -> {
+                InvoiceTemplateEntity(
+                    id = 0,
+                    name = "فاکتور فروش پنل‌کده",
+                    type = InvoiceType.INVOICE,
+                    title = "فاکتور فروش",
+                    hasTax = false,
+                    defaultTaxPercent = null,
+                    showAmountInWords = true,
+                    isDefaultForType = true
+                )
+            }
+        }
+    }
+
+    private suspend fun ensureDefaultTemplate(type: InvoiceType): InvoiceTemplateEntity {
+        val existingDefault =
+            templateDao.getDefaultTemplateForType(type)
+
+        if (existingDefault != null) {
+            return existingDefault
+        }
+
+        val existingTemplates =
+            templateDao.getTemplatesByType(type)
+
+        if (existingTemplates.isNotEmpty()) {
+            return existingTemplates.first()
+        }
+
+        val defaultTemplate =
+            buildDefaultTemplate(type)
+
+        val newId =
+            templateDao.insertTemplate(defaultTemplate).toInt()
+
+        return defaultTemplate.copy(id = newId)
+    }
+
+    fun onCreateNewDocument() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val orderId = orderIdFlow.value
+
+                Log.d("OrderInvoiceVM", "onCreateNewDocument clicked. orderId=$orderId")
+
+                if (orderId == null) {
+                    Log.e("OrderInvoiceVM", "Cannot create invoice: orderId is null")
+                    return@launch
+                }
+
+                val type = typeFlow.value
+
+                Log.d("OrderInvoiceVM", "invoice type=$type")
+
+                val existing =
+                    invoiceDao.getInvoicesForOrder(orderId, type)
+
+                Log.d("OrderInvoiceVM", "existing invoices count=${existing.size}")
+
+                if (existing.isNotEmpty()) {
+                    val first = existing.first()
+
+                    Log.d("OrderInvoiceVM", "Opening existing invoice id=${first.id}")
+
+                    editorState.value = InvoiceEditorUiState(
+                        isVisible = true,
+                        selectedInvoiceId = first.id
+                    )
+
+                    return@launch
+                }
+
+                val order =
+                    orderRepo.getOrderById(orderId)
+
+                Log.d("OrderInvoiceVM", "order=$order")
+
+                if (order == null) {
+                    Log.e("OrderInvoiceVM", "Cannot create invoice: order not found for id=$orderId")
+                    return@launch
+                }
+
+                val template =
+                    ensureDefaultTemplate(type)
+
+                Log.d("OrderInvoiceVM", "template=$template")
+
+                val now =
+                    System.currentTimeMillis()
+
+                val number =
+                    generateInvoiceNumber(type, now, orderId)
+
+                val buyer: ClientEntity? =
+                    clientRepo.getClientById(order.clientId)
+
+                Log.d("OrderInvoiceVM", "buyer=$buyer")
+
+                val doc =
+                    InvoiceDocumentEntity(
+                        id = 0,
+                        orderId = orderId,
+                        templateId = template.id,
+                        type = type,
+                        number = number,
+                        createdAt = now,
+                        updatedAt = now,
+                        status = InvoiceStatus.DRAFT,
+
+                        sellerLabel = "فروشگاه",
+                        sellerName = "پنل‌کده",
+                        sellerPhone = "09199910369",
+                        sellerAddress = "سقز، خیابان ملت، مقابل برق آوازه",
+                        sellerNationalId = "",
+                        sellerEconomicCode = "",
+
+                        buyerLabel = "مشتری",
+                        buyerName = buyer?.name ?: "",
+                        buyerPhone = buyer?.mobilePhone ?: "",
+                        buyerAddress = buyer?.address ?: "",
+                        buyerNationalId = buyer?.nationalCode ?: "",
+
+                        subtotalBeforeDiscount = 0L,
+                        totalDiscount = 0L,
+                        totalBeforeTax = 0L,
+                        totalTax = 0L,
+                        totalFinal = 0L,
+
+                        notes = if (type == InvoiceType.PROFORMA) {
+                            "اعتبار قیمت‌ها وابسته به نوسان نرخ ارز و موجودی کالا است."
+                        } else {
+                            null
+                        },
+
+                        pdfAttachmentId = null
+                    )
+
+                val newId =
+                    invoiceDao.insertInvoice(doc).toInt()
+
+                Log.d("OrderInvoiceVM", "invoice inserted. newId=$newId")
+
+                editorState.value = InvoiceEditorUiState(
+                    isVisible = true,
+                    selectedInvoiceId = newId
+                )
+
+                Log.d("OrderInvoiceVM", "editor opened for invoiceId=$newId")
+            } catch (t: Throwable) {
+                Log.e("OrderInvoiceVM", "Create invoice failed", t)
+            }
+        }
+    }
 
 
 }
@@ -567,9 +758,18 @@ data class OrderInvoiceUiState(
     val currentUser: UserEntity?=null,
 
     val proformaInvoices: List<InvoiceDocumentEntity> = emptyList(),
+    val invoiceProducts: List<InvoiceProductPickerUi> = emptyList(),
 
 
     )
+
+data class InvoiceProductPickerUi(
+    val productId: Int,
+    val title: String,
+    val unit: String,
+    val consumerPriceToman: Long?,
+    val colleaguePriceToman: Long?
+)
 
 data class InvoiceEditorUiState(
     val isVisible: Boolean = false,
