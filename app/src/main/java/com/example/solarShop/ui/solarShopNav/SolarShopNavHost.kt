@@ -37,6 +37,7 @@ import com.example.solarShop.ui.orderScreen.OrderScreen
 import com.example.solarShop.ui.orderScreen.orderCatalog.CatalogScreen
 import com.example.solarShop.ui.orderScreen.orderCosts.CostScreen
 import com.example.solarShop.ui.orderScreen.orderInvoice.OrderInvoiceScreen
+import com.example.solarShop.ui.orderScreen.orderInvoice.OrderInvoiceViewModel
 import com.example.solarShop.ui.orderScreen.orderPicture.OrderPictureScreen
 import com.example.solarShop.ui.orderScreen.orderPriceEstimate.PriceEstimateScreen
 import com.example.solarShop.ui.questionInfoScreen.QuestionInfoScreen
@@ -144,12 +145,11 @@ fun SolarShopNavHost(
                         }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
                     },
                     onClickInvoice = { orderId ->
-                        nav.navigate(SolarRoute.OrderInvoice.name + "?orderId=$orderId")
-                        {
+                        nav.navigate(SolarRoute.OrderInvoice.name + "?orderId=$orderId") {
                             popUpTo(SolarRoute.Order.name) {
                                 inclusive = false
                             }
-                        }    // هنگام برگشت به صفحه Order، آن را از نو لود کن
+                        }
                     },
                     onClickBack = {
                         nav.navigate(SolarRoute.Profile.name)
@@ -288,11 +288,29 @@ fun SolarShopNavHost(
             composable(
                 route = SolarRoute.OrderInvoice.name + "?orderId={orderId}",
                 arguments = listOf(
-                    navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
+                    navArgument("orderId") {
+                        type = NavType.IntType
+                        defaultValue = -1
+                    }
+                )
+            ) { backStackEntry ->
+
+                val orderId =
+                    backStackEntry.arguments
+                        ?.getInt("orderId")
+                        ?.takeIf { it != -1 }
+
+                Log.d(
+                    "OrderInvoiceNav",
+                    "OrderInvoice destination orderId=$orderId route=${backStackEntry.destination.route}"
                 )
 
-            ) {
+                val invoiceVm: OrderInvoiceViewModel =
+                    hiltViewModel(backStackEntry)
+
                 OrderInvoiceScreen(
+                    orderId = orderId,
+                    vm = invoiceVm,
                     onClose = {
                         nav.navigateUp()
                     }

@@ -495,7 +495,10 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-
+    fun currentOrderIdForNavigation(): Int? {
+        return orderIdStateFlow.value.takeIf { it != -1 }
+            ?: uiState.value.currentOrderEntity?.id
+    }
 
 
     fun onOrderScreenHidden() {

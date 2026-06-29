@@ -238,7 +238,20 @@ fun OrderScreen(                               //صفحه سفارش
             onClickContract = { onClickContract(ui.currentOrderEntity?.id ?: -1) },
             onClickCosts = { onClickCost(ui.currentOrderEntity?.id ?: -1) },
             onClickPicture = { onClickPicture(ui.currentOrderEntity?.id ?: -1) },
-            onClickFacture = { onClickInvoice(ui.currentOrderEntity?.id ?: -1) },
+            onClickFacture = {
+                val id = vm.currentOrderIdForNavigation()
+
+                android.util.Log.d(
+                    "OrderScreenNav",
+                    "invoice clicked. navOrderId=$id entityId=${ui.currentOrderEntity?.id}"
+                )
+
+                if (id != null) {
+                    onClickInvoice(id)
+                } else {
+                    snackbar.show("شناسه سفارش هنوز آماده نیست. چند لحظه بعد دوباره تلاش کنید.")
+                }
+            },
             modifier = Modifier.padding(innerPadding),
             progressPercent = ui.progressPercent,
             onClickUpdateStatus = { showWorkflowDialog = true },

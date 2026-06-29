@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -48,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,11 +79,13 @@ import com.example.solarShop.utils.TopBarGeneral
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.iranMobileVisualTransformationNew
 import com.example.solarShop.utils.toCurrencyText
+import kotlin.math.roundToLong
 
 
 @Composable
 fun OrderInvoiceScreen(
     modifier: Modifier = Modifier,
+    orderId: Int?,
     onClose: () -> Unit,
     vm: OrderInvoiceViewModel = hiltViewModel()
 ) {
@@ -89,6 +93,10 @@ fun OrderInvoiceScreen(
     val ui by vm.uiState.collectAsStateWithLifecycle()
 
     val prefs by vm.displayPrefsState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(orderId) {
+        vm.setOrderIdFromNav(orderId)
+    }
 
     val topBarTitle = buildString {
         append("پیش فاکتور/فاکتور")
@@ -127,7 +135,8 @@ fun OrderInvoiceScreen(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
 
         Scaffold(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize()
+                .imePadding(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopBarGeneral(
@@ -315,7 +324,56 @@ fun InvoiceContent(
     )
 }
 
+private const val INSTALLATION_FEE_PREFIX = "حق نصب"
 
+private fun String.normalizeInvoiceNumberText(): String {
+    return this
+        .replace('۰', '0')
+        .replace('۱', '1')
+        .replace('۲', '2')
+        .replace('۳', '3')
+        .replace('۴', '4')
+        .replace('۵', '5')
+        .replace('۶', '6')
+        .replace('۷', '7')
+        .replace('۸', '8')
+        .replace('۹', '9')
+        .replace('٠', '0')
+        .replace('١', '1')
+        .replace('٢', '2')
+        .replace('٣', '3')
+        .replace('٤', '4')
+        .replace('٥', '5')
+        .replace('٦', '6')
+        .replace('٧', '7')
+        .replace('٨', '8')
+        .replace('٩', '9')
+        .replace('٫', '.')
+}
+
+private fun parseInstallationPercent(description: String): String? {
+    if (!description.trim().startsWith(INSTALLATION_FEE_PREFIX)) return null
+
+    val match =
+        Regex("""حق نصب\s*\(([^٪%]+)[٪%]\)""")
+            .find(description)
+
+    return match
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.trim()
+        ?.normalizeInvoiceNumberText()
+}
+
+private fun buildInstallationDescription(percentText: String): String {
+    val cleanPercent =
+        percentText
+            .normalizeInvoiceNumberText()
+            .trim()
+            .ifBlank { "0" }
+
+    return "$INSTALLATION_FEE_PREFIX ($cleanPercent٪)"
+}
 
 @Composable
 private fun InvoiceEditorSection(
@@ -377,13 +435,19 @@ private fun InvoiceEditorSection(
                 listOf(InvoiceItemDraft())
             } else {
                 invoice.items.map { item ->
+                    val installationPercent =
+                        parseInstallationPercent(item.description)
+
                     InvoiceItemDraft(
                         id = item.id,
                         description = item.description,
                         unit = item.unit ?: "",
                         quantity = item.quantity.toString(),
                         unitPrice = item.unitPrice.toString(),
-                        discount = if (item.rowDiscount != 0L) item.rowDiscount else 0L
+                        discount = if (item.rowDiscount != 0L) item.rowDiscount else 0L,
+
+                        isInstallationFee = installationPercent != null,
+                        installationPercent = installationPercent ?: ""
                     )
                 }
             }
@@ -391,17 +455,72 @@ private fun InvoiceEditorSection(
     }
 
     // جمع‌ها
-    val (calculatedSubtotal, calculatedTotalDiscount) = itemDrafts.fold(0L to 0L) { acc, draft ->
-        val qty = draft.quantity.toDoubleOrNull() ?: return@fold acc
-        val price = draft.unitPrice.toLongOrNull() ?: return@fold acc
-        val discount = draft.discount
+    fun normalDraftRowSubtotal(draft: InvoiceItemDraft): Long {
+        val qty =
+            draft.quantity
+                .normalizeInvoiceNumberText()
+                .toDoubleOrNull()
+                ?: return 0L
 
-        val rowSubtotal = (qty * price).toLong().coerceAtLeast(0L)
-        val rowDiscount = discount.coerceAtLeast(0L)
+        val price =
+            draft.unitPrice
+                .normalizeInvoiceNumberText()
+                .toLongOrNull()
+                ?: return 0L
 
-        (acc.first + rowSubtotal) to (acc.second + rowDiscount)
+        return (qty * price)
+            .toLong()
+            .coerceAtLeast(0L)
     }
-    val calculatedTotal: Long = (calculatedSubtotal - calculatedTotalDiscount).coerceAtLeast(0L)
+
+    fun normalDraftRowDiscount(draft: InvoiceItemDraft): Long {
+        return draft.discount.coerceAtLeast(0L)
+    }
+
+    val installationBaseTotal: Long =
+        itemDrafts
+            .filterNot { it.isInstallationFee }
+            .sumOf { draft ->
+                (normalDraftRowSubtotal(draft) - normalDraftRowDiscount(draft))
+                    .coerceAtLeast(0L)
+            }
+
+    fun installationFeeAmount(percentText: String): Long {
+        val percent =
+            percentText
+                .normalizeInvoiceNumberText()
+                .toDoubleOrNull()
+                ?: 0.0
+
+        return ((installationBaseTotal * percent) / 100.0)
+            .roundToLong()
+            .coerceAtLeast(0L)
+    }
+
+    fun draftRowSubtotal(draft: InvoiceItemDraft): Long {
+        return if (draft.isInstallationFee) {
+            installationFeeAmount(draft.installationPercent)
+        } else {
+            normalDraftRowSubtotal(draft)
+        }
+    }
+
+    fun draftRowDiscount(draft: InvoiceItemDraft): Long {
+        return if (draft.isInstallationFee) {
+            0L
+        } else {
+            normalDraftRowDiscount(draft)
+        }
+    }
+
+    val calculatedSubtotal =
+        itemDrafts.sumOf { draftRowSubtotal(it) }
+
+    val calculatedTotalDiscount =
+        itemDrafts.sumOf { draftRowDiscount(it) }
+
+    val calculatedTotal: Long =
+        (calculatedSubtotal - calculatedTotalDiscount).coerceAtLeast(0L)
 
     // برچسب فروشنده
     val sellerLabelOptions = listOf(
@@ -643,7 +762,9 @@ private fun InvoiceEditorSection(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
+
+
 
             // تلفن فروشنده
             Row(
@@ -839,6 +960,30 @@ private fun InvoiceEditorSection(
 
             Spacer(Modifier.height(12.dp))
 
+            OutlinedButton(
+                enabled = itemDrafts.none { it.isInstallationFee },
+                onClick = {
+                    appendItemDraft(
+                        InvoiceItemDraft(
+                            description = buildInstallationDescription("7"),
+                            unit = "درصد",
+                            quantity = "1",
+                            unitPrice = "",
+                            discount = 0L,
+                            isInstallationFee = true,
+                            installationPercent = "7"
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("افزودن حق نصب درصدی")
+            }
+
+
+
+            Spacer(Modifier.height(12.dp))
+
             itemDrafts.forEachIndexed { index, item ->
 
                 Card(
@@ -857,104 +1002,158 @@ private fun InvoiceEditorSection(
                             style = MaterialTheme.typography.bodySmall
                         )
 
-                        Spacer(Modifier.height(4.dp))
-
-                        OutlinedTextField(
-                            value = item.description,
-                            onValueChange = { new ->
-                                itemDrafts = itemDrafts.toMutableList().also {
-                                    it[index] = it[index].copy(description = new)
-                                }
-                            },
-                            label = { Text("شرح کالا / خدمات") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 64.dp),
-                            maxLines = 3
-                        )
-
-                        Spacer(Modifier.height(6.dp))
-
-                        OutlinedTextField(
-                            value = item.unit,
-                            onValueChange = { new ->
-                                itemDrafts = itemDrafts.toMutableList().also {
-                                    it[index] = it[index].copy(unit = new)
-                                }
-                            },
-                            label = { Text("واحد") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(Modifier.height(6.dp))
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = item.quantity,
-                                onValueChange = { new ->
-                                    itemDrafts = itemDrafts.toMutableList().also {
-                                        it[index] = it[index].copy(quantity = new)
-                                    }
-                                },
-                                label = { Text("تعداد") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number
-                                ),
-                                maxLines = 1,
-                                modifier = Modifier.fillMaxWidth()
+                        if (item.isInstallationFee) {
+                            Text(
+                                text = "حق نصب درصدی",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
 
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
 
-                            MyCurrencyField(
-                                label = "فی",
-                                value = item.unitPrice.filter { it.isDigit() }.toLongOrNull(), // تومان
-                                toman = prefs.currencyUnit == CurrencyUnit.TOMAN,
-                                onValueChange = { newToman: Long? ->
-                                    itemDrafts = itemDrafts.toMutableList().also { list ->
-                                        list[index] = list[index].copy(
-                                            unitPrice = newToman?.toString() ?: ""
+                            OutlinedTextField(
+                                value = item.installationPercent,
+                                onValueChange = { new ->
+                                    val clean =
+                                        new
+                                            .normalizeInvoiceNumberText()
+                                            .filter { it.isDigit() || it == '.' }
+                                            .take(6)
+
+                                    itemDrafts = itemDrafts.toMutableList().also {
+                                        it[index] = it[index].copy(
+                                            installationPercent = clean,
+                                            description = buildInstallationDescription(clean),
+                                            unit = "درصد",
+                                            quantity = "1",
+                                            unitPrice = "",
+                                            discount = 0L
                                         )
                                     }
                                 },
+                                label = { Text("درصد حق نصب") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal
+                                ),
                                 modifier = Modifier.fillMaxWidth()
                             )
 
+                            Spacer(Modifier.height(8.dp))
 
-
-                            Spacer(Modifier.height(6.dp))
-
-                            MyCurrencyField(
-                                label = "تخفیف این ردیف",
-                                value = item.discount,
-                                toman = prefs.currencyUnit == CurrencyUnit.TOMAN,
-                                onValueChange = { new ->
-                                    itemDrafts = itemDrafts.toMutableList().also {
-                                        it[index] = it[index].copy(discount = new ?:0L)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                            Text(
+                                text = "مبنای محاسبه: ${installationBaseTotal.toCurrencyText(prefs)}",
+                                style = MaterialTheme.typography.bodySmall
                             )
-
-
-                            val rowAmount: Long? = run {
-                                val qty = item.quantity.toDoubleOrNull() ?: return@run null
-                                val price = item.unitPrice.toLongOrNull() ?: return@run null
-                                val discount = item.discount ?: 0L
-                                ((qty * price).toLong() - discount).coerceAtLeast(0L)
-                            }
 
                             Spacer(Modifier.height(4.dp))
 
                             Text(
-                                text = "مبلغ این ردیف: " +
-                                        (rowAmount?.toCurrencyText(prefs) ?: "-"),
-                                style = MaterialTheme.typography.bodySmall
+                                text = "مبلغ حق نصب: ${
+                                    installationFeeAmount(item.installationPercent).toCurrencyText(prefs)
+                                }",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
                             )
+                        } else {
+                            Spacer(Modifier.height(4.dp))
+
+                            OutlinedTextField(
+                                value = item.description,
+                                onValueChange = { new ->
+                                    itemDrafts = itemDrafts.toMutableList().also {
+                                        it[index] = it[index].copy(description = new)
+                                    }
+                                },
+                                label = { Text("شرح کالا / خدمات") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 64.dp),
+                                maxLines = 3
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            OutlinedTextField(
+                                value = item.unit,
+                                onValueChange = { new ->
+                                    itemDrafts = itemDrafts.toMutableList().also {
+                                        it[index] = it[index].copy(unit = new)
+                                    }
+                                },
+                                label = { Text("واحد") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = item.quantity,
+                                    onValueChange = { new ->
+                                        itemDrafts = itemDrafts.toMutableList().also {
+                                            it[index] = it[index].copy(quantity = new)
+                                        }
+                                    },
+                                    label = { Text("تعداد") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number
+                                    ),
+                                    maxLines = 1,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(Modifier.height(6.dp))
+
+                                MyCurrencyField(
+                                    label = "فی",
+                                    value = item.unitPrice.filter { it.isDigit() }.toLongOrNull(), // تومان
+                                    toman = prefs.currencyUnit == CurrencyUnit.TOMAN,
+                                    onValueChange = { newToman: Long? ->
+                                        itemDrafts = itemDrafts.toMutableList().also { list ->
+                                            list[index] = list[index].copy(
+                                                unitPrice = newToman?.toString() ?: ""
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+
+
+                                Spacer(Modifier.height(6.dp))
+
+                                MyCurrencyField(
+                                    label = "تخفیف این ردیف",
+                                    value = item.discount,
+                                    toman = prefs.currencyUnit == CurrencyUnit.TOMAN,
+                                    onValueChange = { new ->
+                                        itemDrafts = itemDrafts.toMutableList().also {
+                                            it[index] = it[index].copy(discount = new ?:0L)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+
+                                val rowAmount: Long =
+                                    (draftRowSubtotal(item) - draftRowDiscount(item))
+                                        .coerceAtLeast(0L)
+
+                                Spacer(Modifier.height(4.dp))
+
+                                Text(
+                                    text = "مبلغ این ردیف: " +
+                                            (rowAmount.toCurrencyText(prefs)),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
+
+
 
                         Spacer(Modifier.height(4.dp))
 
@@ -1080,20 +1279,55 @@ private fun InvoiceEditorSection(
 
                     // ۲) اقلام
                     val itemsInput = itemDrafts
-                        .filter { it.description.isNotBlank() || it.unitPrice.isNotBlank() }
+                        .filter {
+                            it.isInstallationFee ||
+                                    it.description.isNotBlank() ||
+                                    it.unitPrice.isNotBlank()
+                        }
                         .map { draft ->
-                            val quantity = draft.quantity.toDoubleOrNull() ?: 0.0
-                            val unitPrice = draft.unitPrice.toLongOrNull() ?: 0L
-                            val discount = draft.discount
+                            if (draft.isInstallationFee) {
+                                val percent =
+                                    draft.installationPercent
+                                        .normalizeInvoiceNumberText()
+                                        .trim()
+                                        .ifBlank { "0" }
 
-                            InvoiceItemInput(
-                                id = draft.id,
-                                description = draft.description.trim(),
-                                unit = draft.unit.trim().ifEmpty { null },
-                                quantity = quantity,
-                                unitPrice = unitPrice,
-                                discount = discount
-                            )
+                                val amount =
+                                    installationFeeAmount(percent)
+
+                                InvoiceItemInput(
+                                    id = draft.id,
+                                    description = buildInstallationDescription(percent),
+                                    unit = "درصد",
+                                    quantity = 1.0,
+                                    unitPrice = amount,
+                                    discount = 0L
+                                )
+                            } else {
+                                val quantity =
+                                    draft.quantity
+                                        .normalizeInvoiceNumberText()
+                                        .toDoubleOrNull()
+                                        ?: 0.0
+
+                                val unitPrice =
+                                    draft.unitPrice
+                                        .normalizeInvoiceNumberText()
+                                        .toLongOrNull()
+                                        ?: 0L
+
+                                val discount =
+                                    draft.discount
+
+                                InvoiceItemInput(
+                                    id = draft.id,
+                                    description = draft.description.trim(),
+                                    unit = draft.unit.trim().ifEmpty { null },
+                                    quantity = quantity,
+                                    unitPrice = unitPrice,
+                                    discount = discount
+                                )
+                            }
                         }
 
                     // ۳) ارسال به ViewModel

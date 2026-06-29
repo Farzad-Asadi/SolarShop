@@ -95,10 +95,50 @@ class OrderInvoiceViewModel @Inject constructor(
             .flowOn(Dispatchers.IO)
 
     // orderId از NavBackStackEntry می‌آد
-    private val orderIdFlow: StateFlow<Int?> =
+    private val initialOrderId: Int? =
+        savedStateHandle
+            .get<Int>("orderId")
+            ?.takeIf { it != -1 }
+
+    private val orderIdFromNavHostFlow =
+        MutableStateFlow<Int?>(null)
+
+    fun setOrderIdFromNav(orderId: Int?) {
+        if (orderId != null && orderId != -1 && orderIdFromNavHostFlow.value != orderId) {
+            Log.d("OrderInvoiceVM", "setOrderIdFromNav orderId=$orderId")
+            orderIdFromNavHostFlow.value = orderId
+        }
+    }
+
+    private val savedOrderIdFlow: StateFlow<Int?> =
         savedStateHandle.getStateFlow("orderId", -1)
-            .map { if (it == -1) null else it }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+            .map { value ->
+                value.takeIf { it != -1 }
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                savedStateHandle.get<Int>("orderId")?.takeIf { it != -1 }
+            )
+
+    private val orderIdFlow: StateFlow<Int?> =
+        combine(
+            savedOrderIdFlow,
+            orderIdFromNavHostFlow
+        ) { savedOrderId, navHostOrderId ->
+            navHostOrderId ?: savedOrderId
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            orderIdFromNavHostFlow.value
+                ?: savedStateHandle.get<Int>("orderId")?.takeIf { it != -1 }
+        )
+
+    private fun currentOrderIdOrNull(): Int? {
+        return orderIdFromNavHostFlow.value
+            ?: savedStateHandle.get<Int>("orderId")?.takeIf { it != -1 }
+            ?: orderIdFlow.value
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val proformaInvoicesFlow: Flow<List<InvoiceDocumentEntity>> =
@@ -515,7 +555,7 @@ class OrderInvoiceViewModel @Inject constructor(
 
     fun onConvertProformaToInvoice(templateId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            val orderId = orderIdFlow.value ?: return@launch
+            val orderId = currentOrderIdOrNull() ?: return@launch
 
             // اگر قبلاً فاکتور داریم، همون رو باز کن
             val existingInvoice = invoiceDao.getInvoicesForOrder(orderId, InvoiceType.INVOICE).firstOrNull()
@@ -618,7 +658,7 @@ class OrderInvoiceViewModel @Inject constructor(
     fun onCreateNewDocument() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val orderId = orderIdFlow.value
+                val orderId = currentOrderIdOrNull()
 
                 Log.d("OrderInvoiceVM", "onCreateNewDocument clicked. orderId=$orderId")
 
@@ -810,7 +850,10 @@ data class InvoiceItemDraft(
     val unit: String = "",
     val quantity: String = "",
     val unitPrice: String = "",
-    val discount: Long = 0L
+    val discount: Long = 0L,
+
+    val isInstallationFee: Boolean = false,
+    val installationPercent: String = ""
 )
 
 

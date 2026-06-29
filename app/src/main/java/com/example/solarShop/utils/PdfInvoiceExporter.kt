@@ -1,14 +1,23 @@
 package com.example.solarShop.utils
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
+import android.text.TextUtils
 import com.example.solarShop.InvoiceType
+import com.example.solarShop.R
 import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 
 class PdfInvoiceExporter @Inject constructor(
@@ -57,7 +66,7 @@ class PdfInvoiceExporter @Inject constructor(
         val doc = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
 
-        val rowsPerPage = 10
+        val rowsPerPage = 6
         val totalItems = items.size
         val totalPages = if (totalItems <= 0) 1 else ((totalItems - 1) / rowsPerPage) + 1
 
@@ -81,7 +90,7 @@ class PdfInvoiceExporter @Inject constructor(
 
             // ---------- 1) هدر بالایی ----------
             val headerTop = y
-            val headerHeight = 60f
+            val headerHeight = 72f
             val headerBottom = headerTop + headerHeight
 
             // قاب کلی هدر
@@ -91,6 +100,46 @@ class PdfInvoiceExporter @Inject constructor(
                 contentRight,
                 headerBottom,
                 linePaint
+            )
+
+            // لوگوی پنل‌کده در سمت راست هدر
+            drawLogo(
+                canvas = c,
+                left = contentRight - 58f,
+                top = headerTop + 8f,
+                size = 48f
+            )
+
+            val shopHeaderPaint = Paint(bodyPaint).apply {
+                textAlign = Paint.Align.RIGHT
+                textSize = 10f
+                isFakeBoldText = true
+            }
+
+            c.drawText(
+                "پنل‌کده",
+                contentRight - 66f,
+                headerTop + 24f,
+                shopHeaderPaint
+            )
+
+            val shopSubHeaderPaint = Paint(bodyPaint).apply {
+                textAlign = Paint.Align.RIGHT
+                textSize = 8.5f
+            }
+
+            c.drawText(
+                "فروش، نصب و مشاوره تجهیزات خورشیدی",
+                contentRight - 66f,
+                headerTop + 40f,
+                shopSubHeaderPaint
+            )
+
+            c.drawText(
+                "سقز، خیابان ملت، مقابل برق آوازه",
+                contentRight - 66f,
+                headerTop + 56f,
+                shopSubHeaderPaint
             )
 
             // عنوان وسط هدر: پیش فاکتور / فاکتور
@@ -337,8 +386,8 @@ class PdfInvoiceExporter @Inject constructor(
 
             // ---------- 5) جدول اقلام ----------
 
-            val tableHeaderHeight = 20f
-            val rowHeight = 20f
+            val tableHeaderHeight = 22f
+            val rowHeight = 44f
 
             // ستون‌ها (از راست به چپ)
             val colRight = contentRight
@@ -438,14 +487,23 @@ class PdfInvoiceExporter @Inject constructor(
                     val amountStr = formatMoneyFromToman(item.rowTotal, showAsToman)
                     val unitStr = item.unit ?: ""
 
-                    val textY = rowTop + 14f
+                    val textY = rowTop + 26f
 
                     c.drawText(amountStr, xAmountValue, textY, rowTextPaint)
                     c.drawText(discountStr, xDiscountValue, textY, rowTextPaint)
                     c.drawText(unitStr, xUnitValue, textY, rowTextPaint)
                     c.drawText(qtyStr, xQtyValue, textY, rowTextPaint)
                     c.drawText(unitPriceStr, xUnitPriceValue, textY, rowTextPaint)
-                    c.drawText(item.description, xDescValue, textY, rowTextPaint)
+                    drawRtlMultilineText(
+                        canvas = c,
+                        text = item.description,
+                        left = edgeDescLeft + 4f,
+                        top = rowTop + 5f,
+                        right = edgeRowLeft - 4f,
+                        bottom = rowBottom - 5f,
+                        paint = rowTextPaint,
+                        maxLines = 3
+                    )
                     c.drawText(globalRowNumber.toString(), xRowValue, textY, rowTextPaint)
 
                     itemIndex++
@@ -535,17 +593,22 @@ class PdfInvoiceExporter @Inject constructor(
                     notesTitlePaint
                 )
 
-                // متن توضیحات (اگر وجود دارد)
+                // متن توضیحات چندخطی
                 invoice.notes?.takeIf { it.isNotBlank() }?.let { notesText ->
                     val notesPaint = Paint(bodyPaint).apply {
-                        textAlign = Paint.Align.RIGHT
                         textSize = 10f
+                        textAlign = Paint.Align.RIGHT
                     }
-                    c.drawText(
-                        notesText,
-                        colRight - 8f,
-                        notesBoxTop + 34f,
-                        notesPaint
+
+                    drawRtlMultilineText(
+                        canvas = c,
+                        text = notesText,
+                        left = contentLeft + 8f,
+                        top = notesBoxTop + 30f,
+                        right = colRight - 8f,
+                        bottom = notesBoxBottom - 8f,
+                        paint = notesPaint,
+                        maxLines = 4
                     )
                 }
 
@@ -627,12 +690,106 @@ class PdfInvoiceExporter @Inject constructor(
         showAsToman: Boolean
     ): String {
         val display = if (showAsToman) amountToman else amountToman * 10L
-        return "%,d".format(display)
+
+        return String
+            .format(Locale.US, "%,d", display)
+            .replace('٬', ',')
     }
 
     private fun currencyLabel(showAsToman: Boolean): String =
         if (showAsToman) "تومان" else "ریال"
 
 
+    private fun drawLogo(
+        canvas: Canvas,
+        left: Float,
+        top: Float,
+        size: Float
+    ) {
+        val bitmap = BitmapFactory.decodeResource(
+            context.resources,
+            R.drawable.panel_kadeh_logo
+        ) ?: return
+
+        val rect = RectF(
+            left,
+            top,
+            left + size,
+            top + size
+        )
+
+        canvas.drawBitmap(bitmap, null, rect, null)
+    }
+
+    private fun drawRtlMultilineText(
+        canvas: Canvas,
+        text: String,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        paint: Paint,
+        maxLines: Int = 3
+    ) {
+        if (text.isBlank()) return
+
+        val safeText = makeMixedFaEnTextSafe(text)
+
+        val width = (right - left).toInt().coerceAtLeast(1)
+        val height = (bottom - top).toInt().coerceAtLeast(1)
+
+        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = paint.color
+            textSize = paint.textSize
+            typeface = paint.typeface
+
+            // خیلی مهم:
+            // برای StaticLayout نباید RIGHT بگذاری.
+            // راست‌چین شدن را خود StaticLayout با direction/alignment انجام می‌دهد.
+            textAlign = Paint.Align.LEFT
+        }
+
+        val lineHeight =
+            (textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent)
+                .toInt()
+                .coerceAtLeast(1)
+
+        val availableLines =
+            (height / lineHeight)
+                .coerceAtLeast(1)
+                .coerceAtMost(maxLines)
+
+        val layout = StaticLayout.Builder
+            .obtain(safeText, 0, safeText.length, textPaint, width)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setTextDirection(TextDirectionHeuristics.RTL)
+            .setIncludePad(false)
+            .setMaxLines(availableLines)
+            .setEllipsize(TextUtils.TruncateAt.END)
+            .build()
+
+        canvas.save()
+        canvas.clipRect(left, top, right, bottom)
+        canvas.translate(left, top)
+        layout.draw(canvas)
+        canvas.restore()
+    }
+
+    private fun makeMixedFaEnTextSafe(input: String): String {
+        if (input.isBlank()) return input
+
+        val rlm = "\u200F"
+        val lrm = "\u200E"
+
+        val ltrTokenRegex = Regex(
+            """([A-Za-z]+[A-Za-z0-9\-_./:+()%#]*(?:\s+[A-Za-z0-9]+[A-Za-z0-9\-_./:+()%#]*)*|\d+(?:[./:-]\d+)*[A-Za-z%]*)"""
+        )
+
+        val protectedText = input.replace(ltrTokenRegex) { match ->
+            "$lrm${match.value}$lrm"
+        }
+
+        return "$rlm$protectedText$rlm"
+    }
 
 }
