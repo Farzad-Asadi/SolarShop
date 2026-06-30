@@ -9,6 +9,7 @@ import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductSaleTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductUnitSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
@@ -173,6 +174,24 @@ class SyncApi(
         items: List<ProductSalePriceSyncDto>
     ): Boolean {
         val response = client.post("sync/sale-prices") {
+            setBody(items)
+        }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullProductSaleTransactions(
+        since: Long
+    ): List<ProductSaleTransactionSyncDto> {
+        return client.get("sync/product-sale-transactions") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushProductSaleTransactions(
+        items: List<ProductSaleTransactionSyncDto>
+    ): Boolean {
+        val response = client.post("sync/product-sale-transactions") {
             setBody(items)
         }
 

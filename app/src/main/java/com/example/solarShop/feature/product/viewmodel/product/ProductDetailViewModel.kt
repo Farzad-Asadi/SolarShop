@@ -7,17 +7,20 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.solarShop.InventoryTransactionType
 import com.example.solarShop.data.dataStore.DollarRatePreferencesDataSource
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
+import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntity
 import com.example.solarShop.data.local.relation.product.ProductAttributeDisplayInfo
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
 import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.utils.ProductPdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
+import kotlin.math.roundToLong
 
 @HiltViewModel
 class ProductDetailViewModel @Inject constructor(
@@ -41,6 +45,7 @@ class ProductDetailViewModel @Inject constructor(
     private val attributeRepository: AttributeRepository,
     private val pricingRepository: PricingRepository,
     private val inventoryRepository: InventoryRepository,
+    private val productSaleTransactionRepository: ProductSaleTransactionRepository,
     @ApplicationContext private val app: Context,
     private val productImageRepository: ProductImageRepository,
     private val dollarRatePrefs: DollarRatePreferencesDataSource,
@@ -96,6 +101,9 @@ class ProductDetailViewModel @Inject constructor(
     private val transactionsFlow =
         inventoryRepository.observeTransactions(productId)
 
+    private val saleTransactionsFlow =
+        productSaleTransactionRepository.observeSaleTransactionsByProduct(productId)
+
     private val imagesFlow =
         productImageRepository.observeImagesForProduct(productId)
 
@@ -110,7 +118,8 @@ class ProductDetailViewModel @Inject constructor(
             imagesFlow,
             salePricesFlow,
             currencyRatesFlow,
-            manualDollarRateFlow
+            manualDollarRateFlow,
+            saleTransactionsFlow
         ) { arr: Array<Any?> ->
 
             val product = arr[0] as? com.example.solarShop.data.local.relation.product.ProductFullInfo
@@ -124,6 +133,8 @@ class ProductDetailViewModel @Inject constructor(
             val salePrices = arr[6] as List<ProductSalePriceEntity>
             val currencyRates = arr[7] as List<CurrencyRateEntity>
             val manualDollarRate = arr[8] as Long?
+            val saleTransactions =
+                arr[9] as List<ProductSaleTransactionEntity>
 
             val apiDollarRate =
                 currencyRates.firstOrNull()?.rateToman
@@ -199,7 +210,8 @@ class ProductDetailViewModel @Inject constructor(
                         id = image.id,
                         uri = uri
                     )
-                }
+                },
+                saleTransactions = saleTransactions
             )
         }
             .stateIn(
@@ -275,4 +287,194 @@ class ProductDetailViewModel @Inject constructor(
             app.startActivity(intent)
         }
     }
+
+    fun registerProductSale(
+        input: RegisterProductSaleInput
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val quantity =
+                input.quantity.coerceAtLeast(0.0)
+
+            if (quantity <= 0.0) {
+                return@launch
+            }
+
+            val unitSalePriceToman =
+                input.unitSalePriceToman.coerceAtLeast(0L)
+
+            if (unitSalePriceToman <= 0L) {
+                return@launch
+            }
+
+            val state =
+                uiState.value
+
+            val activePurchase =
+                state.activePurchasePrice
+
+            val salePriceRecord =
+                state.salePrices.firstOrNull {
+                    it.priceType == input.priceType
+                }
+
+            val saleDollarRate =
+                input.saleDollarRateToman
+                    ?: state.dailyDollarRateToman
+
+            val totalSalePriceToman =
+                (unitSalePriceToman * quantity)
+                    .roundToLong()
+                    .coerceAtLeast(0L)
+
+            val buyPriceDollar =
+                activePurchase?.buyPriceDollar
+
+            val buyPriceToman =
+                activePurchase?.buyPriceToman
+
+            val purchaseDollarRateToman =
+                activePurchase?.dollarRateToman
+
+            val unitCostToman: Long? =
+                buyPriceToman
+                    ?: run {
+                        val dollarBuy =
+                            buyPriceDollar
+
+                        val purchaseRate =
+                            purchaseDollarRateToman
+
+                        if (dollarBuy != null && purchaseRate != null) {
+                            (dollarBuy * purchaseRate).roundToLong()
+                        } else {
+                            null
+                        }
+                    }
+
+            val unitSalePriceDollar: Double? =
+                saleDollarRate
+                    ?.takeIf { it > 0L }
+                    ?.let { rate ->
+                        unitSalePriceToman.toDouble() / rate.toDouble()
+                    }
+
+            val unitProfitToman: Long? =
+                unitCostToman?.let { cost ->
+                    unitSalePriceToman - cost
+                }
+
+            val totalProfitToman: Long? =
+                unitProfitToman?.let { profit ->
+                    (profit * quantity).roundToLong()
+                }
+
+            val unitProfitDollar: Double? =
+                when {
+                    unitSalePriceDollar != null && buyPriceDollar != null -> {
+                        unitSalePriceDollar - buyPriceDollar
+                    }
+
+                    unitProfitToman != null && saleDollarRate != null && saleDollarRate > 0L -> {
+                        unitProfitToman.toDouble() / saleDollarRate.toDouble()
+                    }
+
+                    else -> null
+                }
+
+            val totalProfitDollar: Double? =
+                unitProfitDollar?.let { profit ->
+                    profit * quantity
+                }
+
+            val profitPercentByToman: Double? =
+                if (unitCostToman != null && unitCostToman > 0L && unitProfitToman != null) {
+                    (unitProfitToman.toDouble() / unitCostToman.toDouble()) * 100.0
+                } else {
+                    null
+                }
+
+            val profitPercentByDollar: Double? =
+                if (buyPriceDollar != null && buyPriceDollar > 0.0 && unitProfitDollar != null) {
+                    (unitProfitDollar / buyPriceDollar) * 100.0
+                } else {
+                    null
+                }
+
+            val now =
+                System.currentTimeMillis()
+
+            val inventoryTransaction =
+                InventoryTransactionEntity(
+                    productId = productId,
+                    quantity = quantity,
+                    transactionType = InventoryTransactionType.SALE,
+                    note = input.note.trim().ifBlank {
+                        "فروش کالا"
+                    },
+                    createdAt = input.soldAt,
+                    updatedAt = now,
+                    isSynced = false
+                )
+
+            inventoryRepository.addTransaction(
+                inventoryTransaction
+            )
+
+            val saleTransaction =
+                ProductSaleTransactionEntity(
+                    productId = productId,
+                    inventoryTransactionUid = inventoryTransaction.uid,
+
+                    quantity = quantity,
+
+                    priceType = input.priceType,
+
+                    unitSalePriceToman = unitSalePriceToman,
+                    totalSalePriceToman = totalSalePriceToman,
+
+                    saleDollarRateToman = saleDollarRate,
+
+                    purchasePriceUid = activePurchase?.uid,
+                    salePriceUid = salePriceRecord?.uid,
+
+                    buyPriceDollar = buyPriceDollar,
+                    buyPriceToman = buyPriceToman,
+                    purchaseDollarRateToman = purchaseDollarRateToman,
+
+                    unitSalePriceDollar = unitSalePriceDollar,
+
+                    unitProfitToman = unitProfitToman,
+                    totalProfitToman = totalProfitToman,
+
+                    unitProfitDollar = unitProfitDollar,
+                    totalProfitDollar = totalProfitDollar,
+
+                    profitPercentByToman = profitPercentByToman,
+                    profitPercentByDollar = profitPercentByDollar,
+
+                    soldAt = input.soldAt,
+
+                    note = input.note.trim(),
+
+                    createdAt = now,
+                    updatedAt = now,
+
+                    deletedAt = null,
+                    isSynced = false
+                )
+
+            productSaleTransactionRepository.addSaleTransaction(
+                saleTransaction
+            )
+        }
+    }
 }
+
+data class RegisterProductSaleInput(
+    val quantity: Double,
+    val priceType: String,
+    val unitSalePriceToman: Long,
+    val saleDollarRateToman: Long?,
+    val soldAt: Long,
+    val note: String
+)

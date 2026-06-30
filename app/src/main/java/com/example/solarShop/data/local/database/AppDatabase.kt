@@ -11,6 +11,7 @@ import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.dao.product.ProductImageDao
+import com.example.solarShop.data.local.dao.sales.ProductSaleTransactionDao
 import com.example.solarShop.data.local.dao.sync.SyncMetadataDao
 import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
@@ -24,6 +25,7 @@ import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.entity.product.ProductUnitEntity
+import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntity
 import com.example.solarShop.data.local.entity.sync.SyncMetadataEntity
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
 import com.example.solarShop.data.room.tables.appInfo.AppInfoEntity
@@ -154,9 +156,10 @@ import com.example.solarShop.data.room.tables.user.userData.userWorkflowStep.Use
         InventoryTransactionEntity::class,
         ProductSalePriceEntity::class,
         SyncMetadataEntity::class,
+        ProductSaleTransactionEntity::class,
 
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(
@@ -206,5 +209,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun inventoryDao(): InventoryDao
     abstract fun productImageDao(): ProductImageDao
     abstract fun syncMetadataDao (): SyncMetadataDao
+    abstract fun productSaleTransactionDao(): ProductSaleTransactionDao
+
 
 }

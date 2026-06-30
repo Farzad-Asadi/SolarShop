@@ -13,6 +13,7 @@ import com.example.solarShop.data.local.entity.product.ProductCategoryEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
 import com.example.solarShop.data.local.entity.product.ProductImageEntity
 import com.example.solarShop.data.local.entity.product.ProductUnitEntity
+import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntity
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
@@ -22,6 +23,7 @@ import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSalePriceSyncDto
+import com.example.solarShop.data.network.dto.sync.ProductSaleTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductUnitSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
@@ -33,6 +35,7 @@ import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
+import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -63,6 +66,7 @@ class SyncManager @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     private val pricingRepository: PricingRepository,
     private val attributeRepository: AttributeRepository,
+    private val productSaleTransactionRepository: ProductSaleTransactionRepository,
 ) {
 
 
@@ -957,6 +961,178 @@ class SyncManager @Inject constructor(
         return success
     }
 
+    suspend fun pullProductSaleTransactions(): Int {
+
+        // فعلاً فروش‌های واقعی را کامل می‌کشیم.
+        // چون این جدول تازه اضافه شده و حجمش کم است،
+        // و upsert با uid جلوی رکورد تکراری را می‌گیرد.
+        val items =
+            syncApi.pullProductSaleTransactions(0L)
+
+        Log.d(
+            "SYNC_TEST",
+            "Received ProductSaleTransactions = ${items.size}"
+        )
+
+        items.forEach { dto ->
+
+            val product =
+                productRepository.getProductByUid(
+                    dto.productUid
+                )
+
+            if (product == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped ProductSaleTransaction, missing productUid = ${dto.productUid}"
+                )
+                return@forEach
+            }
+
+            productSaleTransactionRepository.upsertSaleTransactionByUid(
+                ProductSaleTransactionEntity(
+                    id = null,
+                    uid = dto.uid,
+
+                    productId = product.id ?: return@forEach,
+
+                    inventoryTransactionUid = dto.inventoryTransactionUid,
+
+                    quantity = dto.quantity,
+
+                    priceType = dto.priceType,
+
+                    unitSalePriceToman = dto.unitSalePriceToman,
+                    totalSalePriceToman = dto.totalSalePriceToman,
+
+                    saleDollarRateToman = dto.saleDollarRateToman,
+
+                    purchasePriceUid = dto.purchasePriceUid,
+                    salePriceUid = dto.salePriceUid,
+
+                    buyPriceDollar = dto.buyPriceDollar,
+                    buyPriceToman = dto.buyPriceToman,
+                    purchaseDollarRateToman = dto.purchaseDollarRateToman,
+
+                    unitSalePriceDollar = dto.unitSalePriceDollar,
+
+                    unitProfitToman = dto.unitProfitToman,
+                    totalProfitToman = dto.totalProfitToman,
+
+                    unitProfitDollar = dto.unitProfitDollar,
+                    totalProfitDollar = dto.totalProfitDollar,
+
+                    profitPercentByToman = dto.profitPercentByToman,
+                    profitPercentByDollar = dto.profitPercentByDollar,
+
+                    soldAt = dto.soldAt,
+
+                    note = dto.note,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+
+                    deletedAt = dto.deletedAt,
+                    isSynced = true
+                )
+            )
+        }
+
+        return items.size
+    }
+
+    suspend fun pushUnsyncedProductSaleTransactions(): Boolean {
+
+        val items =
+            productSaleTransactionRepository.getUnsyncedSaleTransactions()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced ProductSaleTransactions = 0"
+            )
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val product =
+                    productRepository.getProductById(
+                        item.productId
+                    )
+                        ?: return@mapNotNull null
+
+                val productUid =
+                    product.uid
+                        .takeIf { it.isNotBlank() }
+                        ?: return@mapNotNull null
+
+                ProductSaleTransactionSyncDto(
+                    uid = item.uid,
+
+                    productUid = productUid,
+
+                    inventoryTransactionUid = item.inventoryTransactionUid,
+
+                    quantity = item.quantity,
+
+                    priceType = item.priceType,
+
+                    unitSalePriceToman = item.unitSalePriceToman,
+                    totalSalePriceToman = item.totalSalePriceToman,
+
+                    saleDollarRateToman = item.saleDollarRateToman,
+
+                    purchasePriceUid = item.purchasePriceUid,
+                    salePriceUid = item.salePriceUid,
+
+                    buyPriceDollar = item.buyPriceDollar,
+                    buyPriceToman = item.buyPriceToman,
+                    purchaseDollarRateToman = item.purchaseDollarRateToman,
+
+                    unitSalePriceDollar = item.unitSalePriceDollar,
+
+                    unitProfitToman = item.unitProfitToman,
+                    totalProfitToman = item.totalProfitToman,
+
+                    unitProfitDollar = item.unitProfitDollar,
+                    totalProfitDollar = item.totalProfitDollar,
+
+                    profitPercentByToman = item.profitPercentByToman,
+                    profitPercentByDollar = item.profitPercentByDollar,
+
+                    soldAt = item.soldAt,
+
+                    note = item.note,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushProductSaleTransactions(dtoList)
+
+        if (success) {
+            productSaleTransactionRepository.markSaleTransactionsSynced(
+                dtoList.map { it.uid }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed ProductSaleTransactions = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
     suspend fun pullCategoryAttributeDefinitions(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
@@ -1340,6 +1516,7 @@ class SyncManager @Inject constructor(
         pullCurrencyRates()
         pullPurchasePrices()
         pullSalePrices()
+        pullProductSaleTransactions()
         pullCategoryAttributeDefinitions()
         pullProductAttributeValues()
         pullUnits()
@@ -1371,6 +1548,10 @@ class SyncManager @Inject constructor(
         val salePricesPushed =
             pushUnsyncedSalePrices()
         if (!salePricesPushed) return false
+
+        val productSaleTransactionsPushed =
+            pushUnsyncedProductSaleTransactions()
+        if (!productSaleTransactionsPushed) return false
 
         val attributeDefinitionsPushed =
             pushUnsyncedCategoryAttributeDefinitions()

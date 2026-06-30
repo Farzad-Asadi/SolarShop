@@ -30,6 +30,7 @@ import com.example.solarShop.data.local.dao.inventory.InventoryDao
 import com.example.solarShop.data.local.dao.pricing.PricingDao
 import com.example.solarShop.data.local.dao.product.ProductDao
 import com.example.solarShop.data.local.dao.product.ProductImageDao
+import com.example.solarShop.data.local.dao.sales.ProductSaleTransactionDao
 import com.example.solarShop.data.local.dao.sync.SyncMetadataDao
 import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.network.remote.FileApi
@@ -47,6 +48,8 @@ import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.product.ProductRepositoryImpl
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepositoryImpl
+import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
+import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepositoryImpl
 import com.example.solarShop.data.repository.sync.SyncRepository
 import com.example.solarShop.data.repository.sync.SyncRepositoryImpl
 import com.example.solarShop.data.room.tables.appInfo.AppInfoDao
@@ -300,6 +303,10 @@ object AppModule {
     @Provides fun provideAttributeDao(db: AppDatabase): AttributeDao = db.attributeDao()
     @Provides fun provideProductImageDao(db: AppDatabase): ProductImageDao = db.productImageDao()
     @Provides fun provideSyncMetadataDao (db: AppDatabase): SyncMetadataDao = db.syncMetadataDao ()
+    @Provides
+    fun provideProductSaleTransactionDao(
+        db: AppDatabase
+    ): ProductSaleTransactionDao = db.productSaleTransactionDao()
 
 
 
@@ -470,7 +477,13 @@ object AppModule {
         imageRepository: ImageRepository
     ): FileSyncRepository = FileSyncRepositoryImpl(fileApi,imageRepository)
 
-
+    @Provides
+    @Singleton
+    fun provideProductSaleTransactionRepository(
+        dao: ProductSaleTransactionDao
+    ): ProductSaleTransactionRepository {
+        return ProductSaleTransactionRepositoryImpl(dao)
+    }
 
 
 

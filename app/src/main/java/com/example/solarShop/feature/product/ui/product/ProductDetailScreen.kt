@@ -12,14 +12,20 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -38,7 +44,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -67,12 +77,14 @@ import com.example.solarShop.domain.inventory.labelFa
 import com.example.solarShop.domain.inventory.signedQuantity
 import com.example.solarShop.feature.product.viewmodel.product.ProductDetailViewModel
 import com.example.solarShop.feature.product.viewmodel.product.ProductImageUi
+import com.example.solarShop.feature.product.viewmodel.product.RegisterProductSaleInput
 import com.example.solarShop.utils.FullscreenImageViewer
 import com.example.solarShop.utils.currency.toPriceString
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.rememberCameraCaptureLauncher
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +113,10 @@ fun ProductDetailScreen(
     var selectedImageId by remember { mutableStateOf<Int?>(null) }
     var showImageOptionsSheet by remember { mutableStateOf(false) }
 
+    var showRegisterSaleSheet by rememberSaveable {
+        mutableStateOf(false)
+    }
+
     var nameExpanded by rememberSaveable {
         mutableStateOf(false)
     }
@@ -110,6 +126,10 @@ fun ProductDetailScreen(
     }
 
     var inventoryExpanded by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var saleHistoryExpanded by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -295,6 +315,20 @@ fun ProductDetailScreen(
                                 priceExpanded = it
                             }
                         ) {
+                            Button(
+                                onClick = {
+                                    showRegisterSaleSheet = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("ثبت فروش این کالا")
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            HorizontalDivider()
+
+                            Spacer(Modifier.height(8.dp))
                             Text(
                                 text = "نرخ دلار روز: ${
                                     uiState.dailyDollarRateToman?.toPriceString() ?: "-"
@@ -473,6 +507,155 @@ fun ProductDetailScreen(
                         }
                     }
 
+                    // فروش‌های ثبت‌شده
+                    item {
+                        val saleTransactions =
+                            uiState.saleTransactions
+
+                        val saleSummary =
+                            if (saleTransactions.isEmpty()) {
+                                "فروشی ثبت نشده"
+                            } else {
+                                "${saleTransactions.size} فروش ثبت شده"
+                            }
+
+                        DetailExpandableCard(
+                            title = "فروش‌های ثبت‌شده",
+                            summary = saleSummary,
+                            expanded = saleHistoryExpanded,
+                            onExpandedChange = {
+                                saleHistoryExpanded = it
+                            }
+                        ) {
+                            if (saleTransactions.isEmpty()) {
+                                Text(
+                                    text = "هنوز فروشی برای این کالا ثبت نشده است.",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                saleTransactions
+                                    .take(20)
+                                    .forEach { sale ->
+
+                                        ElevatedCard(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.elevatedCardColors(
+                                                containerColor = MaterialTheme.colorScheme.surface
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = formatPersianDateTime(sale.soldAt, true),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+
+                                                Text(
+                                                    text = "تعداد: ${sale.quantity}",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+
+                                                Text(
+                                                    text = "نوع قیمت: ${salePriceTypeLabel(sale.priceType)}",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+
+                                                Text(
+                                                    text = "قیمت واحد فروش: ${sale.unitSalePriceToman.toPriceString()} تومان",
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+
+                                                Text(
+                                                    text = "جمع فروش: ${sale.totalSalePriceToman.toPriceString()} تومان",
+                                                    style = MaterialTheme.typography.titleSmall
+                                                )
+
+                                                Text(
+                                                    text = "نرخ دلار فروش: ${
+                                                        sale.saleDollarRateToman?.toPriceString() ?: "-"
+                                                    } تومان",
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+
+                                                sale.unitSalePriceDollar?.let { value ->
+                                                    Text(
+                                                        text = "قیمت واحد دلاری فروش: ${value.toSaleDoubleText()} دلار",
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                }
+
+                                                HorizontalDivider()
+
+                                                Text(
+                                                    text = "سود",
+                                                    style = MaterialTheme.typography.titleSmall
+                                                )
+
+                                                Text(
+                                                    text = "سود تومانی کل: ${
+                                                        sale.totalProfitToman?.toPriceString() ?: "-"
+                                                    } تومان",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = sale.totalProfitToman.profitColor()
+                                                )
+
+                                                Text(
+                                                    text = "سود تومانی واحد: ${
+                                                        sale.unitProfitToman?.toPriceString() ?: "-"
+                                                    } تومان",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = sale.unitProfitToman.profitColor()
+                                                )
+
+                                                sale.totalProfitDollar?.let { value ->
+                                                    Text(
+                                                        text = "سود دلاری کل: ${value.toSaleDoubleText()} دلار",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+
+                                                sale.unitProfitDollar?.let { value ->
+                                                    Text(
+                                                        text = "سود دلاری واحد: ${value.toSaleDoubleText()} دلار",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+
+                                                sale.profitPercentByToman?.let { percent ->
+                                                    Text(
+                                                        text = "درصد سود تومانی: ${percent.toSalePercentText()}٪",
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                }
+
+                                                sale.profitPercentByDollar?.let { percent ->
+                                                    Text(
+                                                        text = "درصد سود دلاری: ${percent.toSalePercentText()}٪",
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                }
+
+                                                if (sale.note.isNotBlank()) {
+                                                    HorizontalDivider()
+
+                                                    Text(
+                                                        text = sale.note,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                            }
+                        }
+                    }
+
                     //مشخصات فنی
 
                     val visibleAttributes = uiState.attributes.filter { attr ->
@@ -634,6 +817,341 @@ fun ProductDetailScreen(
                     Text("حذف تصویر")
                 }
             }
+        }
+    }
+    if (showRegisterSaleSheet && product != null) {
+        RegisterProductSaleBottomSheet(
+            productName = product.product.name,
+            currentStock = uiState.currentStock,
+            consumerPriceToman = uiState.consumerSalePriceResult?.finalSalePriceToman,
+            colleaguePriceToman = uiState.colleagueSalePriceResult?.finalSalePriceToman,
+            dailyDollarRateToman = uiState.dailyDollarRateToman,
+            onDismiss = {
+                showRegisterSaleSheet = false
+            },
+            onSubmit = { input ->
+                viewModel.registerProductSale(input)
+                showRegisterSaleSheet = false
+            }
+        )
+    }
+}
+
+private fun salePriceTypeLabel(
+    priceType: String
+): String {
+    return when (priceType) {
+        "consumer" -> "مصرف‌کننده"
+        "colleague" -> "همکار"
+        "manual" -> "دستی"
+        else -> priceType
+    }
+}
+
+@Composable
+private fun Long?.profitColor() =
+    when {
+        this == null -> MaterialTheme.colorScheme.onSurface
+        this >= 0L -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.error
+    }
+
+private fun Double.toSaleDoubleText(): String {
+    return String.format(Locale.US, "%,.2f", this)
+}
+
+private fun Double.toSalePercentText(): String {
+    return String.format(Locale.US, "%.1f", this)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegisterProductSaleBottomSheet(
+    productName: String,
+    currentStock: Double,
+    consumerPriceToman: Long?,
+    colleaguePriceToman: Long?,
+    dailyDollarRateToman: Long?,
+    onDismiss: () -> Unit,
+    onSubmit: (RegisterProductSaleInput) -> Unit
+) {
+    var quantityText by rememberSaveable {
+        mutableStateOf("1")
+    }
+
+    var priceType by rememberSaveable {
+        mutableStateOf("consumer")
+    }
+
+    var manualUnitPriceText by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var dollarRateText by rememberSaveable(dailyDollarRateToman) {
+        mutableStateOf(dailyDollarRateToman?.toString().orEmpty())
+    }
+
+    var noteText by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    val selectedSuggestedPrice: Long? =
+        when (priceType) {
+            "consumer" -> consumerPriceToman
+            "colleague" -> colleaguePriceToman
+            else -> null
+        }
+
+    val effectiveUnitPriceText =
+        if (priceType == "manual") {
+            manualUnitPriceText
+        } else {
+            selectedSuggestedPrice?.toString().orEmpty()
+        }
+
+    val quantity =
+        quantityText
+            .replace('٫', '.')
+            .toDoubleOrNull()
+            ?: 0.0
+
+    val unitSalePrice =
+        effectiveUnitPriceText
+            .filter { it.isDigit() }
+            .toLongOrNull()
+            ?: 0L
+
+    val dollarRate =
+        dollarRateText
+            .filter { it.isDigit() }
+            .toLongOrNull()
+
+    val totalSale =
+        (quantity * unitSalePrice)
+            .toLong()
+            .coerceAtLeast(0L)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f)
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "ثبت فروش کالا",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+                text = productName,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "موجودی فعلی: $currentStock",
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            HorizontalDivider()
+
+            OutlinedTextField(
+                value = quantityText,
+                onValueChange = { new ->
+                    quantityText =
+                        new
+                            .replace('٫', '.')
+                            .filter { it.isDigit() || it == '.' }
+                },
+                label = { Text("تعداد فروش") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                text = "نوع قیمت",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            SalePriceTypeRow(
+                title = "مصرف‌کننده",
+                subtitle = consumerPriceToman?.let { "${it.toPriceString()} تومان" } ?: "ثبت نشده",
+                selected = priceType == "consumer",
+                enabled = consumerPriceToman != null,
+                onClick = {
+                    priceType = "consumer"
+                }
+            )
+
+            SalePriceTypeRow(
+                title = "همکار",
+                subtitle = colleaguePriceToman?.let { "${it.toPriceString()} تومان" } ?: "ثبت نشده",
+                selected = priceType == "colleague",
+                enabled = colleaguePriceToman != null,
+                onClick = {
+                    priceType = "colleague"
+                }
+            )
+
+            SalePriceTypeRow(
+                title = "قیمت دستی",
+                subtitle = "مبلغ فروش را خودت وارد می‌کنی",
+                selected = priceType == "manual",
+                enabled = true,
+                onClick = {
+                    priceType = "manual"
+                }
+            )
+
+            if (priceType == "manual") {
+                OutlinedTextField(
+                    value = manualUnitPriceText,
+                    onValueChange = { new ->
+                        manualUnitPriceText =
+                            new.filter { it.isDigit() }
+                    },
+                    label = { Text("قیمت واحد فروش - تومان") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                OutlinedTextField(
+                    value = selectedSuggestedPrice?.toPriceString() ?: "",
+                    onValueChange = {},
+                    label = { Text("قیمت واحد فروش - تومان") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            OutlinedTextField(
+                value = dollarRateText,
+                onValueChange = { new ->
+                    dollarRateText =
+                        new.filter { it.isDigit() }
+                },
+                label = { Text("نرخ دلار فروش - تومان") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = noteText,
+                onValueChange = {
+                    noteText = it
+                },
+                label = { Text("توضیح فروش") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                maxLines = 3
+            )
+
+            HorizontalDivider()
+
+            Text(
+                text = "جمع فروش: ${totalSale.toPriceString()} تومان",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("انصراف")
+                }
+
+                Button(
+                    enabled = quantity > 0.0 && unitSalePrice > 0L,
+                    onClick = {
+                        onSubmit(
+                            RegisterProductSaleInput(
+                                quantity = quantity,
+                                priceType = priceType,
+                                unitSalePriceToman = unitSalePrice,
+                                saleDollarRateToman = dollarRate,
+                                soldAt = System.currentTimeMillis(),
+                                note = noteText
+                            )
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("ثبت فروش")
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun SalePriceTypeRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) {
+                onClick()
+            }
+            .background(
+                if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
+            )
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            enabled = enabled,
+            onClick = onClick
+        )
+
+        Spacer(Modifier.width(8.dp))
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
