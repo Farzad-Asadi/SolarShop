@@ -1,7 +1,10 @@
 package com.example.solarShop.ui.dashboardScreen
 
+import android.app.Activity
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -1183,6 +1186,56 @@ fun AddAndEditeClientSheet(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
+    fun normalizeContactMobileForUi(raw: String): String {
+        val latin =
+            raw
+                .replace('۰', '0')
+                .replace('۱', '1')
+                .replace('۲', '2')
+                .replace('۳', '3')
+                .replace('۴', '4')
+                .replace('۵', '5')
+                .replace('۶', '6')
+                .replace('۷', '7')
+                .replace('۸', '8')
+                .replace('۹', '9')
+                .replace('٠', '0')
+                .replace('١', '1')
+                .replace('٢', '2')
+                .replace('٣', '3')
+                .replace('٤', '4')
+                .replace('٥', '5')
+                .replace('٦', '6')
+                .replace('٧', '7')
+                .replace('٨', '8')
+                .replace('٩', '9')
+
+        val digits =
+            latin.filter { it.isDigit() }
+
+        val withoutCountry =
+            when {
+                digits.startsWith("0098") && digits.length >= 14 ->
+                    digits.drop(4)
+
+                digits.startsWith("98") && digits.length >= 12 ->
+                    digits.drop(2)
+
+                digits.startsWith("0") && digits.length >= 11 ->
+                    digits.drop(1)
+
+                else ->
+                    digits
+            }
+
+        return withoutCountry
+            .takeIf { it.startsWith("9") && it.length >= 10 }
+            ?.take(10)
+            .orEmpty()
+    }
+
+
+
     // ---- State ها با کلید ----
     var avatar by rememberSaveable(clientEntity?.id, isAdd) {
         mutableStateOf(if (isAdd) "" else clientEntity?.avatar.orEmpty())
@@ -1210,6 +1263,64 @@ fun AddAndEditeClientSheet(
             }
         )
     }
+
+    val contactPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode != Activity.RESULT_OK) {
+                return@rememberLauncherForActivityResult
+            }
+
+            val contactUri =
+                result.data?.data ?: return@rememberLauncherForActivityResult
+
+            context.contentResolver.query(
+                contactUri,
+                arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                ),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val numberIndex =
+                        cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+                    val nameIndex =
+                        cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+
+                    val selectedNumber =
+                        if (numberIndex >= 0) {
+                            cursor.getString(numberIndex).orEmpty()
+                        } else {
+                            ""
+                        }
+
+                    val selectedName =
+                        if (nameIndex >= 0) {
+                            cursor.getString(nameIndex).orEmpty()
+                        } else {
+                            ""
+                        }
+
+                    val normalizedMobile =
+                        normalizeContactMobileForUi(selectedNumber)
+
+                    if (normalizedMobile.isNotBlank()) {
+                        mobilePhone = normalizedMobile
+                    }
+
+                    if (name.isBlank() && selectedName.isNotBlank()) {
+                        name = selectedName.trim()
+                    }
+                }
+            }
+        }
+
+
     var isMobilePhoneValid by rememberSaveable { mutableStateOf(true) }
 
     var landlinePhone by rememberSaveable(clientEntity?.id, isAdd) {
@@ -1364,18 +1475,42 @@ fun AddAndEditeClientSheet(
                 )
 
                 //تلفن همراه
-                MyPhoneField(
-                    national = mobilePhone,
-                    onNationalChange = { cleaned ->
-                        mobilePhone = cleaned
-                    },
-                    onImeDone = {
-                        // اگر خواستی بعد از Done فوکوس بره روی فیلد بعدی یا کار خاصی بکنی
-                    },
-                    onValidChange = { isValid -> isMobilePhoneValid = isValid },
-                    enabled = true,
-                    label = stringResource(R.string.profile_field_mobile)  // "تلفن همراه"
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            val intent =
+                                Intent(
+                                    Intent.ACTION_PICK,
+                                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+                                )
+
+                            contactPickerLauncher.launch(intent)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Contacts,
+                            contentDescription = "انتخاب از مخاطبین"
+                        )
+                    }
+
+                    MyPhoneField(
+                        national = mobilePhone,
+                        onNationalChange = { cleaned ->
+                            mobilePhone = cleaned
+                        },
+                        onImeDone = {
+                            // اگر خواستی بعد از Done فوکوس بره روی فیلد بعدی یا کار خاصی بکنی
+                        },
+                        onValidChange = { isValid -> isMobilePhoneValid = isValid },
+                        enabled = true,
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.profile_field_mobile)
+                    )
+                }
 
 
                 //تلفن ثابت
