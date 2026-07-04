@@ -102,7 +102,17 @@ fun SolarShopNavHost(
                 arguments = listOf(
                     navArgument("orderId") { type = NavType.IntType; defaultValue = -1 }
                 )
-            ) {
+            ) { backStackEntry ->
+
+                val orderIdArg =
+                    backStackEntry.arguments
+                        ?.getInt("orderId")
+                        ?.takeIf { it != -1 }
+
+                android.util.Log.d(
+                    "OrderNameRoute",
+                    "Order destination received orderIdArg=$orderIdArg route=${backStackEntry.destination.route}"
+                )
                 OrderScreen(
                     onClickPriceEstimate = {orderId ->
                         nav.navigate(SolarRoute.OrderPriceEstimate.name + "?orderId=$orderId")

@@ -47,6 +47,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -182,6 +183,7 @@ import com.example.solarShop.utils.rememberCameraCaptureLauncher
 import com.example.solarShop.utils.savePickedImageToBucket
 import com.example.solarShop.utils.toCurrencyText
 import com.example.solarShop.utils.uiToIranE164
+import kotlinx.coroutines.delay
 import java.io.File
 
 val horizontalPadding = 8.dp
@@ -233,8 +235,20 @@ fun DashboardScreen(                               //صفحه پروفایل
     var marketExpanded by rememberSaveable { mutableStateOf(true) }
     var actionsExpanded by rememberSaveable { mutableStateOf(true) }
     var clientsExpanded by rememberSaveable { mutableStateOf(false) }
+    val dashboardListState =
+        rememberLazyListState()
     var manualDollarText by rememberSaveable {
         mutableStateOf("")
+    }
+
+    LaunchedEffect(clientsExpanded) {
+        if (clientsExpanded) {
+            delay(350)
+
+            dashboardListState.animateScrollToItem(
+                index = 3
+            )
+        }
     }
 
     val clients = uiState.currentClientWithOrders?.map { it.clientEntity } ?: listOf()
@@ -294,7 +308,7 @@ fun DashboardScreen(                               //صفحه پروفایل
 
                         }
                     },
-                    modifier = modifier,
+                    modifier = modifier.imePadding(),
                     snackbarHost = { SnackbarHost(snackBarHostState) }
                 ) { innerPadding ->
 
@@ -309,10 +323,9 @@ fun DashboardScreen(                               //صفحه پروفایل
                                 .bambooAngledBackground()
                         ) {
                             LazyColumn(
-
+                                state = dashboardListState,
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
-
                             ) {
 
                                 //شاخص‌ها
@@ -441,6 +454,20 @@ fun DashboardScreen(                               //صفحه پروفایل
                                                 val numberOfOrderOfThisClient =
                                                     uiState.orderEntityList?.count { it.clientId == client.id } ?: 0
 
+                                                val clientOrderSummaries =
+                                                    orderSummaries.filter { summary ->
+                                                        summary.order.clientId == client.id
+                                                    }
+
+                                                val invoiceCount =
+                                                    clientOrderSummaries.count { summary ->
+                                                        summary.hasFacture
+                                                    }
+
+                                                val proformaCount =
+                                                    clientOrderSummaries.count { summary ->
+                                                        !summary.hasFacture && summary.hasPreFacture
+                                                    }
 
                                                 // ۱) دیگه از confirmValueChange استفاده نمی‌کنیم
                                                 val state = rememberSwipeToDismissBoxState()
@@ -486,6 +513,8 @@ fun DashboardScreen(                               //صفحه پروفایل
                                                         ClientRowCard(
                                                             client = client,
                                                             numberOfOrderOfThisClient = numberOfOrderOfThisClient,
+                                                            proformaCount = proformaCount,
+                                                            invoiceCount = invoiceCount,
                                                             onClickClient = {
                                                                 showClientSheet = true
                                                                 choiceClientId = client.id!!
@@ -1702,7 +1731,14 @@ fun ClientDetailsSheet(
                                 content = {
                                     OrderCardPretty(
                                         summary = summary,
-                                        onClick = { summary.order.id?.let(onClickOrder) }
+                                        onClick = {
+                                            android.util.Log.d(
+                                                "OrderOpenFromDashboard",
+                                                "clicked orderId=${summary.order.id}, clientId=${summary.order.clientId}, name=${summary.order.name}"
+                                            )
+
+                                            summary.order.id?.let(onClickOrder)
+                                        }
                                     )
                                 }
                             )
@@ -2145,9 +2181,38 @@ private fun ClientsHeaderRow(
 private fun ClientRowCard(
     client: ClientEntity,
     numberOfOrderOfThisClient: Int,
+    proformaCount: Int,
+    invoiceCount: Int,
     onClickClient: (clientId: Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    val hasInvoice =
+        invoiceCount > 0
+
+    val hasOnlyProforma =
+        invoiceCount == 0 && proformaCount > 0
+
+    val cardContainerColor =
+        when {
+            hasInvoice -> MaterialTheme.colorScheme.primaryContainer
+            hasOnlyProforma -> MaterialTheme.colorScheme.tertiaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        }
+
+    val cardContentColor =
+        when {
+            hasInvoice -> MaterialTheme.colorScheme.onPrimaryContainer
+            hasOnlyProforma -> MaterialTheme.colorScheme.onTertiaryContainer
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    val borderColor =
+        when {
+            hasInvoice -> MaterialTheme.colorScheme.primary
+            hasOnlyProforma -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.outline
+        }
 
 
     Card(
@@ -2157,13 +2222,16 @@ private fun ClientRowCard(
             .fillMaxWidth()
             .padding(horizontal = 14.dp)
             .border(
-                BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary),
+                BorderStroke(
+                    width = if (hasInvoice) 1.2.dp else 0.5.dp,
+                    color = borderColor
+                ),
                 RoundedCornerShape(10.dp)
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            containerColor = cardContainerColor,
+            contentColor = cardContentColor
         ),
     ) {
         Row(
@@ -2217,15 +2285,46 @@ private fun ClientRowCard(
 
             Spacer(Modifier.width(24.dp))
 
-            Text(
-                text = stringResource(
-                    R.string.profile_clients_orders_count,
-                    numberOfOrderOfThisClient
-                ),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.profile_clients_orders_count,
+                        numberOfOrderOfThisClient
+                    ),
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                val invoiceStatusText =
+                    buildList {
+                        if (proformaCount > 0) {
+                            add("$proformaCount پیش‌فاکتور")
+                        }
+
+                        if (invoiceCount > 0) {
+                            add("$invoiceCount فاکتور")
+                        }
+                    }.joinToString("  ")
+
+                Text(
+                    text = invoiceStatusText.ifBlank {
+                        "بدون پیش‌فاکتور/فاکتور"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (invoiceCount > 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
         }
     }

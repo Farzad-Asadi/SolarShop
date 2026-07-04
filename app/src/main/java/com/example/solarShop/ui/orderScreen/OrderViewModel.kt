@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -84,7 +85,7 @@ class OrderViewModel @Inject constructor(
     private val checkpointStore: OrderCheckpointStore,
     answerRepo: AnswerRepository,
     appInfoRepo: AppInfoRepository,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val filesDir: File = context.filesDir
@@ -121,13 +122,31 @@ class OrderViewModel @Inject constructor(
 
 
 
+    private val _orderIdStateFlow =
+        MutableStateFlow(savedStateHandle.get<Int>("orderId") ?: -1)
+
     private val orderIdStateFlow: StateFlow<Int> =
-        savedStateHandle.getStateFlow("orderId", -1)
+        _orderIdStateFlow
 
     private val currentOrderIdFlow: Flow<Int?> =
         orderIdStateFlow
             .map { if (it == -1) null else it }
             .distinctUntilChanged()
+
+    fun setOrderIdFromNav(orderId: Int?) {
+        val id =
+            orderId ?: -1
+
+        if (id != -1 && _orderIdStateFlow.value != id) {
+            _orderIdStateFlow.value = id
+            savedStateHandle["orderId"] = id
+
+            android.util.Log.d(
+                "OrderNameRoute",
+                "setOrderIdFromNav id=$id"
+            )
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val pendingSuggestionFlow: Flow<OrderTimelineSuggestionEntity?> =
@@ -188,7 +207,6 @@ class OrderViewModel @Inject constructor(
     private val currentAnswerItemUnitFlow: Flow<List<AnswerItemUnit>> =
         combine(baseAnswerItemsFlow, currentChoiceFlow) { items, choice ->
             if (choice == null) {
-                // هنوز چیزی انتخاب نشده → همه بدون نوت
                 items.map { it.copy(note = "") }
             } else {
                 val selectedAnswerId = choice.answerId
@@ -199,6 +217,9 @@ class OrderViewModel @Inject constructor(
                 }
             }
         }
+            .onStart {
+                emit(emptyList())
+            }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentUserFlow: Flow<UserEntity?> =
@@ -340,8 +361,10 @@ class OrderViewModel @Inject constructor(
                     orderAllRepository
                         .observeOrderSummary(id)
                         .map { it as OrderSummary? }
+                        .onStart { emit(null) }
                 }
             }
+            .onStart { emit(null) }
             .flowOn(Dispatchers.IO)
 
 

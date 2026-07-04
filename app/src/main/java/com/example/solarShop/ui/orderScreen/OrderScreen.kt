@@ -117,6 +117,7 @@ import kotlin.math.max
 @Composable
 fun OrderScreen(                               //صفحه سفارش
     modifier: Modifier = Modifier,
+    orderIdArg: Int? = null,
     onClickPriceEstimate: (Int) -> Unit,
     onClickContract: (Int) -> Unit,
     onClickCost: (Int) -> Unit,
@@ -129,6 +130,10 @@ fun OrderScreen(                               //صفحه سفارش
 
     val ui by vm.uiState.collectAsStateWithLifecycle()
     val prefs by vm.displayPrefsState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(orderIdArg) {
+        vm.setOrderIdFromNav(orderIdArg)
+    }
 
     // ✅ Snackbar infra (واحد)
     val snackbarHostState = remember { SnackbarHostState() }
@@ -149,13 +154,34 @@ fun OrderScreen(                               //صفحه سفارش
     var showWorkflowDialog by rememberSaveable { mutableStateOf(false) }
 
 
-    val orderId = ui.currentOrderEntity?.id
-
     val displayedOrder =
-        ui.currentOrderSummary?.order ?: ui.currentOrderEntity
+        ui.currentOrderEntity ?: ui.currentOrderSummary?.order
+
+    val orderId =
+        displayedOrder?.id ?: orderIdArg ?: vm.currentOrderIdForNavigation()
 
     fun currentSafeOrderId(): Int? {
-        return displayedOrder?.id ?: vm.currentOrderIdForNavigation()
+        return displayedOrder?.id ?: orderId
+    }
+
+    LaunchedEffect(
+        ui.currentOrderEntity?.id,
+        ui.currentOrderEntity?.name,
+        ui.currentOrderSummary?.order?.id,
+        ui.currentOrderSummary?.order?.name
+    ) {
+        android.util.Log.d(
+            "OrderNameRoute",
+            """
+        routeOrderId=${vm.currentOrderIdForNavigation()},
+        currentOrderId=${ui.currentOrderEntity?.id},
+        currentOrderName=${ui.currentOrderEntity?.name},
+        summaryOrderId=${ui.currentOrderSummary?.order?.id},
+        summaryOrderName=${ui.currentOrderSummary?.order?.name},
+        displayedOrderId=${displayedOrder?.id},
+        displayedOrderName=${displayedOrder?.name}
+        """.trimIndent()
+        )
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -622,7 +648,7 @@ private fun OrderTopBar(
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = order.name ?: "",
+                        text = order.name?.takeIf { it.isNotBlank() } ?: "سفارش بدون نام",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -668,13 +694,33 @@ fun OrderDetailsQuickGrid(
 
 ) {
 
+
+
     var noteDialogVisible by rememberSaveable { mutableStateOf(false) }
 
     val displayOrder =
-        orderSummary?.order ?: order
+        order ?: orderSummary?.order
 
     val displayOrderName =
-        displayOrder?.name?.trim().orEmpty()
+        order?.name?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: orderSummary?.order?.name?.trim()
+                ?.takeIf { it.isNotBlank() }
+            ?: ""
+
+    android.util.Log.d(
+        "OrderNameUi",
+        """
+    orderId=${order?.id},
+    orderName=${order?.name},
+    summaryOrderId=${orderSummary?.order?.id},
+    summaryClientId=${orderSummary?.order?.clientId},
+    summaryName=${orderSummary?.order?.name},
+    displayOrderId=${displayOrder?.id},
+    displayOrderName=${displayOrder?.name},
+    displayName=$displayOrderName
+    """.trimIndent()
+    )
 
     Column(
         modifier = modifier
