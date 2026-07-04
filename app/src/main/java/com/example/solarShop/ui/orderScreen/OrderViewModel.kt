@@ -410,36 +410,33 @@ class OrderViewModel @Inject constructor(
     //region Funs
 
     fun onRenameOrder(newName: String) {
-        val order =
-            uiState.value.currentOrderEntity ?: return
+        val orderId =
+            orderIdStateFlow.value.takeIf { it != -1 } ?: return
 
         val cleanName =
             newName.trim()
 
         if (cleanName.isBlank()) {
+            android.util.Log.d(
+                "OrderRename",
+                "rename ignored: blank name, orderId=$orderId"
+            )
             return
         }
 
         viewModelScope.launch(Dispatchers.IO) {
             val affectedRows =
-                orderRepo.updateOrder(
-                    order.copy(
-                        name = cleanName,
-                        updatedAt = System.currentTimeMillis()
-                    )
+                orderRepo.updateOrderName(
+                    orderId = orderId,
+                    name = cleanName
                 )
 
-            android.util.Log.d(
-                "OrderRename",
-                "rename orderId=${order.id}, newName=$cleanName, affectedRows=$affectedRows"
-            )
-
             val after =
-                order.id?.let { orderRepo.getOrderById(it) }
+                orderRepo.getOrderById(orderId)
 
             android.util.Log.d(
                 "OrderRename",
-                "after rename from db = ${after?.name}"
+                "rename orderId=$orderId, newName=$cleanName, affectedRows=$affectedRows, after=${after?.name}"
             )
         }
     }

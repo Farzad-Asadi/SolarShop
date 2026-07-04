@@ -151,6 +151,13 @@ fun OrderScreen(                               //صفحه سفارش
 
     val orderId = ui.currentOrderEntity?.id
 
+    val displayedOrder =
+        ui.currentOrderSummary?.order ?: ui.currentOrderEntity
+
+    fun currentSafeOrderId(): Int? {
+        return displayedOrder?.id ?: vm.currentOrderIdForNavigation()
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(orderId, lifecycleOwner) {
@@ -213,7 +220,7 @@ fun OrderScreen(                               //صفحه سفارش
 
     Scaffold(
         topBar = {
-            ui.currentOrderEntity?.let { order ->
+            displayedOrder?.let { order ->
                 OrderTopBar(
                     order = order,
                     onClickBack = onClickBack,
@@ -228,17 +235,40 @@ fun OrderScreen(                               //صفحه سفارش
         modifier = modifier
     ) { innerPadding ->
         OrderContent(
-            order = ui.currentOrderEntity,
+            order = displayedOrder,
             timeline = ui.currentOrderWithTimelineItem?.timelineItemEntity ?: listOf(),
             orderSummary = ui.currentOrderSummary,
             prefs = prefs,
-            onClickCatalog = { onClickCatalog(ui.currentOrderEntity?.id ?: -1) },
-            onClickShowPriceEstimateWindow = {
-                onClickPriceEstimate(ui.currentOrderEntity?.id ?: -1)
+            onClickCatalog = {
+                val id = currentSafeOrderId()
+                if (id != null) {
+                    onClickCatalog(id)
+                } else {
+                    snackbar.show("شناسه سفارش هنوز آماده نیست.")
+                }
             },
-            onClickContract = { onClickContract(ui.currentOrderEntity?.id ?: -1) },
-            onClickCosts = { onClickCost(ui.currentOrderEntity?.id ?: -1) },
-            onClickPicture = { onClickPicture(ui.currentOrderEntity?.id ?: -1) },
+            onClickShowPriceEstimateWindow = {
+                val id = currentSafeOrderId()
+                if (id != null) onClickPriceEstimate(id)
+                else snackbar.show("شناسه سفارش هنوز آماده نیست.")
+            },
+            onClickContract = {
+                val id = currentSafeOrderId()
+                if (id != null) onClickContract(id)
+                else snackbar.show("شناسه سفارش هنوز آماده نیست.")
+            },
+
+            onClickCosts = {
+                val id = currentSafeOrderId()
+                if (id != null) onClickCost(id)
+                else snackbar.show("شناسه سفارش هنوز آماده نیست.")
+            },
+
+            onClickPicture = {
+                val id = currentSafeOrderId()
+                if (id != null) onClickPicture(id)
+                else snackbar.show("شناسه سفارش هنوز آماده نیست.")
+            },
             onClickFacture = {
                 val id = vm.currentOrderIdForNavigation()
 
@@ -261,7 +291,7 @@ fun OrderScreen(                               //صفحه سفارش
                 snackbar.show("یادداشت سفارش ذخیره شد")
             },
             onClickRenameOrder = {
-                newName = ui.currentOrderEntity?.name.orEmpty()
+                newName = displayedOrder?.name.orEmpty()
                 showRenameDialog = true
             },
             snackbar = snackbar
@@ -640,6 +670,12 @@ fun OrderDetailsQuickGrid(
 
     var noteDialogVisible by rememberSaveable { mutableStateOf(false) }
 
+    val displayOrder =
+        orderSummary?.order ?: order
+
+    val displayOrderName =
+        displayOrder?.name?.trim().orEmpty()
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -672,9 +708,10 @@ fun OrderDetailsQuickGrid(
                 )
 
                 Text(
-                    text = order?.name?.takeIf { it.isNotBlank() } ?: "برای این سفارش نامی ثبت نشده",
+                    text = displayOrderName.takeIf { it.isNotBlank() }
+                        ?: "برای این سفارش نامی ثبت نشده",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (order?.name.isNullOrBlank()) {
+                    color = if (displayOrderName.isBlank()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
                         MaterialTheme.colorScheme.onSurface
@@ -800,7 +837,7 @@ fun OrderDetailsQuickGrid(
     NoteEditorDialog(
         visible = noteDialogVisible,
         label = "یادداشت سفارش",
-        initialText = order?.note.orEmpty(),
+        initialText = displayOrder?.note.orEmpty(),
         onDismiss = { noteDialogVisible = false },
         onSave = { newNote ->
             onSaveNote(newNote)
