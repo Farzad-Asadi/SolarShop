@@ -528,6 +528,15 @@ class DashboardViewModel @Inject constructor(
 
     fun onDashboardEntered() {
         viewModelScope.launch(Dispatchers.IO) {
+            userRepo.syncMe()
+                .onFailure { error ->
+                    Log.e(
+                        "DashboardViewModel",
+                        "syncMe failed on dashboard entered",
+                        error
+                    )
+                }
+
             syncManager.autoSyncInBackground(
                 reason = "dashboard_entered"
             )

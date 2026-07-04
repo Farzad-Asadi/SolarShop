@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DragHandle
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Money
 import androidx.compose.material.icons.outlined.North
@@ -259,6 +260,10 @@ fun OrderScreen(                               //صفحه سفارش
                 vm.onSaveOrderNote(note)
                 snackbar.show("یادداشت سفارش ذخیره شد")
             },
+            onClickRenameOrder = {
+                newName = ui.currentOrderEntity?.name.orEmpty()
+                showRenameDialog = true
+            },
             snackbar = snackbar
         )
     }
@@ -342,6 +347,7 @@ fun OrderContent(
     progressPercent: Int,
     onClickUpdateStatus: () -> Unit,
     onSaveNote: (String) -> Unit,
+    onClickRenameOrder: () -> Unit,
     snackbar: SnackbarController,
 ) {
     val progressValue = progressPercent.coerceIn(0, 100)
@@ -366,7 +372,8 @@ fun OrderContent(
                 onClickCosts = { onClickCosts() },
                 onClickPicture = onClickPicture,
                 onClickFacture = onClickFacture,
-                onSaveNote = { onSaveNote(it) }
+                onSaveNote = { onSaveNote(it) },
+                onClickRenameOrder = onClickRenameOrder
             )
         }
 
@@ -627,6 +634,8 @@ fun OrderDetailsQuickGrid(
     onClickPicture: () -> Unit,
     onClickFacture: () -> Unit,
     onSaveNote: (String) -> Unit,
+    onClickRenameOrder: () -> Unit,
+
 ) {
 
     var noteDialogVisible by rememberSaveable { mutableStateOf(false) }
@@ -637,6 +646,46 @@ fun OrderDetailsQuickGrid(
             .padding(start = 12.dp, end = 12.dp, top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // نام سفارش
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClickRenameOrder() }
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(Modifier.width(8.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "نام سفارش",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = order?.name?.takeIf { it.isNotBlank() } ?: "برای این سفارش نامی ثبت نشده",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (order?.name.isNullOrBlank()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        HorizontalDivider()
         // یادداشت سفارش
         Row(
             modifier = Modifier

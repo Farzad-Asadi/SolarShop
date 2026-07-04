@@ -78,44 +78,12 @@ class OfflineUserRepository @Inject constructor(
 
 
     override suspend fun syncMe(): Result<Unit> = runCatching {
-//        val dto = api.getMe()   // UserDto از سرور
-//
-//        // اینجا فرض می‌کنیم dto.id = id سرور
-//        val serverId = dto.id
-//
-//        val now = System.currentTimeMillis()
-//
-//        // ⬅️ ۱) از دیتابیس ببین قبلاً چنین یوزری داشتیم یا نه
-//        val existing = userDao.getById(serverId)
-//
-//        val entity = if (existing == null) {
-//            // ⬅️ ۲) کاربر جدید → userKey تازه بساز
-//            UserEntity(
-//                id = serverId,
-//                mobilePhone = dto.phone,
-//                name = dto.name,
-//                userKey = UUID.randomUUID().toString(),  // فقط اینجا
-//                createdAt = dto.createdAt ?: now,
-//                updatedAt = now
-//            )
-//        } else {
-//            // ⬅️ ۳) کاربر موجود → userKey قبلی رو نگه دار، بقیه رو آپدیت کن
-//            existing.copy(
-//                mobilePhone = dto.phone,
-//                name = dto.name,
-//                updatedAt = now
-//                // createdAt و userKey رو دست نمی‌زنیم
-//            )
-//        }
-//
-//        if (existing == null) {
-//            userDao.insertUser(entity)
-//        } else {
-//            userDao.updateUser(entity)
-//        }
+        val dto =
+            userApi.me()
 
-        // (اختیاری) اگر هنوز از AppInfo استفاده می‌کنی:
-        // appInfoDao.setCurrentUserId(serverId)
+        upsertFromRemote(dto)
+
+        session.setCurrentUserId(dto.id)
     }
 
     override fun observeUser(userId: Int): Flow<UserEntity?> =

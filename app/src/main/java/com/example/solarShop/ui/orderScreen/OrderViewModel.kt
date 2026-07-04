@@ -351,9 +351,10 @@ class OrderViewModel @Inject constructor(
         combine(
             appInfoFlow,              // 0
             currentUserFlow,          // 1
-            orderSummaryFlow,         // 2  👈 به‌جای currentOrderEntity + progress
-            currentClientEntity,      // 3
-            currentOrderWithTimelineItem, // 4
+            currentOrderEntity,       // 2
+            orderSummaryFlow,         // 3
+            currentClientEntity,      // 4
+            currentOrderWithTimelineItem, // 5
             rootQuestionFlow,         // 5
             currentAnswerItemUnitFlow,// 6
             currentQuestionFlow,      // 7
@@ -364,19 +365,18 @@ class OrderViewModel @Inject constructor(
         ) { arr ->
             val appInfo        = arr[0] as AppInfoEntity?
             val currentUser    = arr[1] as UserEntity?
-            val summary        = arr[2] as OrderSummary?
-            val currentClient  = arr[3] as ClientEntity?
-            val orderWithTimelineItem = arr[4] as OrderWithTimelineItem?
-            val rootQuestion   = arr[5] as QuestionEntity?
+            val currentOrder   = arr[2] as OrderEntity?
+            val summary        = arr[3] as OrderSummary?
+            val currentClient  = arr[4] as ClientEntity?
+            val orderWithTimelineItem = arr[5] as OrderWithTimelineItem?
+            val rootQuestion   = arr[6] as QuestionEntity?
             val currentAnswerItemUnit =
-                (arr[6] as? List<*>)?.filterIsInstance<AnswerItemUnit>().orEmpty()
-            val currentQuestion= arr[7] as QuestionEntity?
-            val answeredOrder  = arr[8] as Int?
-            val totalAnswered  = arr[9] as Int?
-            val totalInLine    = arr[10] as Int
-            val pendingSug     = arr[11] as TimelineSuggestion?
-
-            val currentOrder   = summary?.order
+                (arr[7] as? List<*>)?.filterIsInstance<AnswerItemUnit>().orEmpty()
+            val currentQuestion= arr[8] as QuestionEntity?
+            val answeredOrder  = arr[9] as Int?
+            val totalAnswered  = arr[10] as Int?
+            val totalInLine    = arr[11] as Int
+            val pendingSug     = arr[12] as TimelineSuggestion?
             val progressPercent= summary?.progressPercent ?: 0
             // اگر بعداً priceEstimateTotal هم خواستی می‌تونی از summary استفاده کنی
 
@@ -410,12 +410,37 @@ class OrderViewModel @Inject constructor(
     //region Funs
 
     fun onRenameOrder(newName: String) {
-        val order = uiState.value.currentOrderEntity ?: return
+        val order =
+            uiState.value.currentOrderEntity ?: return
 
-        val id = order.id ?: return
+        val cleanName =
+            newName.trim()
+
+        if (cleanName.isBlank()) {
+            return
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
-            orderRepo.updateOrderName(id, newName)
+            val affectedRows =
+                orderRepo.updateOrder(
+                    order.copy(
+                        name = cleanName,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+
+            android.util.Log.d(
+                "OrderRename",
+                "rename orderId=${order.id}, newName=$cleanName, affectedRows=$affectedRows"
+            )
+
+            val after =
+                order.id?.let { orderRepo.getOrderById(it) }
+
+            android.util.Log.d(
+                "OrderRename",
+                "after rename from db = ${after?.name}"
+            )
         }
     }
 

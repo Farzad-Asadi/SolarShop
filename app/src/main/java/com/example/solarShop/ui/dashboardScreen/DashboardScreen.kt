@@ -562,27 +562,67 @@ fun DashboardScreen(                               //صفحه پروفایل
                 }
             }
             if (showAddClientSheet) {
+                val currentUser =
+                    uiState.currentUserEntity
+
                 Scaffold(
                     topBar = {
-                        uiState.currentUserEntity?.let {
-                            AddAndEditeClientTopBar(
-                                topBarTitle =  stringResource(R.string.profile_new_client_title),
-                                onClickBack = { showAddClientSheet = false },
-                            )
-                        }
+                        AddAndEditeClientTopBar(
+                            topBarTitle = stringResource(R.string.profile_new_client_title),
+                            onClickBack = {
+                                showAddClientSheet = false
+                            },
+                        )
                     },
                     modifier = modifier
                 ) { innerPadding ->
-                    uiState.currentUserEntity?.userKey?.let { userKey ->
-                        AddAndEditeClientSheet(
-                            userKey = userKey,
-                            modifier = Modifier.padding(innerPadding),
-                            clientEntity = clients.find { it.id == choiceClientId },
-                            onBackClick = { showAddClientSheet = false },
-                            onConfirmClick = {
-                                showAddClientSheet = false; viewModel.onClickConfirmInAddClient(
-                                it
+
+                    if (currentUser == null) {
+                        Column(
+                            modifier = Modifier
+                                .padding(innerPadding)
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "اطلاعات کاربر فعلی پیدا نشد. چند لحظه صبر کن یا دوباره وارد حساب شو.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
                             )
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    viewModel.refresh()
+                                }
+                            ) {
+                                Text("تلاش دوباره")
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            OutlinedButton(
+                                onClick = {
+                                    showAddClientSheet = false
+                                }
+                            ) {
+                                Text("بازگشت")
+                            }
+                        }
+                    } else {
+                        AddAndEditeClientSheet(
+                            userKey = currentUser.userKey,
+                            modifier = Modifier.padding(innerPadding),
+                            clientEntity = null,
+                            onBackClick = {
+                                showAddClientSheet = false
+                            },
+                            onConfirmClick = {
+                                showAddClientSheet = false
+                                viewModel.onClickConfirmInAddClient(it)
                             },
                             inAddMode = true
                         )

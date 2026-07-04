@@ -9,7 +9,6 @@ import com.example.solarShop.data.room.tables.orderAll.orderPhoto.OrderPhotoRefD
 import com.example.solarShop.ui.orderScreen.orderCosts.OrderMini
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 
 
@@ -30,7 +29,11 @@ class OfflineOrderRepository @Inject constructor(
     override suspend fun updateOrder(orderEntity: OrderEntity) =
         orderDao.updateOrder(orderEntity)
     override suspend fun updateOrderName(orderId: Int, name: String): Int =
-        orderDao.updateOrderName(orderId,name)
+        orderDao.updateOrderName(
+            orderId = orderId,
+            name = name.trim(),
+            updatedAt = System.currentTimeMillis()
+        )
 
     override suspend fun getOrderById(orderId: Int): OrderEntity? =
         orderDao.getOrderById(orderId)
@@ -39,7 +42,7 @@ class OfflineOrderRepository @Inject constructor(
         orderDao.observeAllOrders().distinctUntilChanged()
 
     override fun observeOrderById(orderId: Int): Flow<OrderEntity?> =
-        orderDao.observeOrderById(orderId).distinctUntilChanged() ?: flowOf(null)
+        orderDao.observeOrderById(orderId).distinctUntilChanged()
 
     override fun observeAllOrderOfClient(clientId: Int): Flow<List<OrderEntity>> =
         orderDao.observeAllOrderOfClient(clientId).distinctUntilChanged()

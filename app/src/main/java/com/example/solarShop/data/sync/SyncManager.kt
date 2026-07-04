@@ -963,11 +963,16 @@ class SyncManager @Inject constructor(
 
     suspend fun pullProductSaleTransactions(): Int {
 
-        // فعلاً فروش‌های واقعی را کامل می‌کشیم.
-        // چون این جدول تازه اضافه شده و حجمش کم است،
-        // و upsert با uid جلوی رکورد تکراری را می‌گیرد.
+        val lastSyncAt =
+            syncRepository.getLastSyncAt()
+
+        Log.d(
+            "SYNC_TEST",
+            "Pull ProductSaleTransactions Since = $lastSyncAt"
+        )
+
         val items =
-            syncApi.pullProductSaleTransactions(0L)
+            syncApi.pullProductSaleTransactions(lastSyncAt)
 
         Log.d(
             "SYNC_TEST",

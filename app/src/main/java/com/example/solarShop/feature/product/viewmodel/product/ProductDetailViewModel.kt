@@ -21,6 +21,7 @@ import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
+import com.example.solarShop.data.sync.SyncManager
 import com.example.solarShop.domain.product.ProductPriceCalculator
 import com.example.solarShop.utils.ProductPdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,6 +47,7 @@ class ProductDetailViewModel @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val inventoryRepository: InventoryRepository,
     private val productSaleTransactionRepository: ProductSaleTransactionRepository,
+    private val syncManager: SyncManager,
     @ApplicationContext private val app: Context,
     private val productImageRepository: ProductImageRepository,
     private val dollarRatePrefs: DollarRatePreferencesDataSource,
@@ -465,6 +467,10 @@ class ProductDetailViewModel @Inject constructor(
 
             productSaleTransactionRepository.addSaleTransaction(
                 saleTransaction
+            )
+
+            syncManager.autoSyncInBackground(
+                reason = "product_sale_registered"
             )
         }
     }
