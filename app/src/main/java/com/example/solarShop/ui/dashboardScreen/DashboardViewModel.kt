@@ -18,6 +18,8 @@ import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.network.ServerConnectionState
+import com.example.solarShop.data.network.ServerState
 import com.example.solarShop.data.remote.currency.CurrencyRemoteDataSource
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
@@ -77,6 +79,7 @@ class DashboardViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val inventoryRepository: InventoryRepository,
     private val syncManager: SyncManager,
+    private val serverConnectionState: ServerConnectionState,
 
     ) : ViewModel() {
 
@@ -303,6 +306,7 @@ class DashboardViewModel @Inject constructor(
             manualDollarRateFlow,
             dollarRateUiState,
             dashboardIndicatorsFlow,
+            serverConnectionState.state,
         ) { arr: Array<Any?> ->
 
 
@@ -315,6 +319,7 @@ class DashboardViewModel @Inject constructor(
             val manualDollarRateToman = arr[6] as Long?
             val dollarRateUi = arr[7] as DollarRateUiState
             val indicators = arr[8] as DashboardIndicators
+            val serverState = arr[9] as ServerState
 
 
             val effectiveDollarRateToman =
@@ -564,6 +569,8 @@ class DashboardViewModel @Inject constructor(
         val effectiveDollarRateToman: Long? = null,
         val isFetchingDollarRate: Boolean = false,
         val dollarRateMessage: String? = null,
+
+        val serverState: ServerState = ServerState.Connected,
 
         val totalInventoryValueToman: Long = 0L,
         val totalInventoryValueDollar: Double = 0.0,

@@ -71,6 +71,8 @@ import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
@@ -163,6 +165,7 @@ import com.example.solarShop.USER_ROLE_SELLER
 import com.example.solarShop.data.dataStore.DisplayPreferences
 import com.example.solarShop.data.entitlement.EntitlementState
 import com.example.solarShop.data.entitlement.toPremiumUi
+import com.example.solarShop.data.network.ServerState
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.orderAll.OrderSummary
 import com.example.solarShop.data.room.tables.user.UserEntity
@@ -235,7 +238,7 @@ fun DashboardScreen(                               //صفحه پروفایل
     var choiceClientId by rememberSaveable { mutableIntStateOf(1) }
 
     var indicatorsExpanded by rememberSaveable { mutableStateOf(false) }
-    var marketExpanded by rememberSaveable { mutableStateOf(true) }
+    var marketExpanded by rememberSaveable { mutableStateOf(false) }
     var actionsExpanded by rememberSaveable { mutableStateOf(true) }
     var clientsExpanded by rememberSaveable { mutableStateOf(false) }
     val dashboardListState =
@@ -301,6 +304,7 @@ fun DashboardScreen(                               //صفحه پروفایل
                                 entState = entState,
                                 prefs = prefs,
                                 appLanguage = appLang,
+                                serverState = uiState.serverState,
                                 onChangeLanguage = langVm::setLanguage,
                                 onClickSignedOut = { showSignOutDialog = true },
                                 onClickAvatar = { showEditeProfileSheet = true },
@@ -365,7 +369,16 @@ fun DashboardScreen(                               //صفحه پروفایل
                                     DashboardExpandableCard(
                                         title = "متغیرهای بازار",
                                         expanded = marketExpanded,
-                                        onExpandedChange = { marketExpanded = it }
+                                        onExpandedChange = { marketExpanded = it },
+                                        headerEnd = {
+                                            Text(
+                                                text = uiState.apiDollarRateToman?.toPriceString() ?: "-",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     ) {
                                         Text(
                                             text = "نرخ API: ${
@@ -1953,11 +1966,54 @@ fun ClientDetailsSheet(
 //region Components
 
 @Composable
+private fun ServerConnectionIcon(
+    serverState: ServerState,
+    modifier: Modifier = Modifier
+) {
+    val isConnected =
+        serverState == ServerState.Connected
+
+    val icon =
+        if (isConnected) {
+            Icons.Outlined.CloudDone
+        } else {
+            Icons.Outlined.CloudOff
+        }
+
+    val tint =
+        if (isConnected) {
+            Color(0xFF2E7D32) // سبز
+        } else {
+            Color(0xFFC62828) // قرمز
+        }
+
+    val description =
+        when (serverState) {
+            ServerState.Connected -> "اتصال اخیر با سرور برقرار بوده"
+            ServerState.Unreachable -> "سرور در دسترس نیست"
+            ServerState.AuthExpired -> "نشست منقضی شده است"
+        }
+
+    Box(
+        modifier = modifier.size(40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
 private fun ProfileTopBar(
     user: UserEntity,
     entState: EntitlementState,
     prefs: DisplayPreferences,
     appLanguage: AppLanguage,
+    serverState: ServerState,
     onChangeLanguage: (AppLanguage) -> Unit,
     onClickSignedOut: () -> Unit,
     onClickAvatar: () -> Unit,
@@ -2095,6 +2151,10 @@ private fun ProfileTopBar(
 //                        )
 //                    }
 //                }
+
+                ServerConnectionIcon(
+                    serverState = serverState
+                )
 
                 SettingsButtonWithMenu(
                     prefs = prefs,
@@ -3015,6 +3075,7 @@ private fun DashboardExpandableCard(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    headerEnd: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -3041,8 +3102,16 @@ private fun DashboardExpandableCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+
+                if (headerEnd != null) {
+                    Spacer(Modifier.width(8.dp))
+                    headerEnd()
+                }
+
+                Spacer(Modifier.weight(1f))
 
                 Text(
                     text = if (expanded) "▲" else "▼",
