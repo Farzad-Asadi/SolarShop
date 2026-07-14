@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.example.solarShop.data.backupRestore.AttachmentController
 import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.orderAll.orderCost.OrderCostDao
+import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentDao
 import com.example.solarShop.data.room.tables.orderAll.orderPhoto.OrderPhotoMetaRepository
 import com.example.solarShop.data.room.tables.orderAll.orderPhoto.OrderPhotoRefDao
 import com.example.solarShop.ui.orderScreen.orderCosts.OrderMini
@@ -18,7 +19,8 @@ class OfflineOrderRepository @Inject constructor(
     private val orderCostDao: OrderCostDao,
     private val attachmentController: AttachmentController,
     private val orderPhotoDao: OrderPhotoRefDao,
-    private val orderPhotoMetaRepo: OrderPhotoMetaRepository
+    private val orderPhotoMetaRepo: OrderPhotoMetaRepository,
+    private val invoiceDao: InvoiceDocumentDao
 ) : OrderRepository {
 
 
@@ -111,6 +113,9 @@ class OfflineOrderRepository @Inject constructor(
     override suspend fun deleteOrderWithChildren(orderId: Int) {
         db.withTransaction {
 
+            val now =
+                System.currentTimeMillis()
+
             // 1) receipts/expenses
             val receipts = orderCostDao.receiptsOnceForOrder(orderId)
             val expenses = orderCostDao.expensesOnceForOrder(orderId)
@@ -153,11 +158,15 @@ class OfflineOrderRepository @Inject constructor(
             // 6) cleanupEmptyDir
             attachmentController.cleanupEmptyDirsForOrder(orderId)
 
+            invoiceDao.softDeleteInvoicesWithItemsByOrderId(
+                orderId = orderId,
+                deletedAt = now
+            )
 
             // 7) order
             orderDao.softDeleteById(
                 orderId = orderId,
-                deletedAt = System.currentTimeMillis()
+                deletedAt = now
             )
         }
     }

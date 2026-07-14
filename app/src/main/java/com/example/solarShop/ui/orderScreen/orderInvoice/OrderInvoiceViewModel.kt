@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -381,80 +382,207 @@ class OrderInvoiceViewModel @Inject constructor(
     private suspend fun updateInvoiceHeaderInternal(
         header: InvoiceHeaderInput
     ) {
-        val current = invoiceDao.getInvoiceWithItems(header.invoiceId)?.invoice ?: return
+        val current =
+            invoiceDao
+                .getInvoiceWithItems(header.invoiceId)
+                ?.invoice
+                ?: return
 
-        val updated = current.copy(
-            number = header.number,
-            createdAt = header.dateMillis,
+        val now =
+            System.currentTimeMillis()
 
-            sellerLabel = header.sellerLabel,
-            sellerName = header.sellerName,
-            sellerPhone = header.sellerPhone,
-            sellerAddress = header.sellerAddress,
+        val updated =
+            current.copy(
+                number = header.number,
+                createdAt = header.dateMillis,
 
-            buyerLabel = header.buyerLabel,
-            buyerName = header.buyerName,
-            buyerPhone = header.buyerPhone,
-            buyerAddress = header.buyerAddress,
+                sellerLabel = header.sellerLabel,
+                sellerName = header.sellerName,
+                sellerPhone = header.sellerPhone,
+                sellerAddress = header.sellerAddress,
 
-            notes = header.notes,
-            updatedAt = System.currentTimeMillis()
-        )
+                buyerLabel = header.buyerLabel,
+                buyerName = header.buyerName,
+                buyerPhone = header.buyerPhone,
+                buyerAddress = header.buyerAddress,
+
+                notes = header.notes,
+
+                updatedAt = now,
+                deletedAt = null,
+                isSynced = false
+            )
 
         invoiceDao.updateInvoice(updated)
 
-        // اگه می‌خوای بعد از ذخیره، ادیتور بسته بشه:
-        editorState.value = InvoiceEditorUiState(
-            isVisible = false,
-            selectedInvoiceId = null
-        )
+        editorState.value =
+            InvoiceEditorUiState(
+                isVisible = false,
+                selectedInvoiceId = null
+            )
     }
 
     private suspend fun saveItemsInternal(
         invoiceId: Int,
         items: List<InvoiceItemInput>
     ) {
-        val entities = items.mapIndexed { index, it ->
-            val rowSubtotal = (it.quantity * it.unitPrice).toLong().coerceAtLeast(0L)
-            val rowDiscount = it.discount.coerceAtLeast(0L)
-            val taxAmount = 0L
-            val rowTotal = (rowSubtotal - rowDiscount + taxAmount).coerceAtLeast(0L)
+        val now =
+            System.currentTimeMillis()
 
-            InvoiceItemEntity(
-                id = it.id ?: 0,
-                invoiceId = invoiceId,
-                rowIndex = index,
-                description = it.description,
-                quantity = it.quantity,
-                unit = it.unit,
-                unitPrice = it.unitPrice,
-                rowDiscount = rowDiscount,
-                rowSubtotal = rowSubtotal,
-                taxPercent = null,
-                taxAmount = taxAmount,
-                rowTotal = rowTotal
+        val existingItems =
+            invoiceDao.getItemsForInvoice(invoiceId)
+
+        val existingById =
+            existingItems.associateBy { item ->
+                item.id
+            }
+
+        /*
+         * شناسه ردیف‌هایی که هنوز در فرم وجود دارند.
+         */
+        val submittedIds =
+            items.mapNotNull { input ->
+                input.id?.takeIf { it > 0 }
+            }.toSet()
+
+        /*
+         * ردیف‌هایی که قبلاً وجود داشتند ولی کاربر از فرم حذف کرده است.
+         */
+        val removedItemIds =
+            existingItems
+                .filter { existing ->
+                    existing.id > 0 &&
+                            existing.id !in submittedIds
+                }
+                .map { existing ->
+                    existing.id
+                }
+
+        val activeEntities =
+            items.mapIndexed { index, input ->
+
+                val rowSubtotal =
+                    (input.quantity * input.unitPrice)
+                        .toLong()
+                        .coerceAtLeast(0L)
+
+                val rowDiscount =
+                    input.discount.coerceAtLeast(0L)
+
+                val taxAmount =
+                    0L
+
+                val rowTotal =
+                    (
+                            rowSubtotal -
+                                    rowDiscount +
+                                    taxAmount
+                            ).coerceAtLeast(0L)
+
+                val existing =
+                    input.id
+                        ?.takeIf { it > 0 }
+                        ?.let { itemId ->
+                            existingById[itemId]
+                        }
+
+                if (existing != null) {
+                    /*
+                     * UID و createdAt ردیف قبلی حفظ می‌شوند.
+                     */
+                    existing.copy(
+                        invoiceId = invoiceId,
+                        rowIndex = index,
+                        description = input.description,
+                        quantity = input.quantity,
+                        unit = input.unit,
+                        unitPrice = input.unitPrice,
+                        rowDiscount = rowDiscount,
+                        rowSubtotal = rowSubtotal,
+                        taxPercent = null,
+                        taxAmount = taxAmount,
+                        rowTotal = rowTotal,
+
+                        updatedAt = now,
+                        deletedAt = null,
+                        isSynced = false
+                    )
+                } else {
+                    /*
+                     * ردیف جدید UID تازه می‌گیرد.
+                     */
+                    InvoiceItemEntity(
+                        id = 0,
+                        invoiceId = invoiceId,
+                        rowIndex = index,
+                        description = input.description,
+                        quantity = input.quantity,
+                        unit = input.unit,
+                        unitPrice = input.unitPrice,
+                        rowDiscount = rowDiscount,
+                        rowSubtotal = rowSubtotal,
+                        taxPercent = null,
+                        taxAmount = taxAmount,
+                        rowTotal = rowTotal,
+
+                        createdAt = now,
+                        updatedAt = now,
+                        deletedAt = null,
+                        isSynced = false
+                    )
+                }
+            }
+
+        val subtotalBeforeDiscount =
+            activeEntities.sumOf { item ->
+                item.rowSubtotal
+            }
+
+        val totalDiscount =
+            activeEntities.sumOf { item ->
+                item.rowDiscount
+            }
+
+        val totalBeforeTax =
+            (
+                    subtotalBeforeDiscount -
+                            totalDiscount
+                    ).coerceAtLeast(0L)
+
+        val totalTax =
+            activeEntities.sumOf { item ->
+                item.taxAmount
+            }
+
+        val totalFinal =
+            (
+                    totalBeforeTax +
+                            totalTax
+                    ).coerceAtLeast(0L)
+
+        val currentInvoice =
+            invoiceDao.getInvoiceById(invoiceId)
+                ?: return
+
+        val updatedInvoice =
+            currentInvoice.copy(
+                subtotalBeforeDiscount = subtotalBeforeDiscount,
+                totalDiscount = totalDiscount,
+                totalBeforeTax = totalBeforeTax,
+                totalTax = totalTax,
+                totalFinal = totalFinal,
+
+                updatedAt = now,
+                deletedAt = null,
+                isSynced = false
             )
-        }
 
-        invoiceDao.deleteItemsForInvoice(invoiceId)
-        invoiceDao.insertItems(entities)
-
-        val subtotalBeforeDiscount = entities.sumOf { it.rowSubtotal }
-        val totalDiscount = entities.sumOf { it.rowDiscount }
-        val totalBeforeTax = (subtotalBeforeDiscount - totalDiscount).coerceAtLeast(0L)
-        val totalTax = entities.sumOf { it.taxAmount }
-        val totalFinal = (totalBeforeTax + totalTax).coerceAtLeast(0L)
-
-        val currentInvoice = invoiceDao.getInvoiceWithItems(invoiceId)?.invoice ?: return
-        val updatedInvoice = currentInvoice.copy(
-            subtotalBeforeDiscount = subtotalBeforeDiscount,
-            totalDiscount = totalDiscount,
-            totalBeforeTax = totalBeforeTax,
-            totalTax = totalTax,
-            totalFinal = totalFinal,
-            updatedAt = System.currentTimeMillis()
+        invoiceDao.saveInvoiceItemsAndTotals(
+            updatedInvoice = updatedInvoice,
+            activeItems = activeEntities,
+            removedItemIds = removedItemIds,
+            now = now
         )
-        invoiceDao.updateInvoice(updatedInvoice)
     }
 
     fun onInvoiceTypeTabSelected(type: InvoiceType) {
@@ -499,15 +627,21 @@ class OrderInvoiceViewModel @Inject constructor(
     }
 
 
-    fun onDeleteInvoice(invoiceId: Int) {
-        viewModelScope.launch {
-            val invoice = invoiceDao.getInvoiceById(invoiceId) ?: return@launch
-            invoiceDao.deleteInvoice(invoice)
-            // اگر خواستی، اینجا editorState رو هم reset کن و یه Snackbar رو هم بعداً اضافه می‌کنیم
-            editorState.value = InvoiceEditorUiState(
-                isVisible = false,
-                selectedInvoiceId = null
+    fun onDeleteInvoice(
+        invoiceId: Int
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+
+            invoiceDao.softDeleteInvoiceWithItems(
+                invoiceId = invoiceId,
+                deletedAt = System.currentTimeMillis()
             )
+
+            editorState.value =
+                InvoiceEditorUiState(
+                    isVisible = false,
+                    selectedInvoiceId = null
+                )
         }
     }
 
@@ -578,22 +712,58 @@ class OrderInvoiceViewModel @Inject constructor(
                     ?: ensureDefaultTemplate(InvoiceType.INVOICE)
 
             // ✅ ساخت سند جدید Invoice با کپی فیلدهای پرشده
-            val newDoc = source.invoice.copy(
-                id = 0,
-                type = InvoiceType.INVOICE,
-                templateId = safeTemplate.id,
-                number = newNumber,
-                status = InvoiceStatus.DRAFT,
-                updatedAt = now,
-                pdfAttachmentId = null
-                // createdAt را من دست نزدم تا تاریخ سند هم از پیش‌فاکتور منتقل شود.
-                // اگر خواستی تاریخ فاکتور «الان» باشد: createdAt = now
-            )
+            val newDoc =
+                source.invoice.copy(
+                    id = 0,
+
+                    /*
+                     * سند جدید نباید UID پیش‌فاکتور را حفظ کند.
+                     */
+                    uid = UUID.randomUUID().toString(),
+
+                    type = InvoiceType.INVOICE,
+                    templateId = safeTemplate.id,
+                    number = newNumber,
+                    status = InvoiceStatus.DRAFT,
+
+                    updatedAt = now,
+
+                    pdfAttachmentId = null,
+
+                    deletedAt = null,
+                    isSynced = false,
+
+                    createdByUserId = null,
+                    updatedByUserId = null
+                )
 
             val newInvoiceId = invoiceDao.insertInvoice(newDoc).toInt()
 
             // ✅ کپی آیتم‌ها
-            val newItems = source.items.map { it.copy(id = 0, invoiceId = newInvoiceId) }
+            val newItems =
+                source.items.mapIndexed { index, sourceItem ->
+
+                    sourceItem.copy(
+                        id = 0,
+
+                        /*
+                         * ردیف فاکتور جدید باید UID مستقل داشته باشد.
+                         */
+                        uid = UUID.randomUUID().toString(),
+
+                        invoiceId = newInvoiceId,
+                        rowIndex = index,
+
+                        createdAt = now,
+                        updatedAt = now,
+
+                        deletedAt = null,
+                        isSynced = false,
+
+                        createdByUserId = null,
+                        updatedByUserId = null
+                    )
+                }
             invoiceDao.insertItems(newItems)
 
             // ✅ باز کردن ادیتور فاکتور
@@ -751,7 +921,10 @@ class OrderInvoiceViewModel @Inject constructor(
                             null
                         },
 
-                        pdfAttachmentId = null
+                        pdfAttachmentId = null,
+
+                        deletedAt = null,
+                        isSynced = false
                     )
 
                 val newId =

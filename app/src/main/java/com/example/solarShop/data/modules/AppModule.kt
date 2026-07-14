@@ -327,28 +327,33 @@ object AppModule {
     fun provideClientRepository(
         db: AppDatabase,
         clientDao: ClientDao,
-        orderDao: OrderDao
+        orderDao: OrderDao,
+        invoiceDao: InvoiceDocumentDao
     ): ClientRepository =
         OfflineClientRepository(
             db = db,
             clientDao = clientDao,
-            orderDao = orderDao
+            orderDao = orderDao,
+            invoiceDao = invoiceDao
         )
-    @Provides fun provideOrderRepository(
+    @Provides
+    fun provideOrderRepository(
         db: AppDatabase,
         orderDao: OrderDao,
         orderCostDao: OrderCostDao,
         attachmentController: AttachmentController,
         orderPhotoDao: OrderPhotoRefDao,
-        orderPhotoMetaRepo: OrderPhotoMetaRepository
+        orderPhotoMetaRepo: OrderPhotoMetaRepository,
+        invoiceDao: InvoiceDocumentDao
     ): OrderRepository =
         OfflineOrderRepository(
-            db,
-            orderDao,
-            orderCostDao,
-            attachmentController,
-            orderPhotoDao,
-            orderPhotoMetaRepo
+            db = db,
+            orderDao = orderDao,
+            orderCostDao = orderCostDao,
+            attachmentController = attachmentController,
+            orderPhotoDao = orderPhotoDao,
+            orderPhotoMetaRepo = orderPhotoMetaRepo,
+            invoiceDao = invoiceDao
         )
     @Provides @Singleton
     fun providePriceEstimateRepository(

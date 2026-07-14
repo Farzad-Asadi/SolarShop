@@ -3,6 +3,7 @@ package com.example.solarShop.data.room.tables.client
 import androidx.room.withTransaction
 import com.example.solarShop.data.local.database.AppDatabase
 import com.example.solarShop.data.room.tables.orderAll.order.OrderDao
+import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -11,7 +12,8 @@ import javax.inject.Inject
 class OfflineClientRepository @Inject constructor(
     private val db: AppDatabase,
     private val clientDao: ClientDao,
-    private val orderDao: OrderDao
+    private val orderDao: OrderDao,
+    private val invoiceDao: InvoiceDocumentDao
 ) : ClientRepository {
 
     // =========================================================
@@ -58,6 +60,11 @@ class OfflineClientRepository @Inject constructor(
             System.currentTimeMillis()
 
         return db.withTransaction {
+
+            invoiceDao.softDeleteInvoicesWithItemsByClientId(
+                clientId = clientId,
+                deletedAt = now
+            )
 
             /*
              * رفتار قبلی حذف مشتری، سفارش‌هایش را نیز به دلیل FK حذف می‌کرد.
