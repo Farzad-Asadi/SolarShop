@@ -1,5 +1,6 @@
 package com.example.solarShop.data.room.tables.orderAll.order
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -11,10 +12,18 @@ import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.orderAll.orderTimelineItem.TimelineItemEntity
 import com.example.solarShop.data.room.tables.orderAll.priceEstimate.PriceEstimateEntity
 import com.example.solarShop.data.room.tables.selectedChoice.SelectedChoiceEntity
+import java.util.UUID
 
 @Entity(
     tableName = "orders",
-    indices = [Index("clientId")],
+    indices = [
+        Index("clientId"),
+
+        Index(value = ["uid"], unique = true),
+        Index("updatedAt"),
+        Index("deletedAt"),
+        Index("isSynced")
+    ],
     foreignKeys = [
         ForeignKey(
             entity = ClientEntity::class,
@@ -27,13 +36,32 @@ import com.example.solarShop.data.room.tables.selectedChoice.SelectedChoiceEntit
 data class OrderEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int? = null,
+
     val clientId: Int,
+
     val name: String? = null,
     val note: String? = null,
+
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val status : String = PENDING,
+
+    val status: String = PENDING,
     val archive: Boolean = false,
+
+    // ---------- Sync ----------
+
+    @ColumnInfo(defaultValue = "''")
+    val uid: String = UUID.randomUUID().toString(),
+
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(defaultValue = "0")
+    val isSynced: Boolean = false,
+
+    val createdByUserId: Int? = null,
+    val updatedByUserId: Int? = null,
+
+    val shopUid: String? = null
 )
 
 

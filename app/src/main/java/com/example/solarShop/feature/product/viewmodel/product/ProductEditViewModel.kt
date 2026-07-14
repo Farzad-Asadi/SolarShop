@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.abs
 
 @HiltViewModel
 class ProductEditViewModel @Inject constructor(
@@ -622,7 +623,8 @@ class ProductEditViewModel @Inject constructor(
             val currentProductId =
                 uiState.value.productId ?: return@launch
 
-            val state = formState.value
+            val state = uiState.value
+
             val priceToman =
                 state.buyPriceToman ?: return@launch
 
@@ -633,6 +635,20 @@ class ProductEditViewModel @Inject constructor(
                 state.selectedPurchasePriceId
 
             if (selectedId != null) {
+                val oldPurchasePrice =
+                    state.purchasePrices.firstOrNull { item ->
+                        item.id == selectedId
+                    }
+
+                val oldQuantity =
+                    oldPurchasePrice?.quantity ?: 0.0
+
+                val newQuantity =
+                    quantity ?: 0.0
+
+                val quantityDelta =
+                    newQuantity - oldQuantity
+
                 pricingRepository.updatePurchasePrice(
                     id = selectedId,
                     buyPriceDollar = state.buyPriceDollar.toDoubleOrNull(),
@@ -642,6 +658,32 @@ class ProductEditViewModel @Inject constructor(
                     purchasedAt = state.purchaseDate,
                     note = state.priceNote.trim()
                 )
+
+                if (abs(quantityDelta) > 0.0001) {
+                    val transactionType =
+                        if (quantityDelta > 0.0) {
+                            InventoryTransactionType.PURCHASE
+                        } else {
+                            InventoryTransactionType.PURCHASE_RETURN
+                        }
+
+                    inventoryRepository.addTransaction(
+                        InventoryTransactionEntity(
+                            productId = currentProductId,
+                            transactionType = transactionType,
+                            quantity = abs(quantityDelta),
+                            note = state.priceNote.trim().ifBlank {
+                                if (quantityDelta > 0.0) {
+                                    "اصلاح خودکار موجودی بعد از ویرایش خرید"
+                                } else {
+                                    "کاهش خودکار موجودی بعد از ویرایش خرید"
+                                }
+                            },
+                            createdAt = state.purchaseDate
+                        )
+                    )
+                }
+
             } else {
                 pricingRepository.setNewPurchasePrice(
                     ProductPurchasePriceEntity(

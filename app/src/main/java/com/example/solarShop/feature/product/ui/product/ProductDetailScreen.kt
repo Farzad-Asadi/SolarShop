@@ -73,6 +73,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntity
 import com.example.solarShop.domain.inventory.labelFa
 import com.example.solarShop.domain.inventory.signedQuantity
 import com.example.solarShop.feature.product.viewmodel.product.ProductDetailViewModel
@@ -115,6 +116,10 @@ fun ProductDetailScreen(
 
     var showRegisterSaleSheet by rememberSaveable {
         mutableStateOf(false)
+    }
+
+    var editingSaleUid by rememberSaveable {
+        mutableStateOf<String?>(null)
     }
 
     var nameExpanded by rememberSaveable {
@@ -170,6 +175,11 @@ fun ProductDetailScreen(
             // فعلاً خالی یا Log
         }
     )
+
+    val editingSale =
+        uiState.saleTransactions.firstOrNull { sale ->
+            sale.uid == editingSaleUid
+        }
 
     Scaffold(
         topBar = {
@@ -315,20 +325,7 @@ fun ProductDetailScreen(
                                 priceExpanded = it
                             }
                         ) {
-                            Button(
-                                onClick = {
-                                    showRegisterSaleSheet = true
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("ثبت فروش این کالا")
-                            }
 
-                            Spacer(Modifier.height(8.dp))
-
-                            HorizontalDivider()
-
-                            Spacer(Modifier.height(8.dp))
                             Text(
                                 text = "نرخ دلار روز: ${
                                     uiState.dailyDollarRateToman?.toPriceString() ?: "-"
@@ -527,6 +524,22 @@ fun ProductDetailScreen(
                                 saleHistoryExpanded = it
                             }
                         ) {
+                            Button(
+                                onClick = {
+                                    editingSaleUid = null
+                                    showRegisterSaleSheet = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("ثبت فروش جدید")
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            HorizontalDivider()
+
+                            Spacer(Modifier.height(8.dp))
+
                             if (saleTransactions.isEmpty()) {
                                 Text(
                                     text = "هنوز فروشی برای این کالا ثبت نشده است.",
@@ -648,6 +661,24 @@ fun ProductDetailScreen(
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
+                                                }
+                                                HorizontalDivider()
+
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        editingSaleUid = sale.uid
+                                                        showRegisterSaleSheet = true
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = null
+                                                    )
+
+                                                    Spacer(Modifier.width(6.dp))
+
+                                                    Text("ویرایش این فروش")
                                                 }
                                             }
                                         }
@@ -826,12 +857,26 @@ fun ProductDetailScreen(
             consumerPriceToman = uiState.consumerSalePriceResult?.finalSalePriceToman,
             colleaguePriceToman = uiState.colleagueSalePriceResult?.finalSalePriceToman,
             dailyDollarRateToman = uiState.dailyDollarRateToman,
+            initialSale = editingSale,
             onDismiss = {
                 showRegisterSaleSheet = false
+                editingSaleUid = null
             },
             onSubmit = { input ->
-                viewModel.registerProductSale(input)
+                val saleToEdit =
+                    editingSale
+
+                if (saleToEdit == null) {
+                    viewModel.registerProductSale(input)
+                } else {
+                    viewModel.updateProductSale(
+                        saleUid = saleToEdit.uid,
+                        input = input
+                    )
+                }
+
                 showRegisterSaleSheet = false
+                editingSaleUid = null
             }
         )
     }
@@ -860,6 +905,14 @@ private fun Double.toSaleDoubleText(): String {
     return String.format(Locale.US, "%,.2f", this)
 }
 
+private fun Double.toQuantityInputText(): String {
+    return if (this % 1.0 == 0.0) {
+        this.toLong().toString()
+    } else {
+        this.toString()
+    }
+}
+
 private fun Double.toSalePercentText(): String {
     return String.format(Locale.US, "%.1f", this)
 }
@@ -872,27 +925,58 @@ private fun RegisterProductSaleBottomSheet(
     consumerPriceToman: Long?,
     colleaguePriceToman: Long?,
     dailyDollarRateToman: Long?,
+    initialSale: ProductSaleTransactionEntity? = null,
     onDismiss: () -> Unit,
     onSubmit: (RegisterProductSaleInput) -> Unit
 ) {
-    var quantityText by rememberSaveable {
-        mutableStateOf("1")
+    val isEditMode =
+        initialSale != null
+
+    var quantityText by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            initialSale?.quantity?.toQuantityInputText() ?: "1"
+        )
     }
 
-    var priceType by rememberSaveable {
-        mutableStateOf("consumer")
+    var priceType by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            initialSale?.priceType ?: "consumer"
+        )
     }
 
-    var manualUnitPriceText by rememberSaveable {
-        mutableStateOf("")
+    var manualUnitPriceText by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            if (initialSale?.priceType == "manual") {
+                initialSale.unitSalePriceToman.toString()
+            } else {
+                ""
+            }
+        )
     }
 
-    var dollarRateText by rememberSaveable(dailyDollarRateToman) {
-        mutableStateOf(dailyDollarRateToman?.toString().orEmpty())
+    var editUnitPriceText by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            initialSale?.unitSalePriceToman?.toString().orEmpty()
+        )
     }
 
-    var noteText by rememberSaveable {
-        mutableStateOf("")
+    var dollarRateText by rememberSaveable(initialSale?.uid, dailyDollarRateToman) {
+        mutableStateOf(
+            initialSale?.saleDollarRateToman?.toString()
+                ?: dailyDollarRateToman?.toString().orEmpty()
+        )
+    }
+
+    var soldAt by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            initialSale?.soldAt ?: System.currentTimeMillis()
+        )
+    }
+
+    var noteText by rememberSaveable(initialSale?.uid) {
+        mutableStateOf(
+            initialSale?.note.orEmpty()
+        )
     }
 
     val selectedSuggestedPrice: Long? =
@@ -903,10 +987,12 @@ private fun RegisterProductSaleBottomSheet(
         }
 
     val effectiveUnitPriceText =
-        if (priceType == "manual") {
-            manualUnitPriceText
-        } else {
-            selectedSuggestedPrice?.toString().orEmpty()
+        when {
+            isEditMode -> editUnitPriceText
+
+            priceType == "manual" -> manualUnitPriceText
+
+            else -> selectedSuggestedPrice?.toString().orEmpty()
         }
 
     val quantity =
@@ -931,6 +1017,8 @@ private fun RegisterProductSaleBottomSheet(
             .toLong()
             .coerceAtLeast(0L)
 
+
+
     ModalBottomSheet(
         onDismissRequest = onDismiss
     ) {
@@ -945,7 +1033,11 @@ private fun RegisterProductSaleBottomSheet(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "ثبت فروش کالا",
+                text = if (isEditMode) {
+                    "ویرایش فروش کالا"
+                } else {
+                    "ثبت فروش کالا"
+                },
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -990,6 +1082,11 @@ private fun RegisterProductSaleBottomSheet(
                 enabled = consumerPriceToman != null,
                 onClick = {
                     priceType = "consumer"
+
+                    if (isEditMode) {
+                        editUnitPriceText =
+                            consumerPriceToman?.toString().orEmpty()
+                    }
                 }
             )
 
@@ -1000,6 +1097,11 @@ private fun RegisterProductSaleBottomSheet(
                 enabled = colleaguePriceToman != null,
                 onClick = {
                     priceType = "colleague"
+
+                    if (isEditMode) {
+                        editUnitPriceText =
+                            colleaguePriceToman?.toString().orEmpty()
+                    }
                 }
             )
 
@@ -1010,10 +1112,29 @@ private fun RegisterProductSaleBottomSheet(
                 enabled = true,
                 onClick = {
                     priceType = "manual"
+
+                    if (isEditMode && editUnitPriceText.isBlank()) {
+                        editUnitPriceText =
+                            initialSale?.unitSalePriceToman?.toString().orEmpty()
+                    }
                 }
             )
 
-            if (priceType == "manual") {
+            if (isEditMode) {
+                OutlinedTextField(
+                    value = editUnitPriceText,
+                    onValueChange = { new ->
+                        editUnitPriceText =
+                            new.filter { it.isDigit() }
+                    },
+                    label = { Text("قیمت واحد فروش - تومان") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else if (priceType == "manual") {
                 OutlinedTextField(
                     value = manualUnitPriceText,
                     onValueChange = { new ->
@@ -1049,6 +1170,14 @@ private fun RegisterProductSaleBottomSheet(
                     keyboardType = KeyboardType.Number
                 ),
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            DatePickerField(
+                label = "تاریخ فروش",
+                epochMs = soldAt,
+                onPick = { picked ->
+                    soldAt = picked
+                }
             )
 
             OutlinedTextField(
@@ -1090,14 +1219,20 @@ private fun RegisterProductSaleBottomSheet(
                                 priceType = priceType,
                                 unitSalePriceToman = unitSalePrice,
                                 saleDollarRateToman = dollarRate,
-                                soldAt = System.currentTimeMillis(),
+                                soldAt = soldAt,
                                 note = noteText
                             )
                         )
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("ثبت فروش")
+                    Text(
+                        if (isEditMode) {
+                            "ذخیره ویرایش"
+                        } else {
+                            "ثبت فروش"
+                        }
+                    )
                 }
             }
 

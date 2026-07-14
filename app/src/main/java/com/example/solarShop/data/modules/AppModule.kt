@@ -33,6 +33,7 @@ import com.example.solarShop.data.local.dao.product.ProductImageDao
 import com.example.solarShop.data.local.dao.sales.ProductSaleTransactionDao
 import com.example.solarShop.data.local.dao.sync.SyncMetadataDao
 import com.example.solarShop.data.local.database.AppDatabase
+import com.example.solarShop.data.local.database.MIGRATION_3_4
 import com.example.solarShop.data.network.remote.FileApi
 import com.example.solarShop.data.remote.api.SyncApi
 import com.example.solarShop.data.remote.api.SyncApiImpl
@@ -158,9 +159,14 @@ object AppModule {
     fun provideDatabase(
         @ApplicationContext context: Context
     ): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "bambo_db")
-//            .createFromAsset("seed/bambo_seed.db")   // ← فقط نصبِ اول            2.1  3.1
-            .fallbackToDestructiveMigration(true)     // فقط DEV
+        Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "bambo_db"
+        )
+            .addMigrations(
+                MIGRATION_3_4
+            )
             .build()
 
 
@@ -317,8 +323,17 @@ object AppModule {
         OfflineAnswerRepository(dao,db)
     @Provides fun provideAppInfoRepository(dao: AppInfoDao): AppInfoRepository =
         OfflineAppInfoRepository(dao)
-    @Provides fun provideClientRepository(dao: ClientDao): ClientRepository =
-        OfflineClientRepository(dao)
+    @Provides
+    fun provideClientRepository(
+        db: AppDatabase,
+        clientDao: ClientDao,
+        orderDao: OrderDao
+    ): ClientRepository =
+        OfflineClientRepository(
+            db = db,
+            clientDao = clientDao,
+            orderDao = orderDao
+        )
     @Provides fun provideOrderRepository(
         db: AppDatabase,
         orderDao: OrderDao,

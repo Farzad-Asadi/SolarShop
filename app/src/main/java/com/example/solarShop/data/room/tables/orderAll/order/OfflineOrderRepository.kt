@@ -22,12 +22,44 @@ class OfflineOrderRepository @Inject constructor(
 ) : OrderRepository {
 
 
-    override suspend fun insertOrder(orderEntity: OrderEntity) =
-        orderDao.insertOrder(orderEntity)
-    override suspend fun deleteOrder(orderEntity: OrderEntity) =
-        orderDao.deleteOrder(orderEntity)
-    override suspend fun updateOrder(orderEntity: OrderEntity) =
-        orderDao.updateOrder(orderEntity)
+    override suspend fun insertOrder(
+        orderEntity: OrderEntity
+    ): Long {
+        val now =
+            System.currentTimeMillis()
+
+        return orderDao.insertOrder(
+            orderEntity.copy(
+                createdAt = orderEntity.createdAt
+                    .takeIf { it > 0L }
+                    ?: now,
+
+                updatedAt = now,
+                deletedAt = null,
+                isSynced = false
+            )
+        )
+    }
+
+    override suspend fun deleteOrder(
+        orderEntity: OrderEntity
+    ): Int {
+        val orderId =
+            orderEntity.id ?: return 0
+
+        return orderDao.softDeleteById(orderId)
+    }
+
+    override suspend fun updateOrder(
+        orderEntity: OrderEntity
+    ): Int {
+        return orderDao.updateOrder(
+            orderEntity.copy(
+                updatedAt = System.currentTimeMillis(),
+                isSynced = false
+            )
+        )
+    }
     override suspend fun updateOrderName(orderId: Int, name: String): Int =
         orderDao.updateOrderName(
             orderId = orderId,
@@ -65,8 +97,16 @@ class OfflineOrderRepository @Inject constructor(
     override fun ordersOfClientMini(clientId: Int): Flow<List<OrderMini>> =
         orderDao.ordersOfClientMini(clientId)
 
-    override suspend fun updateOrderNote(orderId: Int, note: String) =
-        orderDao.updateOrderNote(orderId, note)
+    override suspend fun updateOrderNote(
+        orderId: Int,
+        note: String
+    ) {
+        orderDao.updateOrderNote(
+            orderId = orderId,
+            note = note,
+            updatedAt = System.currentTimeMillis()
+        )
+    }
 
     override suspend fun deleteOrderWithChildren(orderId: Int) {
         db.withTransaction {
@@ -115,8 +155,78 @@ class OfflineOrderRepository @Inject constructor(
 
 
             // 7) order
-            orderDao.deleteOrderById(orderId)
+            orderDao.softDeleteById(
+                orderId = orderId,
+                deletedAt = System.currentTimeMillis()
+            )
         }
+    }
+
+    override suspend fun getOrderByUid(
+        uid: String
+    ): OrderEntity? {
+        return orderDao.getOrderByUid(uid)
+    }
+
+    override suspend fun getOrderIdByUid(
+        uid: String
+    ): Int? {
+        return orderDao.getOrderIdByUid(uid)
+    }
+
+    override suspend fun getUnsyncedOrders():
+            List<OrderEntity> {
+
+        return orderDao.getUnsyncedOrders()
+    }
+
+    override suspend fun markOrdersSynced(
+        uids: List<String>
+    ) {
+        if (uids.isEmpty()) return
+
+        orderDao.markOrdersSynced(uids)
+    }
+
+    override suspend fun softDeleteByUid(
+        uid: String
+    ): Int {
+        return orderDao.softDeleteByUid(uid)
+    }
+
+    override suspend fun upsertOrderByUid(
+        orderEntity: OrderEntity
+    ): Long {
+        val existing =
+            orderDao.getOrderByUid(orderEntity.uid)
+
+        if (existing == null) {
+            return orderDao.insertOrder(orderEntity)
+        }
+
+        if (
+            existing.deletedAt != null &&
+            orderEntity.deletedAt == null
+        ) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        if (
+            !existing.isSynced &&
+            existing.updatedAt > orderEntity.updatedAt
+        ) {
+            return existing.id?.toLong() ?: 0L
+        }
+
+        val merged =
+            orderEntity.copy(
+                id = existing.id,
+                createdAt = existing.createdAt
+            )
+
+        orderDao.updateOrder(merged)
+
+        return existing.id?.toLong() ?: 0L
     }
 
 }

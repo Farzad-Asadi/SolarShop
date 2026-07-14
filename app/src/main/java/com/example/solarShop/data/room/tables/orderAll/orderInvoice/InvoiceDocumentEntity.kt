@@ -1,11 +1,13 @@
 package com.example.solarShop.data.room.tables.orderAll.orderInvoice
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.solarShop.InvoiceStatus
 import com.example.solarShop.InvoiceType
+import java.util.UUID
 
 @Entity(
     tableName = "invoice_documents",
@@ -21,7 +23,11 @@ import com.example.solarShop.InvoiceType
     ],
     indices = [
         Index(value = ["templateId"]),
-        Index(value = ["orderId"])
+        Index(value = ["orderId"]),
+        Index(value = ["uid"], unique = true),
+        Index("updatedAt"),
+        Index("deletedAt"),
+        Index("isSynced")
     ]
 )
 data class InvoiceDocumentEntity(
@@ -78,5 +84,20 @@ data class InvoiceDocumentEntity(
     val notes: String? = null,
 
     /// لینک به پیوست PDF در جدول Attachment (اگر داری)
-    val pdfAttachmentId: Int? = null
+    val pdfAttachmentId: Int? = null,
+
+// ---------- Sync ----------
+
+    @ColumnInfo(defaultValue = "''")
+    val uid: String = UUID.randomUUID().toString(),
+
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(defaultValue = "0")
+    val isSynced: Boolean = false,
+
+    val createdByUserId: Int? = null,
+    val updatedByUserId: Int? = null,
+
+    val shopUid: String? = null
 )

@@ -1614,7 +1614,7 @@ private fun AttributeDescriptionIcon(
 }
 
 @Composable
-private fun DatePickerField(
+fun DatePickerField(
     label: String,
     epochMs: Long,
     onPick: (Long) -> Unit,

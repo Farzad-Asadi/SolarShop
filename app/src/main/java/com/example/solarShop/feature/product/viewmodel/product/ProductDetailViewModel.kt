@@ -474,6 +474,226 @@ class ProductDetailViewModel @Inject constructor(
             )
         }
     }
+
+    fun updateProductSale(
+        saleUid: String,
+        input: RegisterProductSaleInput
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val state =
+                uiState.value
+
+            val oldSale =
+                state.saleTransactions.firstOrNull { sale ->
+                    sale.uid == saleUid
+                } ?: return@launch
+
+            val quantity =
+                input.quantity.coerceAtLeast(0.0)
+
+            if (quantity <= 0.0) {
+                return@launch
+            }
+
+            val unitSalePriceToman =
+                input.unitSalePriceToman.coerceAtLeast(0L)
+
+            if (unitSalePriceToman <= 0L) {
+                return@launch
+            }
+
+            val activePurchase =
+                state.activePurchasePrice
+
+            val salePriceRecord =
+                state.salePrices.firstOrNull {
+                    it.priceType == input.priceType
+                }
+
+            val saleDollarRate =
+                input.saleDollarRateToman
+                    ?: state.dailyDollarRateToman
+
+            val totalSalePriceToman =
+                (unitSalePriceToman * quantity)
+                    .roundToLong()
+                    .coerceAtLeast(0L)
+
+            val buyPriceDollar =
+                oldSale.buyPriceDollar
+                    ?: activePurchase?.buyPriceDollar
+
+            val buyPriceToman =
+                oldSale.buyPriceToman
+                    ?: activePurchase?.buyPriceToman
+
+            val purchaseDollarRateToman =
+                oldSale.purchaseDollarRateToman
+                    ?: activePurchase?.dollarRateToman
+
+            val unitCostToman: Long? =
+                buyPriceToman
+                    ?: run {
+                        val dollarBuy =
+                            buyPriceDollar
+
+                        val purchaseRate =
+                            purchaseDollarRateToman
+
+                        if (dollarBuy != null && purchaseRate != null) {
+                            (dollarBuy * purchaseRate).roundToLong()
+                        } else {
+                            null
+                        }
+                    }
+
+            val unitSalePriceDollar: Double? =
+                saleDollarRate
+                    ?.takeIf { it > 0L }
+                    ?.let { rate ->
+                        unitSalePriceToman.toDouble() / rate.toDouble()
+                    }
+
+            val unitProfitToman: Long? =
+                unitCostToman?.let { cost ->
+                    unitSalePriceToman - cost
+                }
+
+            val totalProfitToman: Long? =
+                unitProfitToman?.let { profit ->
+                    (profit * quantity).roundToLong()
+                }
+
+            val unitProfitDollar: Double? =
+                when {
+                    unitSalePriceDollar != null && buyPriceDollar != null -> {
+                        unitSalePriceDollar - buyPriceDollar
+                    }
+
+                    unitProfitToman != null && saleDollarRate != null && saleDollarRate > 0L -> {
+                        unitProfitToman.toDouble() / saleDollarRate.toDouble()
+                    }
+
+                    else -> null
+                }
+
+            val totalProfitDollar: Double? =
+                unitProfitDollar?.let { profit ->
+                    profit * quantity
+                }
+
+            val profitPercentByToman: Double? =
+                if (unitCostToman != null && unitCostToman > 0L && unitProfitToman != null) {
+                    (unitProfitToman.toDouble() / unitCostToman.toDouble()) * 100.0
+                } else {
+                    null
+                }
+
+            val profitPercentByDollar: Double? =
+                if (buyPriceDollar != null && buyPriceDollar > 0.0 && unitProfitDollar != null) {
+                    (unitProfitDollar / buyPriceDollar) * 100.0
+                } else {
+                    null
+                }
+
+            val now =
+                System.currentTimeMillis()
+
+            val linkedInventoryTransaction =
+                state.inventoryTransactions.firstOrNull { tx ->
+                    tx.uid == oldSale.inventoryTransactionUid
+                }
+
+            val inventoryTransactionUid =
+                if (linkedInventoryTransaction?.id != null) {
+                    inventoryRepository.updateTransaction(
+                        id = linkedInventoryTransaction.id,
+                        transactionType = InventoryTransactionType.SALE,
+                        quantity = quantity,
+                        note = input.note.trim().ifBlank {
+                            "فروش کالا"
+                        },
+                        createdAt = input.soldAt
+                    )
+
+                    linkedInventoryTransaction.uid
+                } else {
+                    val newInventoryTransaction =
+                        InventoryTransactionEntity(
+                            productId = productId,
+                            quantity = quantity,
+                            transactionType = InventoryTransactionType.SALE,
+                            note = input.note.trim().ifBlank {
+                                "فروش کالا"
+                            },
+                            createdAt = input.soldAt,
+                            updatedAt = now,
+                            isSynced = false
+                        )
+
+                    inventoryRepository.addTransaction(
+                        newInventoryTransaction
+                    )
+
+                    newInventoryTransaction.uid
+                }
+
+            val updatedSale =
+                oldSale.copy(
+                    inventoryTransactionUid = inventoryTransactionUid,
+
+                    quantity = quantity,
+
+                    priceType = input.priceType,
+
+                    unitSalePriceToman = unitSalePriceToman,
+                    totalSalePriceToman = totalSalePriceToman,
+
+                    saleDollarRateToman = saleDollarRate,
+
+                    purchasePriceUid = oldSale.purchasePriceUid
+                        ?: activePurchase?.uid,
+
+                    salePriceUid =
+                    if (oldSale.priceType == input.priceType) {
+                        oldSale.salePriceUid ?: salePriceRecord?.uid
+                    } else {
+                        salePriceRecord?.uid
+                    },
+
+                    buyPriceDollar = buyPriceDollar,
+                    buyPriceToman = buyPriceToman,
+                    purchaseDollarRateToman = purchaseDollarRateToman,
+
+                    unitSalePriceDollar = unitSalePriceDollar,
+
+                    unitProfitToman = unitProfitToman,
+                    totalProfitToman = totalProfitToman,
+
+                    unitProfitDollar = unitProfitDollar,
+                    totalProfitDollar = totalProfitDollar,
+
+                    profitPercentByToman = profitPercentByToman,
+                    profitPercentByDollar = profitPercentByDollar,
+
+                    soldAt = input.soldAt,
+
+                    note = input.note.trim(),
+
+                    updatedAt = now,
+                    deletedAt = null,
+                    isSynced = false
+                )
+
+            productSaleTransactionRepository.upsertSaleTransactionByUid(
+                updatedSale
+            )
+
+            syncManager.autoSyncInBackground(
+                reason = "product_sale_updated"
+            )
+        }
+    }
 }
 
 data class RegisterProductSaleInput(

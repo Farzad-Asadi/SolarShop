@@ -1,5 +1,6 @@
 package com.example.solarShop.data.room.tables.orderAll.orderInvoice
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -7,6 +8,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.example.solarShop.InvoiceType
+import java.util.UUID
 
 @Entity(tableName = "invoice_templates")
 data class InvoiceTemplateEntity(
@@ -48,7 +50,12 @@ data class InvoiceTemplateEntity(
         )
     ],
     indices = [
-        Index(value = ["invoiceId"])
+        Index(value = ["invoiceId"]),
+
+        Index(value = ["uid"], unique = true),
+        Index("updatedAt"),
+        Index("deletedAt"),
+        Index("isSynced")
     ]
 )
 data class InvoiceItemEntity(
@@ -57,35 +64,53 @@ data class InvoiceItemEntity(
 
     val invoiceId: Int,
 
-    /// شماره ردیف (برای مرتب‌سازی)
+    // شماره ردیف برای مرتب‌سازی
     val rowIndex: Int,
 
-    /// شرح کالا / خدمت
+    // شرح کالا یا خدمت
     val description: String,
 
-    /// تعداد
     val quantity: Double,
 
-    /// واحد (متر، عدد، ...)
+    // متر، عدد و...
     val unit: String? = null,
 
-    /// مبلغ واحد (ریال)
+    // مبلغ واحد به ریال
     val unitPrice: Long,
 
-    /// تخفیف ردیف (ریال)
+    // تخفیف ردیف
     val rowDiscount: Long = 0L,
 
-    /// مبلغ قبل از مالیات برای این ردیف (unitPrice * qty - rowDiscount)
+    // مبلغ قبل از مالیات
     val rowSubtotal: Long,
 
-    /// درصد مالیات ردیف (اگر hasTax=false باشد می‌تواند صفر یا null باشد)
     val taxPercent: Float? = null,
 
-    /// مبلغ مالیات ردیف
     val taxAmount: Long = 0L,
 
-    /// مبلغ نهایی ردیف (rowSubtotal + taxAmount)
-    val rowTotal: Long
+    // مبلغ نهایی ردیف
+    val rowTotal: Long,
+
+    // ---------- Sync ----------
+
+    @ColumnInfo(defaultValue = "''")
+    val uid: String = UUID.randomUUID().toString(),
+
+    @ColumnInfo(defaultValue = "0")
+    val createdAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    val deletedAt: Long? = null,
+
+    @ColumnInfo(defaultValue = "0")
+    val isSynced: Boolean = false,
+
+    val createdByUserId: Int? = null,
+    val updatedByUserId: Int? = null,
+
+    val shopUid: String? = null
 )
 
 
