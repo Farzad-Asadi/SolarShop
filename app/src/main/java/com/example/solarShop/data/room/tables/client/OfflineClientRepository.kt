@@ -88,6 +88,18 @@ class OfflineClientRepository @Inject constructor(
         return clientDao.getClientById(clientId)
     }
 
+    override suspend fun getClientByIdForSync(
+        clientId: Int
+    ): ClientEntity? {
+        return clientDao.getClientByIdForSync(clientId)
+    }
+
+    override suspend fun getAllClientsForSync():
+            List<ClientEntity> {
+
+        return clientDao.getAllClientsForSync()
+    }
+
     // =========================================================
     // UI Flows
     // =========================================================

@@ -2,6 +2,8 @@ package com.example.solarShop.data.sync
 
 import android.util.Log
 import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.InvoiceStatus
+import com.example.solarShop.InvoiceType
 import com.example.solarShop.data.local.entity.attribute.CategoryAttributeDefinitionEntity
 import com.example.solarShop.data.local.entity.attribute.ProductAttributeValueEntity
 import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
@@ -17,8 +19,12 @@ import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntit
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.ClientSyncDto
 import com.example.solarShop.data.network.dto.sync.CurrencyRateSyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
+import com.example.solarShop.data.network.dto.sync.InvoiceDocumentSyncDto
+import com.example.solarShop.data.network.dto.sync.InvoiceItemSyncDto
+import com.example.solarShop.data.network.dto.sync.OrderSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
@@ -37,6 +43,14 @@ import com.example.solarShop.data.repository.product.ProductRepository
 import com.example.solarShop.data.repository.productImage.ProductImageRepository
 import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
 import com.example.solarShop.data.repository.sync.SyncRepository
+import com.example.solarShop.data.room.tables.client.ClientEntity
+import com.example.solarShop.data.room.tables.client.ClientRepository
+import com.example.solarShop.data.room.tables.orderAll.order.OrderEntity
+import com.example.solarShop.data.room.tables.orderAll.order.OrderRepository
+import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentDao
+import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceDocumentEntity
+import com.example.solarShop.data.room.tables.orderAll.orderInvoice.InvoiceItemEntity
+import com.example.solarShop.data.room.tables.user.UserRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,12 +81,43 @@ class SyncManager @Inject constructor(
     private val pricingRepository: PricingRepository,
     private val attributeRepository: AttributeRepository,
     private val productSaleTransactionRepository: ProductSaleTransactionRepository,
+    private val clientRepository: ClientRepository,
+    private val orderRepository: OrderRepository,
+    private val invoiceDao: InvoiceDocumentDao,
+    private val userRepository: UserRepository,
 ) {
 
 
     private val syncMutex = Mutex()
     private var lastAutoSyncStartedAt: Long = 0L
 
+    private suspend fun requireCurrentUserKey(): String {
+        return userRepository
+            .observeCurrentUser()
+            .first()
+            ?.userKey
+            ?.takeIf { it.isNotBlank() }
+            ?: error(
+                "Current local user is not available for client sync"
+            )
+    }
+
+    /*
+ * چند ثانیه هم‌پوشانی باعث می‌شود تغییراتی که دقیقاً
+ * در مرز lastSyncAt ثبت شده‌اند جا نمانند.
+ *
+ * Upsert براساس UID است؛ بنابراین دریافت مجدد امن است.
+ */
+    private suspend fun getSafePullSince(): Long {
+
+        val lastSyncAt =
+            syncRepository.getLastSyncAt()
+
+        return (
+                lastSyncAt -
+                        5_000L
+                ).coerceAtLeast(0L)
+    }
 
 
     suspend fun getLastSyncAt(): Long {
@@ -1502,9 +1547,777 @@ class SyncManager @Inject constructor(
     }
 
 
+    suspend fun pushUnsyncedClients(): Boolean {
+
+        val items =
+            clientRepository.getUnsyncedClients()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced Clients = 0"
+            )
+
+            return true
+        }
+
+        val dtoList =
+            items.map { item ->
+
+                ClientSyncDto(
+                    uid = item.uid,
+
+                    name = item.name,
+                    mobilePhone = item.mobilePhone,
+                    landlinePhone = item.landlinePhone,
+                    nationalCode = item.nationalCode,
+                    workshop = item.workshop,
+                    address = item.address,
+                    note = item.note,
+
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        val success =
+            syncApi.pushClients(dtoList)
+
+        if (success) {
+            clientRepository.markClientsSynced(
+                dtoList.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed Clients = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullClients(): Int {
+
+        val lastSyncAt =
+            getSafePullSince()
+
+        val localUserKey =
+            requireCurrentUserKey()
+
+        val items =
+            syncApi.pullClients(lastSyncAt)
+
+        items.forEach { dto ->
+
+            clientRepository.upsertClientByUid(
+                ClientEntity(
+                    id = null,
+
+                    /*
+                     * فقط وابستگی محلی Room است.
+                     */
+                    userKey = localUserKey,
+
+                    name = dto.name,
+                    mobilePhone = dto.mobilePhone,
+                    landlinePhone = dto.landlinePhone,
+                    nationalCode = dto.nationalCode,
+                    workshop = dto.workshop,
+                    address = dto.address,
+
+                    /*
+                     * تصویر مشتری هنوز Sync نمی‌شود.
+                     */
+                    avatar = "",
+
+                    note = dto.note,
+                    archive = dto.archive,
+
+                    createdAt = dto.createdAt,
+
+                    uid = dto.uid,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true,
+
+                    createdByUserId =
+                    dto.createdByUserId,
+
+                    updatedByUserId =
+                    dto.updatedByUserId,
+
+                    shopUid = dto.shopUid
+                )
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pulled Clients = ${items.size}"
+        )
+
+        return items.size
+    }
 
 
+    suspend fun pushUnsyncedOrders(): Boolean {
 
+        val items =
+            orderRepository.getUnsyncedOrders()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced Orders = 0"
+            )
+
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                /*
+                 * شامل مشتری soft-delete شده نیز می‌شود.
+                 */
+                val client =
+                    clientRepository.getClientByIdForSync(
+                        item.clientId
+                    )
+
+                if (client == null) {
+                    Log.d(
+                        "SYNC_TEST",
+                        "Skipped Order, missing local clientId=${item.clientId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                OrderSyncDto(
+                    uid = item.uid,
+                    clientUid = client.uid,
+
+                    name = item.name,
+                    note = item.note,
+
+                    status = item.status,
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushOrders(dtoList)
+
+        if (success) {
+            orderRepository.markOrdersSynced(
+                dtoList.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed Orders = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullOrders(): Int {
+
+        val lastSyncAt =
+            getSafePullSince()
+
+        val items =
+            syncApi.pullOrders(lastSyncAt)
+
+        var appliedCount =
+            0
+
+        items.forEach { dto ->
+
+            /*
+             * getClientByUid رکورد tombstone را هم پیدا می‌کند.
+             */
+            val client =
+                clientRepository.getClientByUid(
+                    dto.clientUid
+                )
+
+            val clientId =
+                client?.id
+
+            if (clientId == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped Order, missing clientUid=${dto.clientUid}"
+                )
+
+                return@forEach
+            }
+
+            orderRepository.upsertOrderByUid(
+                OrderEntity(
+                    id = null,
+                    clientId = clientId,
+
+                    name = dto.name,
+                    note = dto.note,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+
+                    status = dto.status,
+                    archive = dto.archive,
+
+                    uid = dto.uid,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true,
+
+                    createdByUserId =
+                    dto.createdByUserId,
+
+                    updatedByUserId =
+                    dto.updatedByUserId,
+
+                    shopUid = dto.shopUid
+                )
+            )
+
+            appliedCount++
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pulled Orders = $appliedCount/${items.size}"
+        )
+
+        return appliedCount
+    }
+
+    suspend fun pushUnsyncedInvoiceDocuments():
+            Boolean {
+
+        val items =
+            invoiceDao.getUnsyncedInvoices()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced InvoiceDocuments = 0"
+            )
+
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val order =
+                    orderRepository.getOrderByIdForSync(
+                        item.orderId
+                    )
+
+                if (order == null) {
+                    Log.d(
+                        "SYNC_TEST",
+                        "Skipped InvoiceDocument, missing orderId=${item.orderId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceDocumentSyncDto(
+                    uid = item.uid,
+                    orderUid = order.uid,
+
+                    type = item.type.name,
+                    number = item.number,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+
+                    status = item.status.name,
+
+                    sellerLabel = item.sellerLabel,
+                    sellerName = item.sellerName,
+                    sellerPhone = item.sellerPhone,
+                    sellerAddress = item.sellerAddress,
+                    sellerNationalId =
+                    item.sellerNationalId,
+
+                    sellerEconomicCode =
+                    item.sellerEconomicCode,
+
+                    buyerLabel = item.buyerLabel,
+                    buyerName = item.buyerName,
+                    buyerPhone = item.buyerPhone,
+                    buyerAddress = item.buyerAddress,
+                    buyerNationalId =
+                    item.buyerNationalId,
+
+                    subtotalBeforeDiscount =
+                    item.subtotalBeforeDiscount,
+
+                    totalDiscount =
+                    item.totalDiscount,
+
+                    totalBeforeTax =
+                    item.totalBeforeTax,
+
+                    totalTax = item.totalTax,
+                    totalFinal = item.totalFinal,
+
+                    notes = item.notes,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushInvoiceDocuments(dtoList)
+
+        if (success) {
+            invoiceDao.markInvoicesSynced(
+                dtoList.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed InvoiceDocuments = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullInvoiceDocuments(): Int {
+
+        val lastSyncAt =
+            getSafePullSince()
+
+        val items =
+            syncApi.pullInvoiceDocuments(
+                lastSyncAt
+            )
+
+        var appliedCount =
+            0
+
+        items.forEach { dto ->
+
+            val order =
+                orderRepository.getOrderByUid(
+                    dto.orderUid
+                )
+
+            val orderId =
+                order?.id
+
+            if (orderId == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped InvoiceDocument, missing orderUid=${dto.orderUid}"
+                )
+
+                return@forEach
+            }
+
+            val type =
+                runCatching {
+                    InvoiceType.valueOf(dto.type)
+                }.getOrNull()
+
+            if (type == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped InvoiceDocument, invalid type=${dto.type}"
+                )
+
+                return@forEach
+            }
+
+            val status =
+                runCatching {
+                    InvoiceStatus.valueOf(dto.status)
+                }.getOrDefault(
+                    InvoiceStatus.DRAFT
+                )
+
+            val existing =
+                invoiceDao.getInvoiceByUid(dto.uid)
+
+            /*
+             * tombstone محلی با نسخه زنده قدیمی احیا نمی‌شود.
+             */
+            if (
+                existing?.deletedAt != null &&
+                dto.deletedAt == null
+            ) {
+                return@forEach
+            }
+
+            /*
+             * تغییر محلی جدیدتر حفظ می‌شود.
+             */
+            if (
+                existing != null &&
+                !existing.isSynced &&
+                existing.updatedAt > dto.updatedAt
+            ) {
+                return@forEach
+            }
+
+            val remoteEntity =
+                InvoiceDocumentEntity(
+                    id = existing?.id ?: 0,
+                    orderId = orderId,
+
+                    /*
+                     * تمپلیت محلی در Pull حفظ می‌شود.
+                     */
+                    templateId =
+                    existing?.templateId,
+
+                    type = type,
+                    number = dto.number,
+
+                    /*
+                     * این createdAt تاریخ خود سند است
+                     * و باید از سرور دریافت شود.
+                     */
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+
+                    status = status,
+
+                    sellerLabel = dto.sellerLabel,
+                    sellerName = dto.sellerName,
+                    sellerPhone = dto.sellerPhone,
+                    sellerAddress = dto.sellerAddress,
+                    sellerNationalId =
+                    dto.sellerNationalId,
+
+                    sellerEconomicCode =
+                    dto.sellerEconomicCode,
+
+                    buyerLabel = dto.buyerLabel,
+                    buyerName = dto.buyerName,
+                    buyerPhone = dto.buyerPhone,
+                    buyerAddress = dto.buyerAddress,
+                    buyerNationalId =
+                    dto.buyerNationalId,
+
+                    subtotalBeforeDiscount =
+                    dto.subtotalBeforeDiscount,
+
+                    totalDiscount =
+                    dto.totalDiscount,
+
+                    totalBeforeTax =
+                    dto.totalBeforeTax,
+
+                    totalTax = dto.totalTax,
+                    totalFinal = dto.totalFinal,
+
+                    notes = dto.notes,
+
+                    /*
+                     * فایل PDF محلی است.
+                     */
+                    pdfAttachmentId =
+                    existing?.pdfAttachmentId,
+
+                    uid = dto.uid,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true,
+
+                    createdByUserId =
+                    dto.createdByUserId,
+
+                    updatedByUserId =
+                    dto.updatedByUserId,
+
+                    shopUid = dto.shopUid
+                )
+
+            if (existing == null) {
+                invoiceDao.insertInvoice(
+                    remoteEntity
+                )
+            } else {
+                invoiceDao.updateInvoice(
+                    remoteEntity
+                )
+            }
+
+            appliedCount++
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pulled InvoiceDocuments = $appliedCount/${items.size}"
+        )
+
+        return appliedCount
+    }
+
+    suspend fun pushUnsyncedInvoiceItems():
+            Boolean {
+
+        val items =
+            invoiceDao.getUnsyncedInvoiceItems()
+
+        if (items.isEmpty()) {
+            Log.d(
+                "SYNC_TEST",
+                "Unsynced InvoiceItems = 0"
+            )
+
+            return true
+        }
+
+        val dtoList =
+            items.mapNotNull { item ->
+
+                val invoice =
+                    invoiceDao.getInvoiceByIdForSync(
+                        item.invoiceId
+                    )
+
+                if (invoice == null) {
+                    Log.d(
+                        "SYNC_TEST",
+                        "Skipped InvoiceItem, missing invoiceId=${item.invoiceId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceItemSyncDto(
+                    uid = item.uid,
+                    invoiceUid = invoice.uid,
+
+                    rowIndex = item.rowIndex,
+                    description = item.description,
+
+                    quantity = item.quantity,
+                    unit = item.unit,
+
+                    unitPrice = item.unitPrice,
+
+                    rowDiscount =
+                    item.rowDiscount,
+
+                    rowSubtotal =
+                    item.rowSubtotal,
+
+                    taxPercent =
+                    item.taxPercent,
+
+                    taxAmount =
+                    item.taxAmount,
+
+                    rowTotal =
+                    item.rowTotal,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (dtoList.isEmpty()) {
+            return true
+        }
+
+        val success =
+            syncApi.pushInvoiceItems(dtoList)
+
+        if (success) {
+            invoiceDao.markInvoiceItemsSynced(
+                dtoList.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pushed InvoiceItems = ${dtoList.size}, success=$success"
+        )
+
+        return success
+    }
+
+    suspend fun pullInvoiceItems(): Int {
+
+        val lastSyncAt =
+            getSafePullSince()
+
+        val items =
+            syncApi.pullInvoiceItems(
+                lastSyncAt
+            )
+
+        var appliedCount =
+            0
+
+        items.forEach { dto ->
+
+            /*
+             * getInvoiceByUid رکورد حذف‌شده را هم پیدا می‌کند.
+             */
+            val invoice =
+                invoiceDao.getInvoiceByUid(
+                    dto.invoiceUid
+                )
+
+            val invoiceId =
+                invoice?.id
+
+            if (invoiceId == null) {
+                Log.d(
+                    "SYNC_TEST",
+                    "Skipped InvoiceItem, missing invoiceUid=${dto.invoiceUid}"
+                )
+
+                return@forEach
+            }
+
+            val existing =
+                invoiceDao.getItemByUid(dto.uid)
+
+            if (
+                existing?.deletedAt != null &&
+                dto.deletedAt == null
+            ) {
+                return@forEach
+            }
+
+            if (
+                existing != null &&
+                !existing.isSynced &&
+                existing.updatedAt > dto.updatedAt
+            ) {
+                return@forEach
+            }
+
+            val remoteEntity =
+                InvoiceItemEntity(
+                    id = existing?.id ?: 0,
+                    invoiceId = invoiceId,
+
+                    rowIndex = dto.rowIndex,
+                    description = dto.description,
+
+                    quantity = dto.quantity,
+                    unit = dto.unit,
+
+                    unitPrice = dto.unitPrice,
+
+                    rowDiscount =
+                    dto.rowDiscount,
+
+                    rowSubtotal =
+                    dto.rowSubtotal,
+
+                    taxPercent =
+                    dto.taxPercent,
+
+                    taxAmount =
+                    dto.taxAmount,
+
+                    rowTotal =
+                    dto.rowTotal,
+
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt,
+                    deletedAt = dto.deletedAt,
+                    isSynced = true,
+
+                    createdByUserId =
+                    dto.createdByUserId,
+
+                    updatedByUserId =
+                    dto.updatedByUserId,
+
+                    shopUid = dto.shopUid
+                )
+
+            if (existing == null) {
+                invoiceDao.insertItems(
+                    listOf(remoteEntity)
+                )
+            } else {
+                invoiceDao.updateItem(
+                    remoteEntity
+                )
+            }
+
+            appliedCount++
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            "Pulled InvoiceItems = $appliedCount/${items.size}"
+        )
+
+        return appliedCount
+    }
 
 
     suspend fun syncCategoriesOnce(): Boolean {
@@ -1525,6 +2338,12 @@ class SyncManager @Inject constructor(
         pullCategoryAttributeDefinitions()
         pullProductAttributeValues()
         pullUnits()
+
+        // داده‌های فروشگاه؛ والدها قبل از فرزندها
+        pullClients()
+        pullOrders()
+        pullInvoiceDocuments()
+        pullInvoiceItems()
 
 
         val categoriesPushed = pushUnsyncedCategories()
@@ -1571,9 +2390,53 @@ class SyncManager @Inject constructor(
         if (!unitsPushed) return false
 
 
+        val clientsPushed =
+            pushUnsyncedClients()
 
+        if (!clientsPushed) {
+            Log.e(
+                "SYNC_TEST",
+                "Clients push failed"
+            )
 
+            return false
+        }
 
+        val ordersPushed =
+            pushUnsyncedOrders()
+
+        if (!ordersPushed) {
+            Log.e(
+                "SYNC_TEST",
+                "Orders push failed"
+            )
+
+            return false
+        }
+
+        val invoiceDocumentsPushed =
+            pushUnsyncedInvoiceDocuments()
+
+        if (!invoiceDocumentsPushed) {
+            Log.e(
+                "SYNC_TEST",
+                "Invoice documents push failed"
+            )
+
+            return false
+        }
+
+        val invoiceItemsPushed =
+            pushUnsyncedInvoiceItems()
+
+        if (!invoiceItemsPushed) {
+            Log.e(
+                "SYNC_TEST",
+                "Invoice items push failed"
+            )
+
+            return false
+        }
 
 
         val status = syncApi.getStatus()
@@ -1917,6 +2780,344 @@ class SyncManager @Inject constructor(
         if (!syncApi.pushProductImages(imageDtos)) return false
         productImageRepository.markProductImagesSynced(imageDtos.map { it.uid })
 
+        // =========================================================
+// Clients full upload
+// =========================================================
+
+        val allClients =
+            clientRepository.getAllClientsForSync()
+
+        val clientDtos =
+            allClients.map { item ->
+
+                ClientSyncDto(
+                    uid = item.uid,
+
+                    name = item.name,
+                    mobilePhone = item.mobilePhone,
+                    landlinePhone = item.landlinePhone,
+                    nationalCode = item.nationalCode,
+                    workshop = item.workshop,
+                    address = item.address,
+                    note = item.note,
+
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (clientDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushClients(clientDtos)
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Full upload clients failed"
+                )
+
+                return false
+            }
+
+            clientRepository.markClientsSynced(
+                clientDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        // =========================================================
+// Orders full upload
+// =========================================================
+
+        val allOrders =
+            orderRepository.getAllOrdersForSync()
+
+        val orderDtos =
+            allOrders.mapNotNull { item ->
+
+                val client =
+                    clientRepository.getClientByIdForSync(
+                        item.clientId
+                    )
+
+                if (client == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Full upload skipped order uid=${item.uid}, missing clientId=${item.clientId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                OrderSyncDto(
+                    uid = item.uid,
+                    clientUid = client.uid,
+
+                    name = item.name,
+                    note = item.note,
+
+                    status = item.status,
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (orderDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushOrders(orderDtos)
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Full upload orders failed"
+                )
+
+                return false
+            }
+
+            orderRepository.markOrdersSynced(
+                orderDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        // =========================================================
+// Invoice documents full upload
+// =========================================================
+
+        val allInvoiceDocuments =
+            invoiceDao.getAllInvoicesForSync()
+
+        val invoiceDocumentDtos =
+            allInvoiceDocuments.mapNotNull { item ->
+
+                val order =
+                    orderRepository.getOrderByIdForSync(
+                        item.orderId
+                    )
+
+                if (order == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Full upload skipped invoice uid=${item.uid}, missing orderId=${item.orderId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceDocumentSyncDto(
+                    uid = item.uid,
+                    orderUid = order.uid,
+
+                    type = item.type.name,
+                    number = item.number,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+
+                    status = item.status.name,
+
+                    sellerLabel = item.sellerLabel,
+                    sellerName = item.sellerName,
+                    sellerPhone = item.sellerPhone,
+                    sellerAddress = item.sellerAddress,
+                    sellerNationalId =
+                    item.sellerNationalId,
+
+                    sellerEconomicCode =
+                    item.sellerEconomicCode,
+
+                    buyerLabel = item.buyerLabel,
+                    buyerName = item.buyerName,
+                    buyerPhone = item.buyerPhone,
+                    buyerAddress = item.buyerAddress,
+                    buyerNationalId =
+                    item.buyerNationalId,
+
+                    subtotalBeforeDiscount =
+                    item.subtotalBeforeDiscount,
+
+                    totalDiscount =
+                    item.totalDiscount,
+
+                    totalBeforeTax =
+                    item.totalBeforeTax,
+
+                    totalTax =
+                    item.totalTax,
+
+                    totalFinal =
+                    item.totalFinal,
+
+                    notes = item.notes,
+
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (invoiceDocumentDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushInvoiceDocuments(
+                    invoiceDocumentDtos
+                )
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Full upload invoice documents failed"
+                )
+
+                return false
+            }
+
+            invoiceDao.markInvoicesSynced(
+                invoiceDocumentDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+// =========================================================
+// Invoice items full upload
+// =========================================================
+
+        val allInvoiceItems =
+            invoiceDao.getAllInvoiceItemsForSync()
+
+        val invoiceItemDtos =
+            allInvoiceItems.mapNotNull { item ->
+
+                val invoice =
+                    invoiceDao.getInvoiceByIdForSync(
+                        item.invoiceId
+                    )
+
+                if (invoice == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Full upload skipped invoice item uid=${item.uid}, missing invoiceId=${item.invoiceId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceItemSyncDto(
+                    uid = item.uid,
+                    invoiceUid = invoice.uid,
+
+                    rowIndex = item.rowIndex,
+                    description = item.description,
+
+                    quantity = item.quantity,
+                    unit = item.unit,
+
+                    unitPrice = item.unitPrice,
+
+                    rowDiscount =
+                    item.rowDiscount,
+
+                    rowSubtotal =
+                    item.rowSubtotal,
+
+                    taxPercent =
+                    item.taxPercent,
+
+                    taxAmount =
+                    item.taxAmount,
+
+                    rowTotal =
+                    item.rowTotal,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (invoiceItemDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushInvoiceItems(
+                    invoiceItemDtos
+                )
+
+            if (!success) {
+                Log.d(
+                    "SYNC_TEST",
+                    """
+    Full Upload Completed:
+    categories=${categoryDtos.size},
+    brands=${brandDtos.size},
+    units=${unitDtos.size},
+    products=${productDtos.size},
+    attributes=${attributeDefinitionDtos.size},
+    attributeValues=${attributeValueDtos.size},
+    purchasePrices=${purchasePriceDtos.size},
+    salePrices=${salePriceDtos.size},
+    currencyRates=${currencyRateDtos.size},
+    inventory=${inventoryTransactionDtos.size},
+    images=${imageDtos.size},
+    clients=${clientDtos.size},
+    orders=${orderDtos.size},
+    invoiceDocuments=${invoiceDocumentDtos.size},
+    invoiceItems=${invoiceItemDtos.size}
+    """.trimIndent()
+                )
+
+                return false
+            }
+
+            invoiceDao.markInvoiceItemsSynced(
+                invoiceItemDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+
         val status = syncApi.getStatus()
         syncRepository.updateLastSyncAt(status.serverTime)
 
@@ -1934,7 +3135,7 @@ class SyncManager @Inject constructor(
         val registered = registerDevice()
         if (!registered) return false
 
-        val total = 11
+        val total = 15
         var step = 0
 
         suspend fun runStep(
@@ -1985,6 +3186,22 @@ class SyncManager @Inject constructor(
         runStep("دریافت قیمت‌های فروش") { pullSalePrices() }
         runStep("دریافت موجودی") { pullInventoryTransactions() }
         runStep("دریافت نرخ ارز") { pullCurrencyRates() }
+
+        runStep("دریافت مشتریان") {
+            pullClients()
+        }
+
+        runStep("دریافت سفارش‌ها") {
+            pullOrders()
+        }
+
+        runStep("دریافت فاکتورها و پیش‌فاکتورها") {
+            pullInvoiceDocuments()
+        }
+
+        runStep("دریافت ردیف‌های فاکتور") {
+            pullInvoiceItems()
+        }
 
         val status = syncApi.getStatus()
         syncRepository.updateLastSyncAt(status.serverTime)

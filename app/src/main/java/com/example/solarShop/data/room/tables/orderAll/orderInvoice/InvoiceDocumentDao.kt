@@ -39,6 +39,18 @@ interface InvoiceDocumentDao {
 
     @Query(
         """
+    SELECT *
+    FROM invoice_documents
+    WHERE id = :invoiceId
+    LIMIT 1
+    """
+    )
+    suspend fun getInvoiceByIdForSync(
+        invoiceId: Int
+    ): InvoiceDocumentEntity?
+
+    @Query(
+        """
         SELECT *
         FROM invoice_documents
         WHERE orderId = :orderId
@@ -134,6 +146,16 @@ interface InvoiceDocumentDao {
     // =========================================================
     // Invoice documents - Sync
     // =========================================================
+
+    @Query(
+        """
+    SELECT *
+    FROM invoice_documents
+    ORDER BY updatedAt ASC
+    """
+    )
+    suspend fun getAllInvoicesForSync():
+            List<InvoiceDocumentEntity>
 
     @Query(
         """
@@ -307,6 +329,16 @@ interface InvoiceDocumentDao {
     // =========================================================
     // Invoice items - Sync
     // =========================================================
+
+    @Query(
+        """
+    SELECT *
+    FROM invoice_items
+    ORDER BY updatedAt ASC
+    """
+    )
+    suspend fun getAllInvoiceItemsForSync():
+            List<InvoiceItemEntity>
 
     @Query(
         """

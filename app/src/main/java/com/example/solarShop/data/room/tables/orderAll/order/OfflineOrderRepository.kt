@@ -72,6 +72,18 @@ class OfflineOrderRepository @Inject constructor(
     override suspend fun getOrderById(orderId: Int): OrderEntity? =
         orderDao.getOrderById(orderId)
 
+    override suspend fun getOrderByIdForSync(
+        orderId: Int
+    ): OrderEntity? {
+        return orderDao.getOrderByIdForSync(orderId)
+    }
+
+    override suspend fun getAllOrdersForSync():
+            List<OrderEntity> {
+
+        return orderDao.getAllOrdersForSync()
+    }
+
     override fun observeAllOrders(): Flow<List<OrderEntity>> =
         orderDao.observeAllOrders().distinctUntilChanged()
 

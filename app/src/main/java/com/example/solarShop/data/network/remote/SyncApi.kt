@@ -3,8 +3,12 @@ package com.example.solarShop.data.network.remote
 import com.example.solarShop.data.network.dto.sync.BrandSyncDto
 import com.example.solarShop.data.network.dto.sync.CategoryAttributeDefinitionSyncDto
 import com.example.solarShop.data.network.dto.sync.CategorySyncDto
+import com.example.solarShop.data.network.dto.sync.ClientSyncDto
 import com.example.solarShop.data.network.dto.sync.CurrencyRateSyncDto
 import com.example.solarShop.data.network.dto.sync.InventoryTransactionSyncDto
+import com.example.solarShop.data.network.dto.sync.InvoiceDocumentSyncDto
+import com.example.solarShop.data.network.dto.sync.InvoiceItemSyncDto
+import com.example.solarShop.data.network.dto.sync.OrderSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductAttributeValueSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductImageSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductPurchasePriceSyncDto
@@ -43,6 +47,82 @@ class SyncApi(
         return client.post("sync/register-device") {
             setBody(request)
         }.body()
+    }
+
+    suspend fun pullClients(
+        since: Long
+    ): List<ClientSyncDto> {
+        return client.get("sync/clients") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushClients(
+        items: List<ClientSyncDto>
+    ): Boolean {
+        val response =
+            client.post("sync/clients") {
+                setBody(items)
+            }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullOrders(
+        since: Long
+    ): List<OrderSyncDto> {
+        return client.get("sync/orders") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushOrders(
+        items: List<OrderSyncDto>
+    ): Boolean {
+        val response =
+            client.post("sync/orders") {
+                setBody(items)
+            }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullInvoiceDocuments(
+        since: Long
+    ): List<InvoiceDocumentSyncDto> {
+        return client.get("sync/invoice-documents") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushInvoiceDocuments(
+        items: List<InvoiceDocumentSyncDto>
+    ): Boolean {
+        val response =
+            client.post("sync/invoice-documents") {
+                setBody(items)
+            }
+
+        return response.status.isSuccess()
+    }
+
+    suspend fun pullInvoiceItems(
+        since: Long
+    ): List<InvoiceItemSyncDto> {
+        return client.get("sync/invoice-items") {
+            parameter("since", since)
+        }.body()
+    }
+
+    suspend fun pushInvoiceItems(
+        items: List<InvoiceItemSyncDto>
+    ): Boolean {
+        val response =
+            client.post("sync/invoice-items") {
+                setBody(items)
+            }
+
+        return response.status.isSuccess()
     }
 
     suspend fun pushCategories(

@@ -141,6 +141,28 @@ interface ClientDao {
         uids: List<String>
     )
 
+    @Query(
+        """
+    SELECT *
+    FROM clients
+    WHERE id = :clientId
+    LIMIT 1
+    """
+    )
+    suspend fun getClientByIdForSync(
+        clientId: Int
+    ): ClientEntity?
+
+    @Query(
+        """
+    SELECT *
+    FROM clients
+    ORDER BY updatedAt ASC
+    """
+    )
+    suspend fun getAllClientsForSync():
+            List<ClientEntity>
+
     // =========================================================
     // Soft delete
     // =========================================================

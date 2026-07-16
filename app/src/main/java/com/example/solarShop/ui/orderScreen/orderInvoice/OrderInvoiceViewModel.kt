@@ -432,27 +432,48 @@ class OrderInvoiceViewModel @Inject constructor(
         val existingItems =
             invoiceDao.getItemsForInvoice(invoiceId)
 
+        /*
+ * UID هویت اصلی است.
+ * ID فقط برای سازگاری با رکوردهای محلی قدیمی استفاده می‌شود.
+ */
+        val existingByUid =
+            existingItems.associateBy { item ->
+                item.uid
+            }
+
         val existingById =
             existingItems.associateBy { item ->
                 item.id
             }
 
-        /*
-         * شناسه ردیف‌هایی که هنوز در فرم وجود دارند.
-         */
+        val submittedUids =
+            items.mapNotNull { input ->
+                input.uid
+                    ?.takeIf { it.isNotBlank() }
+            }.toSet()
+
         val submittedIds =
             items.mapNotNull { input ->
-                input.id?.takeIf { it > 0 }
+                input.id
+                    ?.takeIf { it > 0 }
             }.toSet()
 
         /*
-         * ردیف‌هایی که قبلاً وجود داشتند ولی کاربر از فرم حذف کرده است.
+         * یک ردیف تنها زمانی حذف شده محسوب می‌شود
+         * که نه UID و نه ID آن در فرم وجود داشته باشد.
          */
         val removedItemIds =
             existingItems
                 .filter { existing ->
-                    existing.id > 0 &&
-                            existing.id !in submittedIds
+
+                    val uidStillExists =
+                        existing.uid in submittedUids
+
+                    val idStillExists =
+                        existing.id in submittedIds
+
+                    !uidStillExists &&
+                            !idStillExists
                 }
                 .map { existing ->
                     existing.id
@@ -480,11 +501,16 @@ class OrderInvoiceViewModel @Inject constructor(
                             ).coerceAtLeast(0L)
 
                 val existing =
-                    input.id
-                        ?.takeIf { it > 0 }
-                        ?.let { itemId ->
-                            existingById[itemId]
+                    input.uid
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { uid ->
+                            existingByUid[uid]
                         }
+                        ?: input.id
+                            ?.takeIf { it > 0 }
+                            ?.let { itemId ->
+                                existingById[itemId]
+                            }
 
                 if (existing != null) {
                     /*
@@ -513,6 +539,10 @@ class OrderInvoiceViewModel @Inject constructor(
                      */
                     InvoiceItemEntity(
                         id = 0,
+                        uid =
+                        input.uid
+                            ?.takeIf { it.isNotBlank() }
+                            ?: UUID.randomUUID().toString(),
                         invoiceId = invoiceId,
                         rowIndex = index,
                         description = input.description,
@@ -1010,6 +1040,13 @@ data class InvoiceHeaderInput(
 
 data class InvoiceItemInput(
     val id: Int?,
+
+    /*
+     * شناسه اصلی ردیف در Sync.
+     * id فقط شناسه محلی Room است.
+     */
+    val uid: String?,
+
     val description: String,
     val unit: String?,
     val quantity: Double,
@@ -1019,6 +1056,12 @@ data class InvoiceItemInput(
 
 data class InvoiceItemDraft(
     val id: Int? = null,
+
+    /*
+     * هویت پایدار بین تمام دستگاه‌ها.
+     */
+    val uid: String? = null,
+
     val description: String = "",
     val unit: String = "",
     val quantity: String = "",

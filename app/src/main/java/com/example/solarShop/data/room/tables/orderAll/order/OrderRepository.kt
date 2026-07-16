@@ -39,6 +39,13 @@ interface OrderRepository {
         orderId: Int
     ): OrderEntity?
 
+    suspend fun getOrderByIdForSync(
+        orderId: Int
+    ): OrderEntity?
+
+    suspend fun getAllOrdersForSync():
+            List<OrderEntity>
+
     // =========================================================
     // UI Flows
     // =========================================================

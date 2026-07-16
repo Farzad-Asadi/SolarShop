@@ -28,6 +28,13 @@ interface ClientRepository {
         clientId: Int
     ): ClientEntity?
 
+    suspend fun getClientByIdForSync(
+        clientId: Int
+    ): ClientEntity?
+
+    suspend fun getAllClientsForSync():
+            List<ClientEntity>
+
     // =========================================================
     // UI Flows
     // =========================================================

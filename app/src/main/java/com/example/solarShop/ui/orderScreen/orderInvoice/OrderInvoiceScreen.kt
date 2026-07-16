@@ -440,6 +440,8 @@ private fun InvoiceEditorSection(
 
                     InvoiceItemDraft(
                         id = item.id,
+                        uid = item.uid,
+
                         description = item.description,
                         unit = item.unit ?: "",
                         quantity = item.quantity.toString(),
@@ -1297,7 +1299,10 @@ private fun InvoiceEditorSection(
 
                                 InvoiceItemInput(
                                     id = draft.id,
-                                    description = buildInstallationDescription(percent),
+                                    uid = draft.uid,
+
+                                    description =
+                                    buildInstallationDescription(percent),
                                     unit = "درصد",
                                     quantity = 1.0,
                                     unitPrice = amount,
@@ -1321,7 +1326,10 @@ private fun InvoiceEditorSection(
 
                                 InvoiceItemInput(
                                     id = draft.id,
-                                    description = draft.description.trim(),
+                                    uid = draft.uid,
+
+                                    description =
+                                    draft.description.trim(),
                                     unit = draft.unit.trim().ifEmpty { null },
                                     quantity = quantity,
                                     unitPrice = unitPrice,

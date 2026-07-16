@@ -236,6 +236,28 @@ interface OrderDao {
 
     @Query(
         """
+    SELECT *
+    FROM orders
+    WHERE id = :orderId
+    LIMIT 1
+    """
+    )
+    suspend fun getOrderByIdForSync(
+        orderId: Int
+    ): OrderEntity?
+
+    @Query(
+        """
+    SELECT *
+    FROM orders
+    ORDER BY updatedAt ASC
+    """
+    )
+    suspend fun getAllOrdersForSync():
+            List<OrderEntity>
+
+    @Query(
+        """
         SELECT *
         FROM orders
         WHERE isSynced = 0
