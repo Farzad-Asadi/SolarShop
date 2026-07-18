@@ -79,6 +79,7 @@ import com.example.solarShop.utils.TopBarGeneral
 import com.example.solarShop.utils.formatPersianDateTime
 import com.example.solarShop.utils.iranMobileVisualTransformationNew
 import com.example.solarShop.utils.toCurrencyText
+import java.util.UUID
 import kotlin.math.roundToLong
 
 
@@ -458,7 +459,14 @@ private fun InvoiceEditorSection(
 
                     InvoiceItemDraft(
                         id = item.id,
-                        uid = item.uid,
+
+                        /*
+                         * رکوردهای قدیمی که UID خالی دارند نیز
+                         * در اولین ذخیره صاحب UID پایدار می‌شوند.
+                         */
+                        uid =
+                        item.uid.takeIf { it.isNotBlank() }
+                            ?: UUID.randomUUID().toString(),
 
                         description = item.description,
                         unit = item.unit ?: "",

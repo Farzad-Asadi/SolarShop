@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
@@ -354,6 +355,12 @@ class OrderInvoiceViewModel @Inject constructor(
     private val _isExporting = MutableStateFlow(false)
     val isExporting = _isExporting // اگر لازم شد در UI نشان بدهی
 
+    /*
+ * از اجرای هم‌زمان چند ذخیره برای یک سند جلوگیری می‌کند.
+ */
+    private val invoiceSaveMutex =
+        Mutex()
+
 
 
 
@@ -453,6 +460,32 @@ class OrderInvoiceViewModel @Inject constructor(
         val existingItems =
             invoiceDao.getItemsForInvoice(invoiceId)
 
+
+        Log.d(
+            "INVOICE_ITEM_SAVE",
+            buildString {
+                appendLine(
+                    "invoiceId=$invoiceId"
+                )
+
+                appendLine(
+                    "existing=" +
+                            existingItems.joinToString {
+                                "id=${it.id},uid=${it.uid},row=${it.rowIndex}"
+                            }
+                )
+
+                appendLine(
+                    "submitted=" +
+                            items.joinToString {
+                                "id=${it.id},uid=${it.uid}"
+                            }
+                )
+            }
+        )
+
+
+
         /*
  * UID هویت اصلی است.
  * ID فقط برای سازگاری با رکوردهای محلی قدیمی استفاده می‌شود.
@@ -468,9 +501,8 @@ class OrderInvoiceViewModel @Inject constructor(
             }
 
         val submittedUids =
-            items.mapNotNull { input ->
+            items.map { input ->
                 input.uid
-                    ?.takeIf { it.isNotBlank() }
             }.toSet()
 
         val submittedIds =
@@ -521,16 +553,30 @@ class OrderInvoiceViewModel @Inject constructor(
                                     taxAmount
                             ).coerceAtLeast(0L)
 
-                val existing =
+                val stableUid =
                     input.uid
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { uid ->
-                            existingByUid[uid]
-                        }
+
+                /*
+                 * ابتدا Snapshot فعلی، سپس خود DAO بررسی می‌شود.
+                 * بنابراین حتی اگر Flow و Snapshot لحظه‌ای هماهنگ نباشند،
+                 * رکورد قبلی دوباره Insert نمی‌شود.
+                 */
+                val existing =
+                    existingByUid[stableUid]
+                        ?: invoiceDao
+                            .getItemByUid(stableUid)
+                            ?.takeIf { entity ->
+                                entity.invoiceId == invoiceId
+                            }
                         ?: input.id
                             ?.takeIf { it > 0 }
                             ?.let { itemId ->
                                 existingById[itemId]
+                                    ?: invoiceDao
+                                        .getItemById(itemId)
+                                        ?.takeIf { entity ->
+                                            entity.invoiceId == invoiceId
+                                        }
                             }
 
                 if (existing != null) {
@@ -538,6 +584,7 @@ class OrderInvoiceViewModel @Inject constructor(
                      * UID و createdAt ردیف قبلی حفظ می‌شوند.
                      */
                     existing.copy(
+                        uid = stableUid,
                         invoiceId = invoiceId,
                         rowIndex = index,
                         description = input.description,
@@ -560,10 +607,7 @@ class OrderInvoiceViewModel @Inject constructor(
                      */
                     InvoiceItemEntity(
                         id = 0,
-                        uid =
-                        input.uid
-                            ?.takeIf { it.isNotBlank() }
-                            ?: UUID.randomUUID().toString(),
+                        uid = stableUid,
                         invoiceId = invoiceId,
                         rowIndex = index,
                         description = input.description,
@@ -652,27 +696,58 @@ class OrderInvoiceViewModel @Inject constructor(
         items: List<InvoiceItemInput>
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            // ۱) هدر
-            updateInvoiceHeaderInternal(header)
 
-            // ۲) آیتم‌ها
-            saveItemsInternal(header.invoiceId, items)
+            /*
+             * محافظ باید قبل از هرگونه تغییر دیتابیس فعال شود.
+             */
+            if (!invoiceSaveMutex.tryLock()) {
+                Log.w(
+                    "OrderInvoiceVM",
+                    "Duplicate invoice save ignored. invoiceId=${header.invoiceId}"
+                )
 
-            // ۳) ساخت و نمایش PDF
-            // از همان منطق قبلی استفاده می‌کنیم، فقط به‌صورت سلسله‌وار
-            if (_isExporting.value) return@launch
+                return@launch
+            }
 
-            _isExporting.value = true
+            _isExporting.value =
+                true
+
             try {
-                // TODO: به‌زودی از تنظیمات/سوییچ UI گرفته می‌شود
-                val showPdfAsToman = displayPrefsState.value.currencyUnit == CurrencyUnit.TOMAN
+                // ۱. ذخیره سربرگ
+                updateInvoiceHeaderInternal(
+                    header
+                )
 
-                val file = pdfExporter.exportInvoice(header.invoiceId, showAsToman = showPdfAsToman)
+                // ۲. ذخیره اتمیک ردیف‌ها
+                saveItemsInternal(
+                    invoiceId = header.invoiceId,
+                    items = items
+                )
+
+                // ۳. تولید PDF
+                val showPdfAsToman =
+                    displayPrefsState.value.currencyUnit ==
+                            CurrencyUnit.TOMAN
+
+                val file =
+                    pdfExporter.exportInvoice(
+                        invoiceId = header.invoiceId,
+                        showAsToman = showPdfAsToman
+                    )
+
                 openPdf(file)
-            } catch (t: Throwable) {
-                t.printStackTrace()
+
+            } catch (error: Throwable) {
+                Log.e(
+                    "OrderInvoiceVM",
+                    "Save invoice and create PDF failed. invoiceId=${header.invoiceId}",
+                    error
+                )
             } finally {
-                _isExporting.value = false
+                _isExporting.value =
+                    false
+
+                invoiceSaveMutex.unlock()
             }
         }
     }
@@ -1063,10 +1138,9 @@ data class InvoiceItemInput(
     val id: Int?,
 
     /*
-     * شناسه اصلی ردیف در Sync.
-     * id فقط شناسه محلی Room است.
+     * هویت پایدار ردیف؛ حتی قبل از اولین ذخیره.
      */
-    val uid: String?,
+    val uid: String,
 
     val description: String,
     val unit: String?,
@@ -1079,9 +1153,11 @@ data class InvoiceItemDraft(
     val id: Int? = null,
 
     /*
-     * هویت پایدار بین تمام دستگاه‌ها.
+     * ردیف جدید همان لحظه ساخت Draft، UID می‌گیرد.
+     * بنابراین ذخیره تکراری UUID جدید تولید نمی‌کند.
      */
-    val uid: String? = null,
+    val uid: String =
+        UUID.randomUUID().toString(),
 
     val description: String = "",
     val unit: String = "",
