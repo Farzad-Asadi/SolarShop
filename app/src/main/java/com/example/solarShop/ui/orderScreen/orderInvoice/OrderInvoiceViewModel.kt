@@ -195,15 +195,36 @@ class OrderInvoiceViewModel @Inject constructor(
     private val editorState = MutableStateFlow(InvoiceEditorUiState())
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val editorInvoiceFlow: Flow<InvoiceWithItems?> =
+    private val editorInvoiceFlow:
+            Flow<InvoiceWithItems?> =
+
         editorState.flatMapLatest { editor ->
-            val id = editor.selectedInvoiceId
-            if (!editor.isVisible || id == null) {
+
+            val invoiceId =
+                editor.selectedInvoiceId
+
+            if (
+                !editor.isVisible ||
+                invoiceId == null
+            ) {
                 flowOf(null)
             } else {
-                flow {
-                    val data = invoiceDao.getInvoiceWithItems(id)
-                    emit(data)
+                combine(
+                    invoiceDao.observeInvoiceById(
+                        invoiceId
+                    ),
+
+                    invoiceDao.observeActiveItemsForInvoice(
+                        invoiceId
+                    )
+                ) { invoice, items ->
+
+                    invoice?.let {
+                        InvoiceWithItems(
+                            invoice = it,
+                            items = items
+                        )
+                    }
                 }
             }
         }

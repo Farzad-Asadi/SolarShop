@@ -428,8 +428,26 @@ private fun InvoiceEditorSection(
         mutableStateOf(invoice.invoice.notes ?: "")
     }
 
+    /*
+ * فقط با تغییر واقعی مجموعه ردیف‌ها عوض می‌شود.
+ * Recomposition معمولی Draft کاربر را Reset نمی‌کند.
+ */
+    val itemDraftVersion =
+        remember(invoice.items) {
+
+            invoice.items.joinToString(
+                separator = "|"
+            ) { item ->
+
+                "${item.uid}:${item.updatedAt}:${item.rowIndex}"
+            }
+        }
+
     // درفت اقلام
-    var itemDrafts by remember(invoice.invoice.id) {
+    var itemDrafts by remember(
+        invoice.invoice.id,
+        itemDraftVersion
+    ) {
         mutableStateOf(
             if (invoice.items.isEmpty()) {
                 listOf(InvoiceItemDraft())

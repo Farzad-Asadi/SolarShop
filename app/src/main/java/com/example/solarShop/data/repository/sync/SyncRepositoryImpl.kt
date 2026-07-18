@@ -23,6 +23,33 @@ class SyncRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getEntityLastSyncAt(
+        entityKey: String
+    ): Long {
+        val key =
+            "$KEY_ENTITY_LAST_SYNC_PREFIX$entityKey"
+
+        return syncMetadataDao
+            .getValue(key)
+            ?.toLongOrNull()
+            ?: 0L
+    }
+
+    override suspend fun updateEntityLastSyncAt(
+        entityKey: String,
+        value: Long
+    ) {
+        val key =
+            "$KEY_ENTITY_LAST_SYNC_PREFIX$entityKey"
+
+        syncMetadataDao.upsert(
+            SyncMetadataEntity(
+                key = key,
+                value = value.toString()
+            )
+        )
+    }
+
     override suspend fun getDeviceId(): String? {
         return syncMetadataDao.getValue(KEY_DEVICE_ID)
     }
@@ -39,5 +66,6 @@ class SyncRepositoryImpl @Inject constructor(
     private companion object {
         const val KEY_LAST_SYNC_AT = "lastSyncAt"
         const val KEY_DEVICE_ID = "deviceId"
+        const val KEY_ENTITY_LAST_SYNC_PREFIX = "lastSyncAt:"
     }
 }

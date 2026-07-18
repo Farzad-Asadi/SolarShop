@@ -33,7 +33,6 @@ import com.example.solarShop.data.network.dto.sync.ProductSaleTransactionSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductSyncDto
 import com.example.solarShop.data.network.dto.sync.ProductUnitSyncDto
 import com.example.solarShop.data.network.dto.sync.RegisterDeviceRequestDto
-import com.example.solarShop.data.network.dto.sync.SyncStatusDto
 import com.example.solarShop.data.network.remote.SyncApi
 import com.example.solarShop.data.repository.attribute.AttributeRepository
 import com.example.solarShop.data.repository.file.FileSyncRepository
@@ -102,45 +101,74 @@ class SyncManager @Inject constructor(
             )
     }
 
-    /*
- * چند ثانیه هم‌پوشانی باعث می‌شود تغییراتی که دقیقاً
- * در مرز lastSyncAt ثبت شده‌اند جا نمانند.
- *
- * Upsert براساس UID است؛ بنابراین دریافت مجدد امن است.
- */
-    private suspend fun getSafePullSince(): Long {
+    private data class PullWindow(
+        val since: Long,
+        val upperBound: Long
+    )
 
-        val lastSyncAt =
-            syncRepository.getLastSyncAt()
+    private suspend fun createPullWindow(
+        entityKey: String
+    ): PullWindow {
 
-        return (
-                lastSyncAt -
-                        5_000L
-                ).coerceAtLeast(0L)
+        /*
+         * زمان سقف را قبل از GET می‌گیریم.
+         * هر تغییری که بعد از این زمان روی سرور رخ دهد،
+         * در Sync بعدی دوباره قابل دریافت خواهد بود.
+         */
+        val upperBound =
+            syncApi.getStatus().serverTime
+
+        val cursor =
+            syncRepository.getEntityLastSyncAt(
+                entityKey
+            )
+
+        return PullWindow(
+            since = (
+                    cursor -
+                            5_000L
+                    ).coerceAtLeast(0L),
+
+            upperBound = upperBound
+        )
     }
 
+    private suspend fun finishPullWindow(
+        entityKey: String,
+        window: PullWindow,
+        fullyApplied: Boolean
+    ) {
+        if (!fullyApplied) {
+            Log.w(
+                "SYNC_TEST",
+                "Cursor not advanced for $entityKey because some rows were skipped"
+            )
 
-    suspend fun getLastSyncAt(): Long {
-        return syncRepository.getLastSyncAt()
+            return
+        }
+
+        syncRepository.updateEntityLastSyncAt(
+            entityKey = entityKey,
+            value = window.upperBound
+        )
     }
 
-    suspend fun updateLastSyncAt(value: Long) {
-        syncRepository.updateLastSyncAt(value)
+    private companion object {
+
+        const val CURSOR_CLIENTS =
+            "clients"
+
+        const val CURSOR_ORDERS =
+            "orders"
+
+        const val CURSOR_INVOICE_DOCUMENTS =
+            "invoice_documents"
+
+        const val CURSOR_INVOICE_ITEMS =
+            "invoice_items"
     }
 
-    suspend fun getDeviceId(): String {
-        return deviceIdProvider.getOrCreateDeviceId()
-    }
-
-    suspend fun pingServer(): Boolean {
-        return syncApi.ping()
-    }
-
-    suspend fun getSyncStatus(): SyncStatusDto {
-        return syncApi.getStatus()
-    }
-
-    suspend fun registerDevice(): Boolean {
+    private suspend fun registerDevice(): Boolean {
         val deviceId = deviceIdProvider.getOrCreateDeviceId()
 
         val response = syncApi.registerDevice(
@@ -154,26 +182,7 @@ class SyncManager @Inject constructor(
         return response.accepted
     }
 
-    suspend fun pushAllCategories(): Boolean {
-        val categories = productRepository
-            .observeActiveCategories()
-            .first()
-
-        val dtoList = categories.map { category ->
-            CategorySyncDto(
-                uid = category.uid ?: return@map null,
-                name = category.name,
-                imageFileName = category.imageFileName,
-                sortOrder = category.sortOrder,
-                deletedAt = category.deletedAt,
-                updatedAt = category.updatedAt
-            )
-        }.filterNotNull()
-
-        return syncApi.pushCategories(dtoList)
-    }
-
-    suspend fun pushUnsyncedCategories(): Boolean {
+    private suspend fun pushUnsyncedCategories(): Boolean {
         val categories = productRepository.getUnsyncedCategories()
 
         if (categories.isEmpty()) {
@@ -220,7 +229,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullCategories(): Int {
+    private suspend fun pullCategories(): Int {
         val lastSyncAt = syncRepository.getLastSyncAt()
 
         Log.d(
@@ -256,7 +265,7 @@ class SyncManager @Inject constructor(
         return categories.size
     }
 
-    suspend fun pullBrands(): Int {
+    private suspend fun pullBrands(): Int {
         val lastSyncAt = syncRepository.getLastSyncAt()
 
         Log.d("SYNC_TEST", "Pull Brands Since = $lastSyncAt")
@@ -285,7 +294,7 @@ class SyncManager @Inject constructor(
         return brands.size
     }
 
-    suspend fun pushUnsyncedBrands(): Boolean {
+    private suspend fun pushUnsyncedBrands(): Boolean {
         val brands = productRepository.getUnsyncedBrands()
 
         if (brands.isEmpty()) {
@@ -294,7 +303,7 @@ class SyncManager @Inject constructor(
         }
 
         val dtoList = brands.mapNotNull { brand ->
-            val uid = brand.uid?.takeIf { it.isNotBlank() }
+            brand.uid?.takeIf { it.isNotBlank() }
                 ?: return@mapNotNull null
 
             BrandSyncDto(
@@ -330,7 +339,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullProducts(): Int {
+    private suspend fun pullProducts(): Int {
         val lastSyncAt = syncRepository.getLastSyncAt()
 
         Log.d("SYNC_TEST", "Pull Products Since = $lastSyncAt")
@@ -373,7 +382,7 @@ class SyncManager @Inject constructor(
         return products.size
     }
 
-    suspend fun pushUnsyncedProducts(): Boolean {
+    private suspend fun pushUnsyncedProducts(): Boolean {
         val products = productRepository.getUnsyncedProducts()
 
         if (products.isEmpty()) {
@@ -427,94 +436,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pushAllBrands(): Boolean {
-        val brands = productRepository
-            .observeActiveBrands()
-            .first()
-
-        val dtoList = brands.mapNotNull { brand ->
-            val uid = brand.uid?.takeIf { it.isNotBlank() }
-                ?: return@mapNotNull null
-
-            BrandSyncDto(
-                uid = uid,
-                name = brand.name,
-                description = brand.description,
-                imageFileName = brand.imageFileName,
-                isActive = brand.isActive,
-                updatedAt = brand.updatedAt,
-                deletedAt = brand.deletedAt
-            )
-        }
-
-        val success = syncApi.pushBrands(dtoList)
-
-        Log.d("SYNC_TEST", "Initial Upload Brands = ${dtoList.size}, success=$success")
-
-        return success
-    }
-
-    suspend fun pushAllProducts(): Boolean {
-        val products = productRepository
-            .observeActiveProducts()
-            .first()
-
-        val dtoList = products.mapNotNull { product ->
-
-            val category = productRepository.getCategoryById(product.categoryId)
-                ?: return@mapNotNull null
-
-            val categoryUid = category.uid
-                ?.takeIf { it.isNotBlank() }
-                ?: return@mapNotNull null
-
-            val brandUid = product.brandId
-                ?.let { productRepository.getBrandById(it) }
-                ?.uid
-                ?.takeIf { it.isNotBlank() }
-
-            ProductSyncDto(
-                uid = product.uid,
-                categoryUid = categoryUid,
-                brandUid = brandUid,
-                name = product.name,
-                model = product.model,
-                description = product.description,
-                isArchived = product.isArchived,
-                updatedAt = product.updatedAt,
-                deletedAt = product.deletedAt
-            )
-        }
-
-        val success = syncApi.pushProducts(dtoList)
-
-        Log.d("SYNC_TEST", "Initial Upload Products = ${dtoList.size}, success=$success")
-
-        return success
-    }
-
-    suspend fun initialUploadAll(): Boolean {
-        val registered = registerDevice()
-        if (!registered) return false
-
-        val categoriesOk = pushAllCategories()
-        if (!categoriesOk) return false
-
-        val brandsOk = pushAllBrands()
-        if (!brandsOk) return false
-
-        val productsOk = pushAllProducts()
-        if (!productsOk) return false
-
-        val status = syncApi.getStatus()
-        syncRepository.updateLastSyncAt(status.serverTime)
-
-        Log.d("SYNC_TEST", "Initial Upload Completed")
-
-        return true
-    }
-
-    suspend fun pullProductImages(): Int {
+    private suspend fun pullProductImages(): Int {
         val lastSyncAt = syncRepository.getLastSyncAt()
 
         Log.d("SYNC_TEST", "Pull ProductImages Since = $lastSyncAt")
@@ -552,7 +474,7 @@ class SyncManager @Inject constructor(
         return images.size
     }
 
-    suspend fun pullProductImagesWithProgress(
+    private suspend fun pullProductImagesWithProgress(
         step: Int,
         totalSteps: Int,
         onProgress: suspend (SyncProgress) -> Unit
@@ -628,7 +550,7 @@ class SyncManager @Inject constructor(
         return downloaded
     }
 
-    suspend fun pushUnsyncedProductImages(): Boolean {
+    private suspend fun pushUnsyncedProductImages(): Boolean {
         val images = productImageRepository.getUnsyncedProductImages()
 
         if (images.isEmpty()) {
@@ -644,7 +566,7 @@ class SyncManager @Inject constructor(
             val product = productRepository.getProductById(image.productId)
                 ?: return@mapNotNull null
 
-            val productUid = product.uid?.takeIf { it.isNotBlank() }
+            val productUid = product.uid.takeIf { it.isNotBlank() }
                 ?: return@mapNotNull null
 
             fileSyncRepository.uploadIfNeeded(image.fileName)
@@ -677,7 +599,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullInventoryTransactions(): Int {
+    private suspend fun pullInventoryTransactions(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
 
@@ -731,7 +653,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedInventoryTransactions(): Boolean {
+    private suspend fun pushUnsyncedInventoryTransactions(): Boolean {
 
         val items =
             inventoryRepository.getUnsyncedInventoryTransactions()
@@ -791,7 +713,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullPurchasePrices(): Int {
+    private suspend fun pullPurchasePrices(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
 
@@ -836,7 +758,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedPurchasePrices(): Boolean {
+    private suspend fun pushUnsyncedPurchasePrices(): Boolean {
 
         val items =
             pricingRepository.getUnsyncedPurchasePrices()
@@ -905,7 +827,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullSalePrices(): Int {
+    private suspend fun pullSalePrices(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
 
@@ -951,7 +873,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedSalePrices(): Boolean {
+    private suspend fun pushUnsyncedSalePrices(): Boolean {
 
         val items =
             pricingRepository.getUnsyncedSalePrices()
@@ -1006,7 +928,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullProductSaleTransactions(): Int {
+    private suspend fun pullProductSaleTransactions(): Int {
 
         val lastSyncAt =
             syncRepository.getLastSyncAt()
@@ -1091,7 +1013,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedProductSaleTransactions(): Boolean {
+    private suspend fun pushUnsyncedProductSaleTransactions(): Boolean {
 
         val items =
             productSaleTransactionRepository.getUnsyncedSaleTransactions()
@@ -1183,7 +1105,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullCategoryAttributeDefinitions(): Int {
+    private suspend fun pullCategoryAttributeDefinitions(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
 
@@ -1232,7 +1154,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedCategoryAttributeDefinitions(): Boolean {
+    private suspend fun pushUnsyncedCategoryAttributeDefinitions(): Boolean {
 
         val items =
             attributeRepository.getUnsyncedAttributeDefinitions()
@@ -1296,7 +1218,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullProductAttributeValues(): Int {
+    private suspend fun pullProductAttributeValues(): Int {
 
         val lastSyncAt = syncRepository.getLastSyncAt()
 
@@ -1340,7 +1262,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedProductAttributeValues(): Boolean {
+    private suspend fun pushUnsyncedProductAttributeValues(): Boolean {
 
         val items =
             attributeRepository.getUnsyncedProductAttributeValues()
@@ -1404,7 +1326,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullUnits(): Int {
+    private suspend fun pullUnits(): Int {
         val lastSyncAt = syncRepository.getLastSyncAt()
 
         val items =
@@ -1429,7 +1351,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedUnits(): Boolean {
+    private suspend fun pushUnsyncedUnits(): Boolean {
         val items =
             productRepository.getUnsyncedUnits()
 
@@ -1501,7 +1423,7 @@ class SyncManager @Inject constructor(
         return items.size
     }
 
-    suspend fun pushUnsyncedCurrencyRates(): Boolean {
+    private suspend fun pushUnsyncedCurrencyRates(): Boolean {
 
         val items =
             pricingRepository.getUnsyncedCurrencyRates()
@@ -1546,8 +1468,7 @@ class SyncManager @Inject constructor(
         return success
     }
 
-
-    suspend fun pushUnsyncedClients(): Boolean {
+    private suspend fun pushUnsyncedClients(): Boolean {
 
         val items =
             clientRepository.getUnsyncedClients()
@@ -1610,16 +1531,20 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullClients(): Int {
+    private suspend fun pullClients(): Int {
 
-        val lastSyncAt =
-            getSafePullSince()
+        val window =
+            createPullWindow(
+                CURSOR_CLIENTS
+            )
 
         val localUserKey =
             requireCurrentUserKey()
 
         val items =
-            syncApi.pullClients(lastSyncAt)
+            syncApi.pullClients(
+                window.since
+            )
 
         items.forEach { dto ->
 
@@ -1670,11 +1595,16 @@ class SyncManager @Inject constructor(
             "Pulled Clients = ${items.size}"
         )
 
+        finishPullWindow(
+            entityKey = CURSOR_CLIENTS,
+            window = window,
+            fullyApplied = true
+        )
+
         return items.size
     }
 
-
-    suspend fun pushUnsyncedOrders(): Boolean {
+    private suspend fun pushUnsyncedOrders(): Boolean {
 
         val items =
             orderRepository.getUnsyncedOrders()
@@ -1755,13 +1685,17 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullOrders(): Int {
+    private suspend fun pullOrders(): Int {
 
-        val lastSyncAt =
-            getSafePullSince()
+        val window =
+            createPullWindow(
+                CURSOR_ORDERS
+            )
 
         val items =
-            syncApi.pullOrders(lastSyncAt)
+            syncApi.pullOrders(
+                window.since
+            )
 
         var appliedCount =
             0
@@ -1824,10 +1758,17 @@ class SyncManager @Inject constructor(
             "Pulled Orders = $appliedCount/${items.size}"
         )
 
+        finishPullWindow(
+            entityKey = CURSOR_ORDERS,
+            window = window,
+            fullyApplied =
+            appliedCount == items.size
+        )
+
         return appliedCount
     }
 
-    suspend fun pushUnsyncedInvoiceDocuments():
+    private suspend fun pushUnsyncedInvoiceDocuments():
             Boolean {
 
         val items =
@@ -1936,14 +1877,16 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullInvoiceDocuments(): Int {
+    private suspend fun pullInvoiceDocuments(): Int {
 
-        val lastSyncAt =
-            getSafePullSince()
+        val window =
+            createPullWindow(
+                CURSOR_INVOICE_DOCUMENTS
+            )
 
         val items =
             syncApi.pullInvoiceDocuments(
-                lastSyncAt
+                window.since
             )
 
         var appliedCount =
@@ -2104,10 +2047,17 @@ class SyncManager @Inject constructor(
             "Pulled InvoiceDocuments = $appliedCount/${items.size}"
         )
 
+        finishPullWindow(
+            entityKey = CURSOR_INVOICE_DOCUMENTS,
+            window = window,
+            fullyApplied =
+            appliedCount == items.size
+        )
+
         return appliedCount
     }
 
-    suspend fun pushUnsyncedInvoiceItems():
+    private suspend fun pushUnsyncedInvoiceItems():
             Boolean {
 
         val items =
@@ -2203,14 +2153,16 @@ class SyncManager @Inject constructor(
         return success
     }
 
-    suspend fun pullInvoiceItems(): Int {
+    private suspend fun pullInvoiceItems(): Int {
 
-        val lastSyncAt =
-            getSafePullSince()
+        val window =
+            createPullWindow(
+                CURSOR_INVOICE_ITEMS
+            )
 
         val items =
             syncApi.pullInvoiceItems(
-                lastSyncAt
+                window.since
             )
 
         var appliedCount =
@@ -2316,9 +2268,15 @@ class SyncManager @Inject constructor(
             "Pulled InvoiceItems = $appliedCount/${items.size}"
         )
 
+        finishPullWindow(
+            entityKey = CURSOR_INVOICE_ITEMS,
+            window = window,
+            fullyApplied =
+            appliedCount == items.size
+        )
+
         return appliedCount
     }
-
 
     suspend fun syncCategoriesOnce(): Boolean {
         val registered = registerDevice()
@@ -2445,7 +2403,6 @@ class SyncManager @Inject constructor(
 
         return true
     }
-
 
     suspend fun fullUploadAllToServer(): Boolean {
         val registered = registerDevice()

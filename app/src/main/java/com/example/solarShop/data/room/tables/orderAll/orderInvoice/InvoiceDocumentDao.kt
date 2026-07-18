@@ -51,6 +51,19 @@ interface InvoiceDocumentDao {
 
     @Query(
         """
+    SELECT *
+    FROM invoice_documents
+    WHERE id = :invoiceId
+      AND deletedAt IS NULL
+    LIMIT 1
+    """
+    )
+    fun observeInvoiceById(
+        invoiceId: Int
+    ): Flow<InvoiceDocumentEntity?>
+
+    @Query(
+        """
         SELECT *
         FROM invoice_documents
         WHERE orderId = :orderId
@@ -267,6 +280,21 @@ interface InvoiceDocumentDao {
     suspend fun getItemsForInvoice(
         invoiceId: Int
     ): List<InvoiceItemEntity>
+
+
+    @Query(
+        """
+    SELECT *
+    FROM invoice_items
+    WHERE invoiceId = :invoiceId
+      AND deletedAt IS NULL
+    ORDER BY rowIndex ASC
+    """
+    )
+    fun observeActiveItemsForInvoice(
+        invoiceId: Int
+    ): Flow<List<InvoiceItemEntity>>
+
 
     /*
      * برای Sync یا تشخیص tombstone.
