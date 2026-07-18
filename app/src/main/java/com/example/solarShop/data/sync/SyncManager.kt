@@ -2211,6 +2211,13 @@ class SyncManager @Inject constructor(
             val remoteEntity =
                 InvoiceItemEntity(
                     id = existing?.id ?: 0,
+
+                    /*
+                     * بسیار مهم:
+                     * هویت ردیف دریافتی باید دقیقاً از سرور حفظ شود.
+                     */
+                    uid = dto.uid,
+
                     invoiceId = invoiceId,
 
                     rowIndex = dto.rowIndex,
