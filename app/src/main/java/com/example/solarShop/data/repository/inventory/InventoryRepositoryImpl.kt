@@ -82,6 +82,12 @@ class InventoryRepositoryImpl @Inject constructor(
         inventoryDao.deleteTransactionById(id)
     }
 
+    override suspend fun softDeleteByUid(
+        uid: String
+    ) {
+        inventoryDao.softDeleteByUid(uid)
+    }
+
 
     override suspend fun addTransaction(
         transaction: InventoryTransactionEntity

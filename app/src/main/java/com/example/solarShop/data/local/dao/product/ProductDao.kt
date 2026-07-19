@@ -120,6 +120,13 @@ interface ProductDao{
 
     @Query("""
         SELECT * FROM products
+        WHERE isDraft = 0
+        ORDER BY name ASC, model ASC
+    """)
+    fun observeProductsForReports(): Flow<List<ProductEntity>>
+
+    @Query("""
+        SELECT * FROM products
         WHERE categoryId = :categoryId 
     AND isArchived = 0 
     AND isDraft = 0

@@ -40,6 +40,7 @@ import com.example.solarShop.data.room.tables.user.UserEntity
 import com.example.solarShop.data.room.tables.user.UserRepository
 import com.example.solarShop.data.sync.SyncManager
 import com.example.solarShop.domain.product.ProductPriceCalculator
+import com.example.solarShop.domain.sales.PersianMonthPeriod
 import com.example.solarShop.repo.AuthRepository
 import com.example.solarShop.utils.createTimelineItemEntityForOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,7 +60,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Calendar
 import javax.inject.Inject
 import kotlin.math.roundToLong
 
@@ -201,25 +201,14 @@ class DashboardViewModel @Inject constructor(
             val todayRate =
                 manualDollarRateToman ?: latestDollarRateToman
 
-            val monthStart = Calendar.getInstance().apply {
-                set(Calendar.DAY_OF_MONTH, 1)
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
 
-            val monthEnd = Calendar.getInstance().apply {
-                set(Calendar.DAY_OF_MONTH, 1)
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-                add(Calendar.MONTH, 1)
-            }.timeInMillis
+            val currentPersianMonth =
+                PersianMonthPeriod.fromEpochMillis(
+                    System.currentTimeMillis()
+                )
 
             val salesInMonth = saleTransactions.filter { sale ->
-                sale.soldAt >= monthStart && sale.soldAt < monthEnd
+                currentPersianMonth.contains(sale.soldAt)
             }
 
             val monthSales = salesInMonth.sumOf { sale ->

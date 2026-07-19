@@ -42,6 +42,10 @@ interface InventoryRepository {
         id: Int
     )
 
+    suspend fun softDeleteByUid(
+        uid: String
+    )
+
     suspend fun addTransaction(
         transaction: InventoryTransactionEntity
     ): Long

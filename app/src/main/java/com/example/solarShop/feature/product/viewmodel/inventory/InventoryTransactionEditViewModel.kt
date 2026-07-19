@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.solarShop.InventoryTransactionType
+import com.example.solarShop.data.local.entity.inventory.InventoryTransactionEntity
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,11 +70,16 @@ class InventoryTransactionEditViewModel @Inject constructor(
                 InventoryTransactionType.ADJUSTMENT ->
                     inventoryRepository.adjust(productId, quantity, state.note)
 
-                InventoryTransactionType.PURCHASE_RETURN ->
-                    inventoryRepository.adjust(productId, -quantity, state.note)
-
+                InventoryTransactionType.PURCHASE_RETURN,
                 InventoryTransactionType.SALE_RETURN ->
-                    inventoryRepository.adjust(productId, quantity, state.note)
+                    inventoryRepository.addTransaction(
+                        InventoryTransactionEntity(
+                            productId = productId,
+                            quantity = quantity,
+                            transactionType = state.transactionType,
+                            note = state.note
+                        )
+                    )
             }
 
             _uiState.update { it.copy(isSaving = false) }

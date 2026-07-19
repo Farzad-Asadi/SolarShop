@@ -100,6 +100,20 @@ interface InventoryDao {
         deletedAt: Long = System.currentTimeMillis()
     )
 
+    @Query("""
+        UPDATE inventory_transactions
+        SET
+            deletedAt = :deletedAt,
+            updatedAt = :deletedAt,
+            isSynced = 0
+        WHERE uid = :uid
+          AND deletedAt IS NULL
+    """)
+    suspend fun softDeleteByUid(
+        uid: String,
+        deletedAt: Long = System.currentTimeMillis()
+    )
+
     @Query("SELECT * FROM inventory_transactions WHERE uid = :uid LIMIT 1")
     suspend fun getTransactionByUid(uid: String): InventoryTransactionEntity?
 

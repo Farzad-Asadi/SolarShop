@@ -15,6 +15,7 @@ interface ProductRepository {
     fun observeActiveUnits(): Flow<List<ProductUnitEntity>>
 
     fun observeActiveProducts(): Flow<List<ProductEntity>>
+    fun observeProductsForReports(): Flow<List<ProductEntity>>
     fun observeProductsByCategory(categoryId: Int): Flow<List<ProductEntity>>
     fun observeActiveProductsFullInfo(): Flow<List<ProductFullInfo>>
 

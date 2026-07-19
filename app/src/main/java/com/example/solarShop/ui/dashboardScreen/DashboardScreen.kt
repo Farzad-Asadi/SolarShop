@@ -204,6 +204,7 @@ fun DashboardScreen(                               //صفحه پروفایل
     onClickBackUpRestore: () -> Unit,
     onClickProductList: () -> Unit,
     onClickSendReport: () -> Unit,
+    onClickSalesReport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -355,7 +356,12 @@ fun DashboardScreen(                               //صفحه پروفایل
                                         )
 
                                         Text(
-                                            text = "میزان فروش ماه جاری: ${uiState.currentMonthSalesToman.toPriceString()} تومان"
+                                            text = "میزان فروش ماه جاری: ${uiState.currentMonthSalesToman.toPriceString()} تومان",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable(onClick = onClickSalesReport)
+                                                .padding(vertical = 8.dp)
                                         )
 
                                         Text(

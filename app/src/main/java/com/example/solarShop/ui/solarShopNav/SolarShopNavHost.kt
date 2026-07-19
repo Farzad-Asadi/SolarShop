@@ -31,6 +31,7 @@ import com.example.solarShop.feature.product.ui.pricing.PurchasePriceEditScreen
 import com.example.solarShop.feature.product.ui.product.ProductDetailScreen
 import com.example.solarShop.feature.product.ui.product.ProductEditScreen
 import com.example.solarShop.feature.sendReport.ui.SendReportScreen
+import com.example.solarShop.feature.salesReport.SalesReportScreen
 import com.example.solarShop.ui.contractScreen.ContractScreen
 import com.example.solarShop.ui.dashboardScreen.DashboardScreen
 import com.example.solarShop.ui.orderScreen.OrderScreen
@@ -418,6 +419,21 @@ fun SolarShopNavHost(
                                 inclusive = false
                             }
                         }
+                    },
+                    onClickSalesReport = {
+                        nav.navigate(SolarRoute.SalesReport.name) {
+                            popUpTo(SolarRoute.Profile.name) {
+                                inclusive = false
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(SolarRoute.SalesReport.name) {
+                SalesReportScreen(
+                    onBack = {
+                        nav.navigateUp()
                     }
                 )
             }
@@ -651,6 +667,7 @@ enum class SolarRoute {
     BrandList,
     BrandEdit,
     SendReport,
+    SalesReport,
 
 
 
