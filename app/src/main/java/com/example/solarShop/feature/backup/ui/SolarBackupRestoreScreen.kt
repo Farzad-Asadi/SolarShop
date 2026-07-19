@@ -257,6 +257,36 @@ fun SolarBackupRestoreScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    Text(
+                        text =
+                        "برای انتقال اولیه به سرور آنلاین، فقط این دکمه را روی یک دستگاه مرجع اجرا کن.",
+                        style =
+                        MaterialTheme.typography.bodySmall,
+                        color =
+                        MaterialTheme.colorScheme.primary
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel
+                                .fullUploadBusinessDataToServer()
+                        },
+
+                        enabled =
+                        !uiState.isSyncingWithServer,
+
+                        modifier =
+                        Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (uiState.isSyncingWithServer) {
+                                "در حال انتقال اطلاعات فروش..."
+                            } else {
+                                "انتقال مشتری، سفارش و فاکتور به سرور"
+                            }
+                        )
+                    }
+
                     Button(
                         onClick = {
                             viewModel.fullUploadAllToServer()

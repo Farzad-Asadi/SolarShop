@@ -2411,6 +2411,395 @@ class SyncManager @Inject constructor(
         return true
     }
 
+    /**
+     * فقط داده‌های مشتری، سفارش و اسناد فروش را Upload می‌کند.
+     *
+     * این تابع به اطلاعات کالا، قیمت، موجودی و تصاویر دست نمی‌زند.
+     * اجرای آن فقط باید از یک دستگاه مرجع انجام شود.
+     */
+    suspend fun fullUploadBusinessDataToServer(): Boolean {
+
+        val registered =
+            registerDevice()
+
+        if (!registered) {
+            Log.e(
+                "SYNC_TEST",
+                "Business full upload failed: device registration failed"
+            )
+
+            return false
+        }
+
+        // =====================================================
+        // 1. Clients
+        // =====================================================
+
+        val allClients =
+            clientRepository.getAllClientsForSync()
+
+        val clientDtos =
+            allClients.map { item ->
+
+                ClientSyncDto(
+                    uid = item.uid,
+
+                    name = item.name,
+                    mobilePhone = item.mobilePhone,
+                    landlinePhone = item.landlinePhone,
+                    nationalCode = item.nationalCode,
+                    workshop = item.workshop,
+                    address = item.address,
+                    note = item.note,
+
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (clientDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushClients(
+                    clientDtos
+                )
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Business full upload failed at clients"
+                )
+
+                return false
+            }
+
+            clientRepository.markClientsSynced(
+                clientDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        // =====================================================
+        // 2. Orders
+        // =====================================================
+
+        val allOrders =
+            orderRepository.getAllOrdersForSync()
+
+        val orderDtos =
+            allOrders.mapNotNull { item ->
+
+                val client =
+                    clientRepository.getClientByIdForSync(
+                        item.clientId
+                    )
+
+                if (client == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Skipped order uid=${item.uid}; missing clientId=${item.clientId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                OrderSyncDto(
+                    uid = item.uid,
+                    clientUid = client.uid,
+
+                    name = item.name,
+                    note = item.note,
+
+                    status = item.status,
+                    archive = item.archive,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (orderDtos.size != allOrders.size) {
+            Log.e(
+                "SYNC_TEST",
+                "Business full upload stopped: some orders have no valid client"
+            )
+
+            return false
+        }
+
+        if (orderDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushOrders(
+                    orderDtos
+                )
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Business full upload failed at orders"
+                )
+
+                return false
+            }
+
+            orderRepository.markOrdersSynced(
+                orderDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        // =====================================================
+        // 3. Invoice documents
+        // =====================================================
+
+        val allInvoiceDocuments =
+            invoiceDao.getAllInvoicesForSync()
+
+        val invoiceDocumentDtos =
+            allInvoiceDocuments.mapNotNull { item ->
+
+                val order =
+                    orderRepository.getOrderByIdForSync(
+                        item.orderId
+                    )
+
+                if (order == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Skipped invoice uid=${item.uid}; missing orderId=${item.orderId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceDocumentSyncDto(
+                    uid = item.uid,
+                    orderUid = order.uid,
+
+                    type = item.type.name,
+                    number = item.number,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+
+                    status = item.status.name,
+
+                    sellerLabel = item.sellerLabel,
+                    sellerName = item.sellerName,
+                    sellerPhone = item.sellerPhone,
+                    sellerAddress = item.sellerAddress,
+
+                    sellerNationalId =
+                    item.sellerNationalId,
+
+                    sellerEconomicCode =
+                    item.sellerEconomicCode,
+
+                    buyerLabel = item.buyerLabel,
+                    buyerName = item.buyerName,
+                    buyerPhone = item.buyerPhone,
+                    buyerAddress = item.buyerAddress,
+
+                    buyerNationalId =
+                    item.buyerNationalId,
+
+                    subtotalBeforeDiscount =
+                    item.subtotalBeforeDiscount,
+
+                    totalDiscount =
+                    item.totalDiscount,
+
+                    totalBeforeTax =
+                    item.totalBeforeTax,
+
+                    totalTax = item.totalTax,
+                    totalFinal = item.totalFinal,
+
+                    notes = item.notes,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (
+            invoiceDocumentDtos.size !=
+            allInvoiceDocuments.size
+        ) {
+            Log.e(
+                "SYNC_TEST",
+                "Business full upload stopped: some invoices have no valid order"
+            )
+
+            return false
+        }
+
+        if (invoiceDocumentDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushInvoiceDocuments(
+                    invoiceDocumentDtos
+                )
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Business full upload failed at invoice documents"
+                )
+
+                return false
+            }
+
+            invoiceDao.markInvoicesSynced(
+                invoiceDocumentDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        // =====================================================
+        // 4. Invoice items
+        // =====================================================
+
+        val allInvoiceItems =
+            invoiceDao.getAllInvoiceItemsForSync()
+
+        val invoiceItemDtos =
+            allInvoiceItems.mapNotNull { item ->
+
+                val invoice =
+                    invoiceDao.getInvoiceByIdForSync(
+                        item.invoiceId
+                    )
+
+                if (invoice == null) {
+                    Log.e(
+                        "SYNC_TEST",
+                        "Skipped invoice item uid=${item.uid}; missing invoiceId=${item.invoiceId}"
+                    )
+
+                    return@mapNotNull null
+                }
+
+                InvoiceItemSyncDto(
+                    uid = item.uid,
+                    invoiceUid = invoice.uid,
+
+                    rowIndex = item.rowIndex,
+                    description = item.description,
+
+                    quantity = item.quantity,
+                    unit = item.unit,
+
+                    unitPrice = item.unitPrice,
+
+                    rowDiscount =
+                    item.rowDiscount,
+
+                    rowSubtotal =
+                    item.rowSubtotal,
+
+                    taxPercent =
+                    item.taxPercent,
+
+                    taxAmount =
+                    item.taxAmount,
+
+                    rowTotal =
+                    item.rowTotal,
+
+                    createdAt = item.createdAt,
+                    updatedAt = item.updatedAt,
+                    deletedAt = item.deletedAt,
+
+                    createdByUserId =
+                    item.createdByUserId,
+
+                    updatedByUserId =
+                    item.updatedByUserId,
+
+                    shopUid = item.shopUid
+                )
+            }
+
+        if (
+            invoiceItemDtos.size !=
+            allInvoiceItems.size
+        ) {
+            Log.e(
+                "SYNC_TEST",
+                "Business full upload stopped: some items have no valid invoice"
+            )
+
+            return false
+        }
+
+        if (invoiceItemDtos.isNotEmpty()) {
+
+            val success =
+                syncApi.pushInvoiceItems(
+                    invoiceItemDtos
+                )
+
+            if (!success) {
+                Log.e(
+                    "SYNC_TEST",
+                    "Business full upload failed at invoice items"
+                )
+
+                return false
+            }
+
+            invoiceDao.markInvoiceItemsSynced(
+                invoiceItemDtos.map { dto ->
+                    dto.uid
+                }
+            )
+        }
+
+        Log.d(
+            "SYNC_TEST",
+            """
+        Business Full Upload Completed:
+        clients=${clientDtos.size},
+        orders=${orderDtos.size},
+        invoiceDocuments=${invoiceDocumentDtos.size},
+        invoiceItems=${invoiceItemDtos.size}
+        """.trimIndent()
+        )
+
+        return true
+    }
+
     suspend fun fullUploadAllToServer(): Boolean {
         val registered = registerDevice()
         if (!registered) return false

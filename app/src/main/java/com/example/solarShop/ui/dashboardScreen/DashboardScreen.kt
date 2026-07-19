@@ -361,6 +361,14 @@ fun DashboardScreen(                               //صفحه پروفایل
                                         Text(
                                             text = "سود ماه جاری: ${uiState.currentMonthProfitToman.toPriceString()} تومان"
                                         )
+
+                                        if (!uiState.isCurrentMonthProfitComplete) {
+                                            Text(
+                                                text = "بعضی فروش‌های این ماه اطلاعات سود ندارند؛ مبلغ بالا سود قطعی نیست.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
                                     }
                                 }
 

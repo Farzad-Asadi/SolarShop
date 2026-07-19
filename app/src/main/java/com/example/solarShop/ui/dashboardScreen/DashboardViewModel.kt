@@ -18,12 +18,14 @@ import com.example.solarShop.data.local.entity.pricing.CurrencyRateEntity
 import com.example.solarShop.data.local.entity.pricing.ProductPurchasePriceEntity
 import com.example.solarShop.data.local.entity.pricing.ProductSalePriceEntity
 import com.example.solarShop.data.local.entity.product.ProductEntity
+import com.example.solarShop.data.local.entity.sales.ProductSaleTransactionEntity
 import com.example.solarShop.data.network.ServerConnectionState
 import com.example.solarShop.data.network.ServerState
 import com.example.solarShop.data.remote.currency.CurrencyRemoteDataSource
 import com.example.solarShop.data.repository.inventory.InventoryRepository
 import com.example.solarShop.data.repository.pricing.PricingRepository
 import com.example.solarShop.data.repository.product.ProductRepository
+import com.example.solarShop.data.repository.sales.ProductSaleTransactionRepository
 import com.example.solarShop.data.room.tables.client.ClientEntity
 import com.example.solarShop.data.room.tables.client.ClientRepository
 import com.example.solarShop.data.room.tables.client.ClientWithOrders
@@ -78,6 +80,7 @@ class DashboardViewModel @Inject constructor(
     private val currencyRemoteDataSource: CurrencyRemoteDataSource,
     private val productRepository: ProductRepository,
     private val inventoryRepository: InventoryRepository,
+    private val productSaleTransactionRepository: ProductSaleTransactionRepository,
     private val syncManager: SyncManager,
     private val serverConnectionState: ServerConnectionState,
 
@@ -182,6 +185,7 @@ class DashboardViewModel @Inject constructor(
             inventoryRepository.observeAllTransactions(),
             pricingRepository.observeAllPurchasePrices(),
             pricingRepository.observeAllSalePrices(),
+            productSaleTransactionRepository.observeAllSaleTransactions(),
             latestDollarRateFlow,
             manualDollarRateFlow,
         ) { arr: Array<Any?> ->
@@ -190,8 +194,9 @@ class DashboardViewModel @Inject constructor(
             val transactions = arr[1] as List<InventoryTransactionEntity>
             val purchasePrices = arr[2] as List<ProductPurchasePriceEntity>
             val salePrices = arr[3] as List<ProductSalePriceEntity>
-            val latestDollarRateToman = arr[4] as Long?
-            val manualDollarRateToman = arr[5] as Long?
+            val saleTransactions = arr[4] as List<ProductSaleTransactionEntity>
+            val latestDollarRateToman = arr[5] as Long?
+            val manualDollarRateToman = arr[6] as Long?
 
             val todayRate =
                 manualDollarRateToman ?: latestDollarRateToman
@@ -204,10 +209,33 @@ class DashboardViewModel @Inject constructor(
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
 
+            val monthEnd = Calendar.getInstance().apply {
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.MONTH, 1)
+            }.timeInMillis
+
+            val salesInMonth = saleTransactions.filter { sale ->
+                sale.soldAt >= monthStart && sale.soldAt < monthEnd
+            }
+
+            val monthSales = salesInMonth.sumOf { sale ->
+                sale.totalSalePriceToman
+            }
+
+            val monthProfit = salesInMonth.sumOf { sale ->
+                sale.totalProfitToman ?: 0L
+            }
+
+            val isMonthProfitComplete = salesInMonth.none { sale ->
+                sale.totalProfitToman == null
+            }
+
             var totalValueToman = 0L
             var totalValueDollar = 0.0
-            var monthSales = 0L
-            var monthProfit = 0L
 
             products.forEach { product ->
 
@@ -256,40 +284,24 @@ class DashboardViewModel @Inject constructor(
                         ?: activePurchase?.buyPriceToman
                         ?: 0L
 
-                val unitSalePriceToman =
-                    priceResult?.finalSalePriceToman
-                        ?: activeConsumerSale?.salePriceToman
-                        ?: 0L
-
                 val unitBuyPriceDollar =
                     priceResult?.baseBuyPriceDollar
                         ?: activePurchase?.buyPriceDollar
                         ?: 0.0
 
-                totalValueToman += (stock * unitBuyPriceToman).roundToLong()
-                totalValueDollar += stock * unitBuyPriceDollar
+                totalValueToman +=
+                    (stock * unitBuyPriceToman).roundToLong()
 
-                val monthSaleQuantity = transactions
-                    .filter {
-                        it.productId == productId &&
-                                it.transactionType == InventoryTransactionType.SALE &&
-                                it.createdAt >= monthStart
-                    }
-                    .sumOf { it.quantity }
-
-                monthSales += (monthSaleQuantity * unitSalePriceToman).roundToLong()
-
-                monthProfit += (
-                        monthSaleQuantity *
-                                (unitSalePriceToman - unitBuyPriceToman)
-                        ).roundToLong()
+                totalValueDollar +=
+                    stock * unitBuyPriceDollar
             }
 
             DashboardIndicators(
                 totalInventoryValueToman = totalValueToman,
                 totalInventoryValueDollar = totalValueDollar,
                 currentMonthSalesToman = monthSales,
-                currentMonthProfitToman = monthProfit
+                currentMonthProfitToman = monthProfit,
+                isCurrentMonthProfitComplete = isMonthProfitComplete
             )
         }.flowOn(Dispatchers.IO)
 
@@ -342,6 +354,7 @@ class DashboardViewModel @Inject constructor(
                 totalInventoryValueDollar = indicators.totalInventoryValueDollar,
                 currentMonthSalesToman = indicators.currentMonthSalesToman,
                 currentMonthProfitToman = indicators.currentMonthProfitToman,
+                isCurrentMonthProfitComplete = indicators.isCurrentMonthProfitComplete,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -576,6 +589,7 @@ class DashboardViewModel @Inject constructor(
         val totalInventoryValueDollar: Double = 0.0,
         val currentMonthSalesToman: Long = 0L,
         val currentMonthProfitToman: Long = 0L,
+        val isCurrentMonthProfitComplete: Boolean = true,
 
         val isDataLoaded: Boolean = false
     )
@@ -590,6 +604,7 @@ class DashboardViewModel @Inject constructor(
         val totalInventoryValueDollar: Double = 0.0,
         val currentMonthSalesToman: Long = 0L,
         val currentMonthProfitToman: Long = 0L,
+        val isCurrentMonthProfitComplete: Boolean = true,
     )
 //endregion dataClasses
 

@@ -137,6 +137,58 @@ class SolarBackupRestoreViewModel @Inject constructor(
         }
     }
 
+    /**
+     * فقط مشتریان، سفارش‌ها و اسناد فروش را
+     * از دستگاه مرجع به سرور منتقل می‌کند.
+     */
+    fun fullUploadBusinessDataToServer() {
+
+        viewModelScope.launch {
+
+            _uiState.update {
+                it.copy(
+                    isSyncingWithServer = true,
+                    syncMessage = null
+                )
+            }
+
+            runCatching {
+                syncManager
+                    .fullUploadBusinessDataToServer()
+
+            }.onSuccess { success ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+
+                        syncMessage =
+                        if (success) {
+                            "مشتریان، سفارش‌ها و فاکتورها با موفقیت به سرور منتقل شدند."
+                        } else {
+                            "انتقال اطلاعات فروش کامل نشد. لاگ Sync را بررسی کن."
+                        }
+                    )
+                }
+
+            }.onFailure { error ->
+
+                _uiState.update {
+                    it.copy(
+                        isSyncingWithServer = false,
+
+                        syncMessage =
+                        "انتقال اطلاعات فروش ناموفق بود: " +
+                                (
+                                        error.message
+                                            ?: "خطای نامشخص"
+                                        )
+                    )
+                }
+            }
+        }
+    }
+
     fun fullUploadAllToServer() {
         viewModelScope.launch {
 
