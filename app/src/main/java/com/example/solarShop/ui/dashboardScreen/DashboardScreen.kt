@@ -355,18 +355,75 @@ fun DashboardScreen(                               //صفحه پروفایل
                                             } دلار"
                                         )
 
-                                        Text(
-                                            text = "میزان فروش ماه جاری: ${uiState.currentMonthSalesToman.toPriceString()} تومان",
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable(onClick = onClickSalesReport)
-                                                .padding(vertical = 8.dp)
-                                        )
+                                        OutlinedButton(
+                                            onClick = onClickSalesReport,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(
+                                                horizontal = 16.dp,
+                                                vertical = 12.dp
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "گزارش فروش و سود ماه جاری",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
 
-                                        Text(
-                                            text = "سود ماه جاری: ${uiState.currentMonthProfitToman.toPriceString()} تومان"
-                                        )
+                                                    Icon(
+                                                        imageVector = Icons.Filled.RequestQuote,
+                                                        contentDescription = null
+                                                    )
+                                                }
+
+                                                HorizontalDivider(
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                                )
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "میزان فروش ماه جاری",
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+
+                                                    Text(
+                                                        text = "${uiState.currentMonthSalesToman.toPriceString()} تومان",
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "سود ماه جاری",
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+
+                                                    Text(
+                                                        text = "${uiState.currentMonthProfitToman.toPriceString()} تومان",
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
 
                                         if (!uiState.isCurrentMonthProfitComplete) {
                                             Text(
