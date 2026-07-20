@@ -93,6 +93,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -171,7 +172,6 @@ import com.example.solarShop.data.room.tables.orderAll.OrderSummary
 import com.example.solarShop.data.room.tables.user.UserEntity
 import com.example.solarShop.ui.theme.BambooTheme
 import com.example.solarShop.utils.ConfirmDialogRtl
-import com.example.solarShop.utils.LoadingScreen
 import com.example.solarShop.utils.MediaPictureStore
 import com.example.solarShop.utils.MyCurrencyField
 import com.example.solarShop.utils.MyLandlineField
@@ -867,7 +867,23 @@ fun DashboardScreen(                               //صفحه پروفایل
         }
 
     } else {
-        LoadingScreen()
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator()
+
+                Text(
+                    text = "در حال بارگذاری...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+        }
     }
 
 }
