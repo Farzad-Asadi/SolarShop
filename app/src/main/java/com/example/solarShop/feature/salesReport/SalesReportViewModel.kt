@@ -243,6 +243,12 @@ class SalesReportViewModel @Inject constructor(
                 totalSalesToman = sales.sumOf { entry ->
                     entry.totalSalePriceToman ?: 0L
                 },
+                totalProfitToman = sales.sumOf { entry ->
+                    entry.totalProfitToman ?: 0L
+                },
+                isProfitComplete = sales.all { entry ->
+                    entry.totalProfitToman != null
+                },
                 saleCount = sales.size,
                 soldQuantity = sales.sumOf { entry -> entry.quantity },
                 returnCount = saleReturns.size,
@@ -282,6 +288,7 @@ private fun ProductSaleTransactionEntity.toReportEntry(
         quantity = quantity,
         unitSalePriceToman = unitSalePriceToman,
         totalSalePriceToman = totalSalePriceToman,
+        totalProfitToman = totalProfitToman,
         priceType = priceType,
         occurredAt = soldAt,
         note = note
@@ -302,6 +309,7 @@ private fun InventoryTransactionEntity.toReturnReportEntry(
         quantity = quantity,
         unitSalePriceToman = null,
         totalSalePriceToman = null,
+        totalProfitToman = null,
         priceType = null,
         occurredAt = createdAt,
         note = note
@@ -340,6 +348,24 @@ private fun List<SalesReportEntry>.sortedByOption(
                     entry.totalSalePriceToman == null
                 }.thenBy { entry ->
                     entry.totalSalePriceToman ?: Long.MAX_VALUE
+                }
+            )
+
+        SalesReportSortOption.PROFIT_HIGHEST ->
+            sortedWith(
+                compareBy<SalesReportEntry> { entry ->
+                    entry.totalProfitToman == null
+                }.thenByDescending { entry ->
+                    entry.totalProfitToman ?: Long.MIN_VALUE
+                }
+            )
+
+        SalesReportSortOption.PROFIT_LOWEST ->
+            sortedWith(
+                compareBy<SalesReportEntry> { entry ->
+                    entry.totalProfitToman == null
+                }.thenBy { entry ->
+                    entry.totalProfitToman ?: Long.MAX_VALUE
                 }
             )
 

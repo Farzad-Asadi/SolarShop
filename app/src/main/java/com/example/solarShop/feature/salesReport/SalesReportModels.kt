@@ -12,8 +12,10 @@ enum class SalesReportSortOption(
 ) {
     DATE_NEWEST("تاریخ؛ جدیدترین"),
     DATE_OLDEST("تاریخ؛ قدیمی‌ترین"),
-    AMOUNT_HIGHEST("مبلغ؛ بیشترین"),
-    AMOUNT_LOWEST("مبلغ؛ کمترین"),
+    AMOUNT_HIGHEST("مبلغ فروش؛ بیشترین"),
+    AMOUNT_LOWEST("مبلغ فروش؛ کمترین"),
+    PROFIT_HIGHEST("سود؛ بیشترین"),
+    PROFIT_LOWEST("سود؛ کمترین"),
     QUANTITY_HIGHEST("تعداد؛ بیشترین"),
     QUANTITY_LOWEST("تعداد؛ کمترین")
 }
@@ -38,6 +40,7 @@ data class SalesReportEntry(
     val quantity: Double,
     val unitSalePriceToman: Long?,
     val totalSalePriceToman: Long?,
+    val totalProfitToman: Long?,
     val priceType: String?,
     val occurredAt: Long,
     val note: String
@@ -45,6 +48,8 @@ data class SalesReportEntry(
 
 data class SalesReportSummary(
     val totalSalesToman: Long = 0L,
+    val totalProfitToman: Long = 0L,
+    val isProfitComplete: Boolean = true,
     val saleCount: Int = 0,
     val soldQuantity: Double = 0.0,
     val returnCount: Int = 0,

@@ -100,7 +100,7 @@ fun SalesReportScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("گزارش فروش") },
+                title = { Text("گزارش فروش و سود") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -180,19 +180,45 @@ private fun SalesSummaryCard(summary: SalesReportSummary) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "خلاصه فروش",
+                text = "خلاصه فروش و سود",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
 
-            Text(
-                text = "${summary.totalSalesToman.toPriceString()} تومان",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            SummaryLine(
+                title = "مجموع فروش",
+                value = "${summary.totalSalesToman.toPriceString()} تومان"
             )
 
-            SummaryLine("تعداد رکوردهای فروش", summary.saleCount.toString())
-            SummaryLine("مجموع تعداد فروخته‌شده", formatQuantity(summary.soldQuantity))
+            SummaryLine(
+                title = if (summary.isProfitComplete) {
+                    "مجموع سود"
+                } else {
+                    "مجموع سود ثبت‌شده"
+                },
+                value = "${summary.totalProfitToman.toPriceString()} تومان"
+            )
+
+            if (!summary.isProfitComplete) {
+                Text(
+                    text = "سود بعضی فروش‌ها ثبت نشده است؛ مجموع سود نمایش‌داده‌شده کامل و قطعی نیست.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            HorizontalDivider()
+
+            SummaryLine(
+                title = "تعداد رکوردهای فروش",
+                value = summary.saleCount.toString()
+            )
+
+            SummaryLine(
+                title = "مجموع تعداد فروخته‌شده",
+                value = formatQuantity(summary.soldQuantity)
+            )
+
             SummaryLine(
                 title = "برگشت از فروش",
                 value = "${summary.returnCount} رکورد ـ ${formatQuantity(summary.returnedQuantity)} عدد"
@@ -200,8 +226,9 @@ private fun SalesSummaryCard(summary: SalesReportSummary) {
 
             if (summary.returnCount > 0) {
                 HorizontalDivider()
+
                 Text(
-                    text = "مبلغ برگشت‌ها در ساختار فعلی ثبت نشده و از مبلغ فروش بالا کسر نشده است.",
+                    text = "مبلغ و سود برگشت‌ها در ساختار فعلی ثبت نشده و از فروش و سود بالا کسر نشده است.",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -389,6 +416,12 @@ private fun SalesEntryCard(
                 SummaryLine(
                     "جمع فروش",
                     "${entry.totalSalePriceToman.toPriceString()} تومان"
+                )
+                SummaryLine(
+                    title = "سود",
+                    value = entry.totalProfitToman?.let { profit ->
+                        "${profit.toPriceString()} تومان"
+                    } ?: "نامشخص"
                 )
                 entry.priceType?.let { priceType ->
                     SummaryLine("نوع قیمت", priceTypeTitle(priceType))
